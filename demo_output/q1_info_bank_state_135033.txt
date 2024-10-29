@@ -1,0 +1,10 @@
+<info_bank>
+<section name='Root'>
+    <section name='Early Career Challenges'>
+      <content>When I started my first startup, we failed within a year. This taught me that failure isn't the end - it's a stepping stone. I learned more from that failure than from any success.</content>
+    </section>
+    <section name='Personal Growth and Development'>
+      <content>When I started my first startup, we failed within a year. This taught me that failure isn't the end - it's a stepping stone. I learned more from that failure than from any success.</content>
+    </section>
+</section>
+</info_bank>

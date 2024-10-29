@@ -1,0 +1,14 @@
+<analysis>
+    <themes>
+        <theme>Calculated Risk-Taking</theme>
+        <theme>Resilience and Strategic Planning</theme>
+    </themes>
+    <follow_up_questions>
+        <question>Can you provide an example of a specific risk you took with your second company that you approached differently than the first?</question>
+        <question>What steps did you take to develop a clearer vision and better planning for your second company?</question>
+    </follow_up_questions>
+    <sections>
+        <section>Lessons Learned from Failure</section>
+        <section>Entrepreneurial Journey</section>
+    </sections>
+</analysis>

@@ -1,0 +1,14 @@
+<analysis>
+    <themes>
+        <theme>Failure as a Learning Experience</theme>
+        <theme>Resilience and Growth</theme>
+    </themes>
+    <follow_up_questions>
+        <question>Can you elaborate on the specific lessons you learned from that failure?</question>
+        <question>How did that experience influence your approach to subsequent ventures or projects?</question>
+    </follow_up_questions>
+    <sections>
+        <section>Early Career Challenges</section>
+        <section>Personal Growth and Development</section>
+    </sections>
+</analysis>
