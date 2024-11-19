@@ -266,52 +266,52 @@ class MemoryBank:
 
 # Usage Example:
 
-# if __name__ == '__main__':
-#     # Initialize MemoryBank
-#     memory_bank = MemoryBank()
+if __name__ == '__main__':
+    # Initialize MemoryBank
+    memory_bank = MemoryBank()
 
-#     # Add a memory
-#     memory_text = "I remember visiting the Eiffel Tower with my sister Jane during the summer of 2005."
-#     memory_id = memory_bank.add_memory(memory_text, event_date='2005-07-15')
+    # Add a memory
+    memory_text = "I remember visiting the Eiffel Tower with my sister Jane during the summer of 2005."
+    memory_id = memory_bank.add_memory(memory_text, event_date='2005-07-15')
 
-#     # Add entities
-#     person_id = memory_bank.add_entity('Person', 'Jane')
-#     place_id = memory_bank.add_entity('Place', 'Eiffel Tower')
-#     time_period_id = memory_bank.add_entity('TimePeriod', 'Summer 2005')
+    # Add entities
+    person_id = memory_bank.add_entity('Person', 'Jane')
+    place_id = memory_bank.add_entity('Place', 'Eiffel Tower')
+    time_period_id = memory_bank.add_entity('TimePeriod', 'Summer 2005')
 
-#     # Add relationships
-#     memory_bank.add_relationship(memory_id, person_id, 'INVOLVES')
-#     memory_bank.add_relationship(memory_id, place_id, 'OCCURRED_AT')
-#     memory_bank.add_relationship(memory_id, time_period_id, 'OCCURRED_DURING')
+    # Add relationships
+    memory_bank.add_relationship(memory_id, person_id, 'INVOLVES')
+    memory_bank.add_relationship(memory_id, place_id, 'OCCURRED_AT')
+    memory_bank.add_relationship(memory_id, time_period_id, 'OCCURRED_DURING')
 
-#     # Modify a node
-#     memory_bank.modify_node(memory_id, sentiment='positive')
+    # Modify a node
+    memory_bank.modify_node(memory_id, sentiment='positive')
 
-#     # Retrieve and print a memory
-#     memory_data = memory_bank.get_node(memory_id)
-#     print("Memory Data:")
-#     print(memory_data)
+    # Retrieve and print a memory
+    memory_data = memory_bank.get_node(memory_id)
+    print("Memory Data:")
+    print(memory_data)
 
-#     # Find memories involving 'Jane'
-#     memories_with_jane = memory_bank.find_memories_involving_entity('Jane')
-#     print("\nMemories involving Jane:")
-#     for mem_id, mem_data in memories_with_jane:
-#         print(f"- {mem_data.get('text')}")
+    # Find memories involving 'Jane'
+    memories_with_jane = memory_bank.find_memories_involving_entity('Jane')
+    print("\nMemories involving Jane:")
+    for mem_id, mem_data in memories_with_jane:
+        print(f"- {mem_data.get('text')}")
 
-#     # Get all memories
-#     all_memories = memory_bank.get_all_memories()
-#     print("\nAll Memories:")
-#     for mem_id, mem_data in all_memories:
-#         print(f"- {mem_data.get('text')}")
+    # Get all memories
+    all_memories = memory_bank.get_all_memories()
+    print("\nAll Memories:")
+    for mem_id, mem_data in all_memories:
+        print(f"- {mem_data.get('text')}")
 
-#     # Get all entities of type 'Place'
-#     places = memory_bank.get_entities(entity_type='Place')
-#     print("\nPlaces:")
-#     for place_id, place_data in places:
-#         print(f"- {place_data.get('name')}")
+    # Get all entities of type 'Place'
+    places = memory_bank.get_entities(entity_type='Place')
+    print("\nPlaces:")
+    for place_id, place_data in places:
+        print(f"- {place_data.get('name')}")
 
-#     # Save the graph to a file
-#     memory_bank.save_graph()
+    # Save the graph to a file
+    memory_bank.save_graph()
 
-#     # Load the graph from a file
-#     # memory_bank.load_graph()
+    # Load the graph from a file
+    # memory_bank.load_graph()

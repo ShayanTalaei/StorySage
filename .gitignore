@@ -1,2 +1,8 @@
 data/memory_banks/
 venv/
+.env
+gabm_interviewer_platform/
+notebooks/
+logs/
+*.pyc
+.DS_Store
