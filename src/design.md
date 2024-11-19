@@ -1,3 +1,9 @@
+---
+noteId: "e4862330a6cc11efb3eb5385fba8db37"
+tags: []
+
+---
+
 # AI Friend/ Biographer
 
 The idea is to have a system that interacts with the user throughout multiple sessions, as an engaging friend, asks about their life stories, and writes them a memoir/autobiography.

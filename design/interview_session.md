@@ -1,3 +1,9 @@
+---
+noteId: "e4864a42a6cc11efb3eb5385fba8db37"
+tags: []
+
+---
+
 # InterviewSession
 
 ## Description
