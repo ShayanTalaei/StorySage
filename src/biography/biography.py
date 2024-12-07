@@ -81,15 +81,28 @@ class Biography:
         return _search(self.root)
 
     def add_section(self, path: str, title: str, content: str = "") -> Section:
-        """Add a new section at the specified path"""
-        parent_path = '/'.join(path.split('/')[:-1]) if '/' in path else ""
-        parent = self.get_section_by_path(parent_path)
+        """Add a new section at the specified path, creating parent sections if they don't exist."""
+        if not path:
+            # If no path provided, add directly to root
+            new_section = Section(title, content, self.root)
+            self.root.subsections[title] = new_section
+            return new_section
+
+        # Split the path into parts
+        path_parts = path.split('/')
         
-        if not parent:
-            raise ValueError(f"Parent path '{parent_path}' not found")
-            
-        new_section = Section(title, content, parent)
-        parent.subsections[title] = new_section
+        # Get or create the parent section
+        current = self.root
+        for part in path_parts[:-1]:  # Exclude the last part (which is the new section's title)
+            if part not in current.subsections:
+                # Create missing parent section
+                new_parent = Section(part, "", current)
+                current.subsections[part] = new_parent
+            current = current.subsections[part]
+        
+        # Create and add the new section
+        new_section = Section(title, content, current)
+        current.subsections[title] = new_section
         return new_section
 
     def get_sections(self) -> Dict[str, Dict]:
