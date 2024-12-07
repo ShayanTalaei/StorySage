@@ -1,5 +1,5 @@
 import time
-from typing import Dict, Type, Optional, Any
+from typing import Dict, Type, Optional, Any, TYPE_CHECKING
 
 from langchain_core.callbacks.manager import CallbackManagerForToolRun
 from langchain_core.tools import BaseTool, ToolException
@@ -9,8 +9,10 @@ from agents.base_agent import BaseAgent
 from agents.interviewer.prompts import get_prompt
 from agents.prompt_utils import format_prompt
 from memory_bank.memory_bank_vector_db import MemoryBank
-from session_note.session_note import SessionNote
 from interview_session.session_models import Participant, Message
+
+if TYPE_CHECKING:
+    from interview_session.interview_session import InterviewSession
 
 # Console colors
 GREEN = '\033[92m'
@@ -19,7 +21,7 @@ RESET = '\033[0m'
 RED = '\033[91m'
 
 class Interviewer(BaseAgent, Participant):
-    def __init__(self, config: Dict, interview_session):
+    def __init__(self, config: Dict, interview_session: 'InterviewSession'):
         BaseAgent.__init__(self, name="Interviewer", 
                          description="The agent that interviews the user, asking questions about the user's life.",
                          config=config)

@@ -1,7 +1,9 @@
 from datetime import datetime
 from pydantic import BaseModel
-from typing import Optional
-import asyncio
+from typing import Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from interview_session.interview_session import InterviewSession
 
 class Message(BaseModel):
     id: str
@@ -10,7 +12,7 @@ class Message(BaseModel):
     timestamp: datetime
 
 class Participant:
-    def __init__(self, title, interview_session):
+    def __init__(self, title: str, interview_session: 'InterviewSession'):
         self.title: str = title
         self.interview_session = interview_session
     
