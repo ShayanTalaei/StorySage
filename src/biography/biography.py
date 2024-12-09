@@ -102,7 +102,7 @@ class Biography:
         
         # Create and add the new section
         new_section = Section(title, content, current)
-        current.subsections[title] = new_section
+        current.subsections[path_parts[-1]] = new_section
         return new_section
 
     def get_sections(self) -> Dict[str, Dict]:
