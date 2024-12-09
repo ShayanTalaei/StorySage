@@ -3,6 +3,7 @@ import uuid
 from datetime import datetime
 from typing import Dict, List
 import signal
+import contextlib
 
 from dotenv import load_dotenv
 
@@ -109,11 +110,18 @@ class InterviewSession:
             while self.session_in_progress:
                 await asyncio.sleep(0.1)
                 
-        except asyncio.CancelledError:
-            SessionLogger.log_to_file("execution_log", f"[RUN] Session cancelled")
+        except Exception as e:
+            SessionLogger.log_to_file("execution_log", f"[RUN] Unexpected error: {str(e)}")
+            raise e
+        
         finally:
-            await self.update_biography()
-            SessionLogger.log_to_file("execution_log", f"[RUN] Interview session completed")
+            try:
+                with contextlib.suppress(KeyboardInterrupt):
+                    await self.update_biography()
+            except Exception as e:
+                SessionLogger.log_to_file("execution_log", f"[RUN] Error during biography update: {str(e)}")
+            finally:
+                SessionLogger.log_to_file("execution_log", f"[RUN] Interview session completed")
     
     async def update_biography(self):
         """Update biography using the biography team."""
