@@ -14,7 +14,6 @@ from agents.interviewer.interviewer import Interviewer
 from agents.memory_manager.memory_manager import MemoryManager
 from agents.user.user_agent import UserAgent
 from session_note.session_note import SessionNote
-from agents.biographer.biographer import Biographer
 from utils.logger import SessionLogger, setup_logger
 from user.user import User
 from agents.biography_team.orchestrator import BiographyOrchestrator
