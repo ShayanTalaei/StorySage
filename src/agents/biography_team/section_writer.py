@@ -36,30 +36,59 @@ class SectionWriter(BiographyTeamAgent):
         }
         
     async def update_section(self, todo_item: TodoItem) -> UpdateResult:
+        """
+        Update a biography section based on a plan.
+        """
+        self.add_event(sender=self.name, tag="update_start", 
+                      content=f"Starting to {todo_item.action_type} section: {todo_item.section_path}")
+        
         prompt = self._create_section_write_prompt(todo_item)
+        self.add_event(sender=self.name, tag="section_write_prompt", content=prompt)
+        
         response = self.call_engine(prompt)
+        self.add_event(sender=self.name, tag="llm_response", content=response)
         
         # Parse response and update section
         success = self._handle_section_update(response, todo_item)
         self.follow_up_questions.extend(self._parse_questions(response))
         
+        result_message = "Section updated successfully" if success else "Failed to update section"
+        self.add_event(sender=self.name, tag="update_result", 
+                      content=result_message)
+        
         return UpdateResult(
             success=success,
-            message="Section updated successfully" if success else "Failed to update section"
+            message=result_message
         )
 
     def save_biography(self) -> str:
-        """Save the current state of the biography to file."""
-        return self.tools["save_biography"]._run()
+        """
+        Save the current state of the biography to file.
+        """
+        self.add_event(sender=self.name, tag="save_biography", content="Saving biography to file")
+        result = self.tools["save_biography"]._run()
+        self.add_event(sender=self.name, tag="save_result", content=result)
+        return result
 
     def _create_section_write_prompt(self, todo_item: TodoItem) -> str:
+        """
+        Create a prompt for the section writer to update a biography section.
+        """
+        current_content = self.tools["get_section"]._run(todo_item.section_path) or "Section does not exist yet."
+
+        self.add_event(sender=self.name, tag="current_content", 
+                      content=f"Current content for {todo_item.section_path}:\n{current_content}")
+        
         return SECTION_WRITER_PROMPT.format(
             section_path=todo_item.section_path,
             update_plan=todo_item.update_plan,
-            current_content=self.tools["get_section"]._run(todo_item.section_path) or "Section does not exist yet."
+            current_content=current_content
         )
 
     def _handle_section_update(self, response: str, todo_item: TodoItem) -> bool:
+        """
+        Handle the section update response and update the biography.
+        """
         try:
             if "<section_update>" in response:
                 start_tag = "<section_update>"
@@ -70,12 +99,16 @@ class SectionWriter(BiographyTeamAgent):
                 root = ET.fromstring(update_text)
                 content = root.find("content").text.strip()
                 
+                self.add_event(sender=self.name, tag="parsed_content", 
+                             content=f"Parsed content for {todo_item.section_path}:\n{content}")
+                
                 if todo_item.action_type == "update":
                     # Use the update_section tool to apply changes
                     result = self.tools["update_section"]._run(
                         path=todo_item.section_path,
                         content=content
                     )
+                    self.add_event(sender=self.name, tag="update_section_result", content=result)
                     return "Successfully" in result
 
                 elif todo_item.action_type == "create":
@@ -85,27 +118,40 @@ class SectionWriter(BiographyTeamAgent):
                         title=todo_item.section_title,
                         content=content
                     )
+                    self.add_event(sender=self.name, tag="create_section_result", content=result)
                     return "Successfully" in result
 
         except Exception as e:
-            print(f"Error updating section: {e}")
+            self.add_event(sender=self.name, tag="error", 
+                          content=f"Error updating section {todo_item.section_path}: {str(e)}\nResponse: {response}")
             return False
         return False
 
     def _parse_questions(self, response: str) -> List[Dict]:
+        """
+        Parse the response to extract follow-up questions.
+        """
         questions = []
-        if "<follow_up_questions>" in response:
-            start_tag = "<follow_up_questions>"
-            end_tag = "</follow_up_questions>"
-            start_pos = response.find(start_tag)
-            end_pos = response.find(end_tag) + len(end_tag)
-            questions_text = response[start_pos:end_pos]
-            root = ET.fromstring(questions_text)
-            for question in root.findall("question"):
-                questions.append({
-                    "question": question.text.strip(),
-                    "type": "depth"
-                })
+        try:
+            if "<follow_up_questions>" in response:
+                start_tag = "<follow_up_questions>"
+                end_tag = "</follow_up_questions>"
+                start_pos = response.find(start_tag)
+                end_pos = response.find(end_tag) + len(end_tag)
+                questions_text = response[start_pos:end_pos]
+                root = ET.fromstring(questions_text)
+                for question in root.findall("question"):
+                    questions.append({
+                        "question": question.text.strip(),
+                        "type": "depth"
+                    })
+                
+                self.add_event(sender=self.name, tag="follow_up_questions", 
+                             content="Parsed questions:\n" + 
+                                    "\n".join([f"- {q['question']}" for q in questions]))
+        except Exception as e:
+            self.add_event(sender=self.name, tag="error", 
+                          content=f"Error parsing questions: {str(e)}\nResponse: {response}")
         return questions
 
 SECTION_WRITER_PROMPT = """

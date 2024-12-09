@@ -35,7 +35,6 @@ class BaseAgent:
         self.tools = {}
         self.event_stream: list[BaseAgent.Event] = []
         
-        
     def workout(self):
         pass
 
