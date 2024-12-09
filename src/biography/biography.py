@@ -1,6 +1,6 @@
 from datetime import datetime
 import json
-from typing import Dict, Optional, List
+from typing import Dict, Optional
 import uuid
 import os
 

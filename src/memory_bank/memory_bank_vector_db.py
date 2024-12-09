@@ -3,13 +3,13 @@ import os
 import json
 import uuid
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 # Third-party imports
 import faiss
 import numpy as np
 from openai import OpenAI
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 import dotenv
 
 # Load environment variables

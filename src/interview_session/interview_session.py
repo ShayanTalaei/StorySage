@@ -1,10 +1,7 @@
 import asyncio
-import os
-import logging
 import uuid
 from datetime import datetime
 from typing import Dict, List
-from pathlib import Path
 import signal
 
 from dotenv import load_dotenv
