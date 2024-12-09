@@ -135,11 +135,55 @@ Related Previous Information:
 Your task is to:
 1. Analyze the new information and their relationship with existing content
 2. Determine whether to:
-   a. Update existing sections
-   b. Create new sections
-   c. Create new subsections within existing sections
+   a. Update existing sections or subsections
+   b. Create new sections or subsections
 3. Create specific plans for each action
 4. Suggest follow-up questions to expand the biography's breadth
+
+For each plan, consider:
+- How the new information connects to existing content
+- Whether it reinforces existing themes or introduces new ones
+- Where the information best fits in the biography's structure
+- How to maintain narrative flow and coherence
+- Whether the information warrants a new section or subsection
+
+Provide your response in the following XML format:
+
+<plans>
+    <!-- For creating new sections -->
+    <plan>
+        <action_type>create</action_type>
+        <section_path>Parent section path (e.g., "1 Early Life/1.1 Childhood")</section_path>
+        <section_title>Title of the new section</section_title>
+        <update_plan>Detailed description of the new section content, including:
+        - What information to include
+        - How to structure the content
+        - Key points to emphasize</update_plan>
+    </plan>
+
+    <!-- For updating existing sections -->
+    <plan>
+        <action_type>update</action_type>
+        <section_path>Full path to existing section</section_path>
+        <update_plan>Detailed description of how to update the section, including:
+        - What new information to add
+        - How to integrate it with existing content
+        - Any restructuring needed
+        - Key points to emphasize</update_plan>
+    </plan>
+</plans>
+
+<follow_up_questions>
+    <question>Question text that would help expand the biography's breadth</question>
+    ...
+</follow_up_questions>
+
+Important Notes about the XML format:
+- Use action_type="create" when adding a new section
+- Use action_type="update" when modifying an existing section
+- For "create" actions, both section_path and section_title are required
+- For "update" actions, only section_path is needed
+- Each plan must include a detailed update_plan explaining the changes
 
 Important Note About Section Paths:
 - Section paths must be specified using forward slashes to indicate hierarchy
@@ -163,38 +207,4 @@ Invalid paths:
   * "1 Early Life/Childhood" (missing second level number)
   * "1.1 Childhood" (subsection without parent section)
   * "1 Early Life/1.1 Childhood/Games/Types/Specific" (exceeds 4 levels)
-
-For each plan, consider:
-- How the new information connects to existing content
-- Whether it reinforces existing themes or introduces new ones
-- Where the information best fits in the biography's structure
-- How to maintain narrative flow and coherence
-- Whether the information warrants a new section or subsection
-
-Provide your response in the following XML format:
-<plans>
-    <plan>
-        <action_type>create</action_type>
-        <section_path>Chapter 1/Early Life</section_path>
-        <section_title>Early Life</section_title>
-        <update_plan>Detailed description of the new section content, including:
-        - What information to include
-        - How to structure the content
-        - Key points to emphasize</update_plan>
-    </plan>
-    <plan>
-        <action_type>update</action_type>
-        <section_path>Professional Career/Software Projects</section_path>
-        <update_plan>Detailed description of how to update the section, including:
-        - What new information to add
-        - How to integrate it with existing content
-        - Any restructuring needed
-        - Key points to emphasize</update_plan>
-    </plan>
-    ...
-</plans>
-<follow_up_questions>
-    <question>Question text that would help expand the biography's breadth</question>
-    ...
-</follow_up_questions>
 """

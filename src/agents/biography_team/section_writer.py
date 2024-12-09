@@ -61,7 +61,7 @@ class SectionWriter(BiographyTeamAgent):
 
     def _handle_section_update(self, response: str, todo_item: TodoItem) -> bool:
         try:
-            if todo_item.action_type == "update" and "<section_update>" in response:
+            if "<section_update>" in response:
                 start_tag = "<section_update>"
                 end_tag = "</section_update>"
                 start_pos = response.find(start_tag)
@@ -70,29 +70,22 @@ class SectionWriter(BiographyTeamAgent):
                 root = ET.fromstring(update_text)
                 content = root.find("content").text.strip()
                 
-                # Use the update_section tool to apply changes
-                result = self.tools["update_section"]._run(
-                    path=todo_item.section_path,
-                    content=content
-                )
-                return "Successfully" in result
+                if todo_item.action_type == "update":
+                    # Use the update_section tool to apply changes
+                    result = self.tools["update_section"]._run(
+                        path=todo_item.section_path,
+                        content=content
+                    )
+                    return "Successfully" in result
 
-            elif todo_item.action_type == "create" and "<section_update>" in response:
-                start_tag = "<section_update>"
-                end_tag = "</section_update>"
-                start_pos = response.find(start_tag)
-                end_pos = response.find(end_tag) + len(end_tag)
-                update_text = response[start_pos:end_pos]
-                root = ET.fromstring(update_text)
-                content = root.find("content").text.strip()
-                
-                # Use the add_section tool to create a new section
-                result = self.tools["add_section"]._run(
-                    path=todo_item.section_path,
-                    title=todo_item.section_title,
-                    content=content
-                )
-                return "Successfully" in result
+                elif todo_item.action_type == "create":
+                    # Use the add_section tool to create a new section
+                    result = self.tools["add_section"]._run(
+                        path=todo_item.section_path,
+                        title=todo_item.section_title,
+                        content=content
+                    )
+                    return "Successfully" in result
 
         except Exception as e:
             print(f"Error updating section: {e}")
