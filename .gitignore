@@ -1,4 +1,5 @@
 data/memory_banks/
+data/
 venv/
 .env
 gabm_interviewer_platform/
