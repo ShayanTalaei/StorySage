@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime
 from typing import Dict, List
 from pathlib import Path
+import signal
 
 from dotenv import load_dotenv
 
@@ -23,6 +24,8 @@ load_dotenv(override=True)
 class InterviewSession: 
     
     def __init__(self, user_id: str, user_agent: bool = False):
+        """Initialize the interview session."""
+
         self.user_id = user_id
         self.session_note = SessionNote.get_last_session_note(user_id)
         self.session_id = self.session_note.session_id
@@ -37,24 +40,42 @@ class InterviewSession:
             self.user: User = UserAgent(user_id=user_id, interview_session=self)
         else:
             self.user: User = User(user_id=user_id, interview_session=self)
+        
         SessionLogger.log_to_file("execution_log", f"[INIT] User instance created")        
         
         # Agents in the interview session
         self.interviewer: Interviewer = Interviewer(config={"user_id": user_id}, interview_session=self)
         self.memory_manager: MemoryManager = MemoryManager(config={"user_id": user_id}, interview_session=self)
-        SessionLogger.log_to_file("execution_log", f"[INIT] Agents initialized: Interviewer, MemoryManager")
-        # self.biographer: Biographer = Biographer(config={"user_id": user_id}, interview_session=self)
         self.biography_orchestrator = BiographyOrchestrator(config={"user_id": user_id}, interview_session=self)
-        SessionLogger.log_to_file("execution_log", f"[INIT] Biography Orchestrator initialized")
         
+        SessionLogger.log_to_file("execution_log", f"[INIT] Agents initialized: Interviewer, MemoryManager, Biography Orchestrator")
+        
+        # Chat history
         self.chat_history: list[Message] = []
         self.session_in_progress = False
         
+        # Subscriptions
         self.subscriptions: Dict[str, List[Participant]] = {
             "Interviewer": [self.user, self.memory_manager],
             "User": [self.interviewer, self.memory_manager]
         }
         
+        # Shutdown signal handler
+        if user_agent:
+            self._setup_signal_handlers()
+    
+    def _setup_signal_handlers(self):
+        """Setup signal handlers for graceful shutdown"""
+        loop = asyncio.get_event_loop()
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            loop.add_signal_handler(sig, self._signal_handler)
+        SessionLogger.log_to_file("execution_log", f"[INIT] Signal handlers configured")
+    
+    def _signal_handler(self):
+        """Handle shutdown signals"""
+        SessionLogger.log_to_file("execution_log", f"[SIGNAL] Shutdown signal received")
+        self.session_in_progress = False
+
     async def notify_participants(self, message: Message):
         """Notify subscribers asynchronously"""
         subscribers = self.subscriptions.get(message.role, [])
@@ -85,15 +106,18 @@ class InterviewSession:
         SessionLogger.log_to_file("execution_log", f"[RUN] Starting interview session")
         self.session_in_progress = True
         
-        SessionLogger.log_to_file("execution_log", f"[RUN] Sending initial notification to interviewer")
-        await self.interviewer.on_message(None)  # Starting the interview session with the interviewer
-        
-        while self.session_in_progress:
-            await asyncio.sleep(0.1)  # Prevent CPU hogging
-        
-        await self.update_biography()
-
-        SessionLogger.log_to_file("execution_log", f"[RUN] Interview session completed")
+        try:
+            SessionLogger.log_to_file("execution_log", f"[RUN] Sending initial notification to interviewer")
+            await self.interviewer.on_message(None)
+            
+            while self.session_in_progress:
+                await asyncio.sleep(0.1)
+                
+        except asyncio.CancelledError:
+            SessionLogger.log_to_file("execution_log", f"[RUN] Session cancelled")
+        finally:
+            await self.update_biography()
+            SessionLogger.log_to_file("execution_log", f"[RUN] Interview session completed")
     
     async def update_biography(self):
         """Update biography using the biography team."""
