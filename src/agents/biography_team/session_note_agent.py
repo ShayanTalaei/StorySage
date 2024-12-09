@@ -21,6 +21,11 @@ class SessionNoteAgent(BiographyTeamAgent):
         }
         
     async def update_session_note(self, new_memories: List[Dict], follow_up_questions: List[Dict]):
+        memory_log = "\n".join(f"Memory {i+1}: {memory}" for i, memory in enumerate(new_memories))
+        question_log = "\n".join(f"Question {i+1}: {question}" for i, question in enumerate(follow_up_questions))
+        
+        self.add_event(sender=self.name, tag="update_session_note", content=f"Updating session note with {len(new_memories)} new memories: {memory_log} and {len(follow_up_questions)} follow-up questions: {question_log}")
+        
         return
         prompt = self._create_session_note_prompt(
             new_memories=new_memories,
