@@ -30,7 +30,6 @@ class BiographyPlanner(BiographyTeamAgent):
         response = self.call_engine(prompt)
         self.add_event(sender=self.name, tag="llm_response", content=response)
 
-        # Parse response to get plans and follow-up questions
         plans = self._parse_plans(response)
         self.add_event(sender=self.name, tag="parsed_plans", content=f"{plans}")
         
@@ -70,13 +69,13 @@ class BiographyPlanner(BiographyTeamAgent):
         """
         Get the full content of the biography in a structured format.
         """
-        def format_section(section, indent=0):
+        def format_section(section):
             content = []
-            content.append("  " * indent + f"[{section.title}]")
+            content.append(f"[{section.title}]")
             if section.content:
-                content.append("  " * (indent + 1) + section.content)
+                content.append(section.content)
             for subsection in section.subsections.values():
-                content.extend(format_section(subsection, indent + 1))
+                content.extend(format_section(subsection))
             return content
 
         sections = []
@@ -100,20 +99,15 @@ class BiographyPlanner(BiographyTeamAgent):
                 for plan in root.findall("plan"):
                     action_type = plan.find("action_type").text.strip()
                     section_path = plan.find("section_path").text.strip()
+                    section_title = section_path.split("/")[-1]
                     
-                    if action_type == "create":
-                        plans.append({
-                            "action_type": "create",
-                            "section_path": section_path,
-                            "section_title": plan.find("section_title").text.strip(),
-                            "update_plan": plan.find("update_plan").text.strip()
-                        })
-                    else:  # update
-                        plans.append({
-                            "action_type": "update",
-                            "section_path": section_path,
-                            "update_plan": plan.find("update_plan").text.strip()
-                        })
+                    plans.append({
+                        "action_type": action_type,
+                        "section_path": section_path,
+                        "section_title": section_title,
+                        "relevant_memories": self._parse_relevant_memories(plan),
+                        "update_plan": plan.find("update_plan").text.strip()
+                    })
         except Exception as e:
             self.add_event(sender=self.name, tag="error", 
                           content=f"Error parsing plans: {str(e)}\nResponse: {response}")
@@ -143,6 +137,22 @@ class BiographyPlanner(BiographyTeamAgent):
                           content=f"Error parsing questions: {str(e)}\nResponse: {response}")
             raise e
         return questions
+
+    def _parse_relevant_memories(self, plan: ET.Element) -> List[str]:
+        """
+        Parse the relevant memories from a plan element.
+        """
+        memories = []
+        try:
+            memories_elem = plan.find("relevant_memories")
+            if memories_elem is not None:
+                for memory in memories_elem.findall("memory"):
+                    memories.append(memory.text.strip())
+        except Exception as e:
+            self.add_event(sender=self.name, tag="error", 
+                          content=f"Error parsing relevant memories: {str(e)}")
+            raise e
+        return memories
 
 # TODO-lmj: we should handle invalid paths in biography.py because the LLM may not follow the rules in the prompt sometimes.
 PLANNER_SYSTEM_PROMPT = """
@@ -187,24 +197,17 @@ For each plan, consider:
 Provide your response in the following XML format:
 
 <plans>
-    <!-- For creating new sections -->
     <plan>
-        <action_type>create</action_type>
-        <section_path>Parent section path (e.g., "1 Early Life/1.1 Childhood")</section_path>
-        <section_title>Title of the new section</section_title>
-        <update_plan>Detailed description of the new section content, including:
-        - What information to include
-        - How to structure the content
-        - Key points to emphasize</update_plan>
-    </plan>
-
-    <!-- For updating existing sections -->
-    <plan>
-        <action_type>update</action_type>
-        <section_path>Full path to existing section</section_path>
-        <update_plan>Detailed description of how to update the section, including:
-        - What new information to add
-        - How to integrate it with existing content
+        <action_type>create/update</action_type>
+        <section_path>Full path to the section (e.g., "1 Early Life/1.1 Childhood/Memorable Events")</section_path>
+        <relevant_memories>
+            <!-- Each memory must be an exact copy from the <new_information> section -->
+            <memory>The exact text copied from new_information</memory>
+            <memory>Another exact text copied from new_information</memory>
+        </relevant_memories>
+        <update_plan>Detailed description of how to update/create the section, including:
+        - How to integrate the specific memories copied above
+        - How to structure or merge with existing content
         - Any restructuring needed
         - Key points to emphasize</update_plan>
     </plan>
@@ -216,8 +219,8 @@ Provide your response in the following XML format:
 </follow_up_questions>
 
 Important Notes about the XML format:
-- Use action_type="create" when adding a new section
-- Use action_type="update" when modifying an existing section
+- Set action_type as "create" when adding a new section
+- Set action_type as "update" when modifying an existing section
 - For "create" actions, both section_path and section_title are required
 - For "update" actions, only section_path is needed
 - Each plan must include a detailed update_plan explaining the changes

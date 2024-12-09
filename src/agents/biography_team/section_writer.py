@@ -75,14 +75,12 @@ class SectionWriter(BiographyTeamAgent):
         Create a prompt for the section writer to update a biography section.
         """
         current_content = self.tools["get_section"]._run(todo_item.section_path) or "Section does not exist yet."
-
-        self.add_event(sender=self.name, tag="current_content", 
-                      content=f"Current content for {todo_item.section_path}:\n{current_content}")
         
         return SECTION_WRITER_PROMPT.format(
             section_path=todo_item.section_path,
             update_plan=todo_item.update_plan,
-            current_content=current_content
+            current_content=current_content,
+            relevant_memories=todo_item.relevant_memories
         )
 
     def _handle_section_update(self, response: str, todo_item: TodoItem) -> bool:
@@ -120,6 +118,11 @@ class SectionWriter(BiographyTeamAgent):
                     )
                     self.add_event(sender=self.name, tag="create_section_result", content=result)
                     return "Successfully" in result
+                
+                else:
+                    self.add_event(sender=self.name, tag="error", 
+                                  content=f"Invalid action type: {todo_item.action_type}")
+                    return False
 
         except Exception as e:
             self.add_event(sender=self.name, tag="error", 
@@ -155,7 +158,7 @@ class SectionWriter(BiographyTeamAgent):
         return questions
 
 SECTION_WRITER_PROMPT = """
-You are a biography writer. Your task is to update or create a section of the biography and suggest follow-up questions to deepen the section.
+You are a biography writer. Your task is to update or create a section of the biography following professional biographical writing standards. Focus on creating engaging, well-structured narrative while maintaining strict factual accuracy.
 
 Section Path: 
 <section_path>
@@ -172,11 +175,38 @@ Current Content of the Section:
 {current_content}
 </current_content>
 
+Available Source Memories:
+<relevant_memories>
+{relevant_memories}
+</relevant_memories>
+
+Important Guidelines:
+1. Writing Style:
+   - Use professional biographical writing style
+   - Create a flowing narrative that engages readers
+   - Maintain an objective, third-person perspective
+   - Structure content with clear paragraphs and transitions
+
+2. Content Accuracy:
+   - Follow the update plan's direction for content integration
+   - Only include information that is explicitly present in the provided memories
+   - Do not add speculative or assumed information
+   - Do not embellish or create details not present in the source memories
+
+3. Memory Integration:
+   - Use memories as source material according to the update plan
+   - Integrate selected memories naturally into the narrative
+   - Not every memory needs to be used - follow the update plan's guidance
+
 Please write the updated section content and suggest follow-up questions to deepen this section.
 
 Provide your response in the following XML format:
 <section_update>
-    <content>Updated section content</content>
+    <content>
+Write the plain text content here. Do not include any HTML tags or formatting.
+Use regular paragraphs with line breaks between them.
+The content should be pure text as it would appear in the biography.
+    </content>
 </section_update>
 <follow_up_questions>
     <question>Question text</question>
@@ -245,6 +275,6 @@ class AddSection(BaseTool):
     def _run(self, path: str, title: str, content: str, run_manager: Optional[CallbackManagerForToolRun] = None) -> str:
         try:
             self.biography.add_section(path, title, content)
-            return f"Successfully added section '{title}' at path '{path}'"
+            return f"Successfully added section titled '{title}' at path '{path}'"
         except Exception as e:
             raise ToolException(f"Error adding section: {e}")
