@@ -12,6 +12,7 @@ async def main(args):
     if args.restart:
         # delete user's directory
         os.system(f"rm -rf {os.getenv('LOGS_DIR')}/{args.user_id}")
+        os.system(f"rm -rf {os.getenv('DATA_DIR')}/{args.user_id}")
     
     interview_session = InterviewSession(args.user_id, args.user_agent)
     with contextlib.suppress(KeyboardInterrupt):
