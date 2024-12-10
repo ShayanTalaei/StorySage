@@ -131,3 +131,38 @@ class Biography:
             section.last_edit = datetime.now().isoformat()
             return section
         return None
+
+    def export_to_markdown(self) -> str:
+        """Convert the biography to markdown format and save to file.
+        Returns the markdown string."""
+        # First load the latest data from file
+        try:
+            with open(self.file_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                self.root = Section.from_dict(data)
+        except FileNotFoundError:
+            print(f"File not found: {self.file_path}")
+            pass  # Use existing root if file doesn't exist
+
+        def _section_to_markdown(section: Section, level: int = 1) -> str:
+            # Convert section to markdown with appropriate heading level
+            md = f"{'#' * level} {section.title}\n\n"
+            if section.content:
+                md += f"{section.content}\n\n"
+            
+            # Process subsections recursively
+            for subsection in section.subsections.values():
+                md += _section_to_markdown(subsection, level + 1)
+            
+            return md
+
+        # Generate markdown content
+        markdown_content = _section_to_markdown(self.root)
+
+        # Save to markdown file
+        output_path = f"{self.base_path}/biography.md"
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        with open(output_path, 'w', encoding='utf-8') as f:
+            f.write(markdown_content)
+
+        return markdown_content

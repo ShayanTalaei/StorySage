@@ -238,6 +238,7 @@ class SaveBiography(BaseTool):
     def _run(self, run_manager: Optional[CallbackManagerForToolRun] = None) -> str:
         try:
             self.biography.save()
+            self.biography.export_to_markdown()
             return "Successfully saved biography to file"
         except Exception as e:
             raise ToolException(f"Error saving biography: {e}")
