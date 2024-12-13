@@ -1,5 +1,4 @@
 # Python standard library imports
-import os
 from datetime import datetime
 from typing import Dict, List
 
@@ -35,7 +34,6 @@ class BaseAgent:
                                  temperature=0.0)
         self.tools = {}
         self.event_stream: list[BaseAgent.Event] = []
-        
         
     def workout(self):
         pass

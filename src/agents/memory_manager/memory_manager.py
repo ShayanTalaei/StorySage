@@ -1,6 +1,5 @@
 # Python standard library imports
-from datetime import datetime
-from typing import Dict, Type, Optional, Any
+from typing import Dict, Type, Optional, List, TYPE_CHECKING
 
 # Third-party imports
 from langchain_core.callbacks.manager import CallbackManagerForToolRun
@@ -15,8 +14,11 @@ from interview_session.session_models import Participant, Message
 from memory_bank.memory_bank_vector_db import MemoryBank
 from session_note.session_note import SessionNote
 
+if TYPE_CHECKING:
+    from interview_session.interview_session import InterviewSession
+
 class MemoryManager(BaseAgent, Participant):
-    def __init__(self, config: Dict, interview_session):
+    def __init__(self, config: Dict, interview_session: 'InterviewSession'):
         BaseAgent.__init__(
             self,name="MemoryManager",
             description="Agent that manages and updates the user's memory bank",
@@ -26,8 +28,9 @@ class MemoryManager(BaseAgent, Participant):
         
         self.user_id = config.get("user_id")
         self.memory_bank = MemoryBank.load_from_file(self.user_id)
+        self.new_memories = []  # Track new memories added in current session
         self.tools = {
-            "update_memory_bank": UpdateMemoryBank(memory_bank=self.memory_bank),
+            "update_memory_bank": UpdateMemoryBank(memory_bank=self.memory_bank, memory_manager=self),
             "update_session_note": UpdateSessionNote(session_note=self.interview_session.session_note)
         }
         
@@ -66,6 +69,14 @@ class MemoryManager(BaseAgent, Participant):
                                          "questions_and_notes": self.interview_session.session_note.get_questions_and_notes_str(),
                                          "tool_descriptions": self.get_tools_description(selected_tools=["update_session_note"])})
             
+    def add_new_memory(self, memory: Dict):
+        """Track newly added memory"""
+        self.new_memories.append(memory)
+
+    def get_session_memories(self) -> List[Dict]:
+        """Get all memories added during current session"""
+        return self.new_memories
+
 class UpdateMemoryBankInput(BaseModel):
     title: str = Field(description="A concise but descriptive title for the memory")
     text: str = Field(description="A clear summary of the information")
@@ -87,6 +98,7 @@ class UpdateMemoryBank(BaseTool):
     description: str = "A tool for storing new memories in the memory bank."
     args_schema: Type[BaseModel] = UpdateMemoryBankInput
     memory_bank: MemoryBank = Field(...)
+    memory_manager: MemoryManager = Field(...)
 
     def _run(
         self,
@@ -97,10 +109,13 @@ class UpdateMemoryBank(BaseTool):
         run_manager: Optional[CallbackManagerForToolRun] = None,
     ) -> str:
         try:
-            self.memory_bank.add_memory(title=title, 
-                                        text=text, 
-                                        metadata=metadata, 
-                                        importance_score=importance_score)
+            memory = self.memory_bank.add_memory(
+                title=title, 
+                text=text, 
+                metadata=metadata, 
+                importance_score=importance_score
+            )
+            self.memory_manager.add_new_memory(memory.to_dict())
             return f"Successfully stored memory: {title}"
         except Exception as e:
             raise ToolException(f"Error storing memory: {e}")

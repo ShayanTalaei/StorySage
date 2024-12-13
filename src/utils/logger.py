@@ -1,6 +1,5 @@
 import logging
 import pathlib
-from datetime import datetime
 import os
 from typing import List
 from dotenv import load_dotenv

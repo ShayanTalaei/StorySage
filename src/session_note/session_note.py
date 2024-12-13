@@ -1,6 +1,5 @@
 import os
 import json
-from datetime import datetime
 import dotenv
 
 from session_note.interview_question import InterviewQuestion

@@ -3,13 +3,13 @@ import os
 import json
 import uuid
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 # Third-party imports
 import faiss
 import numpy as np
 from openai import OpenAI
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 import dotenv
 
 # Load environment variables
@@ -85,25 +85,32 @@ class MemoryBank:
         self.embeddings[memory_id] = embedding
         self.index.add(embedding.reshape(1, -1))
 
+        return memory
+
     def search_memories(self, query: str, k: int = 5) -> List[Dict]:
         """Search for similar memories using the query text."""
+        if not self.memories:  # Check if memories list is empty
+            return []
+        
         query_embedding = self._get_embedding(query)
+        
+        # Adjust k to not exceed the number of available memories
+        k = min(k, len(self.memories))
         
         # Perform similarity search
         distances, indices = self.index.search(
             query_embedding.reshape(1, -1),
             k
         )
-        print(f"Distances: {distances}")
-        print(f"Indices: {indices}")
+        
         results = []
-        if len(distances[0]) > 0:
-            for i, (distance, idx) in enumerate(zip(distances[0], indices[0])):
-                if idx < len(self.memories):  # Ensure valid index
-                    memory = self.memories[idx]
-                    result = memory.to_dict()
-                    result['similarity_score'] = float(1 / (1 + distance))  # Convert distance to similarity score
-                    results.append(result)
+        for distance, idx in zip(distances[0], indices[0]):
+            if idx >= 0 and idx < len(self.memories):
+                memory = self.memories[idx]
+                result = memory.to_dict()
+                result['similarity_score'] = float(1 / (1 + distance))
+                results.append(result)
+        
         return results
 
     def save_to_file(self, user_id: str) -> None:

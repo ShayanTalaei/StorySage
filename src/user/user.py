@@ -1,12 +1,16 @@
+from typing import TYPE_CHECKING
 from interview_session.session_models import Participant, Message
 from utils.logger import SessionLogger
+
+if TYPE_CHECKING:
+    from interview_session.interview_session import InterviewSession
 
 GREEN = '\033[92m'
 ORANGE = '\033[93m'
 RESET = '\033[0m'
 
 class User(Participant):
-    def __init__(self, user_id: str, interview_session):
+    def __init__(self, user_id: str, interview_session: 'InterviewSession'):
         super().__init__(title="User", interview_session=interview_session)
         self.user_id = user_id
         SessionLogger.log_to_file("execution_log", f"User object for {user_id} has been created.")

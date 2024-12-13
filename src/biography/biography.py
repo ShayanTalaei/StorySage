@@ -1,6 +1,6 @@
 from datetime import datetime
 import json
-from typing import Dict, Optional, List
+from typing import Dict, Optional
 import uuid
 import os
 
@@ -81,15 +81,28 @@ class Biography:
         return _search(self.root)
 
     def add_section(self, path: str, title: str, content: str = "") -> Section:
-        """Add a new section at the specified path"""
-        parent_path = '/'.join(path.split('/')[:-1]) if '/' in path else ""
-        parent = self.get_section_by_path(parent_path)
+        """Add a new section at the specified path, creating parent sections if they don't exist."""
+        if not path:
+            # If no path provided, add directly to root
+            new_section = Section(title, content, self.root)
+            self.root.subsections[title] = new_section
+            return new_section
+
+        # Split the path into parts
+        path_parts = path.split('/')
         
-        if not parent:
-            raise ValueError(f"Parent path '{parent_path}' not found")
-            
-        new_section = Section(title, content, parent)
-        parent.subsections[title] = new_section
+        # Get or create the parent section
+        current = self.root
+        for part in path_parts[:-1]:  # Exclude the last part (which is the new section's title)
+            if part not in current.subsections:
+                # Create missing parent section
+                new_parent = Section(part, "", current)
+                current.subsections[part] = new_parent
+            current = current.subsections[part]
+        
+        # Create and add the new section
+        new_section = Section(title, content, current)
+        current.subsections[path_parts[-1]] = new_section
         return new_section
 
     def get_sections(self) -> Dict[str, Dict]:
@@ -118,3 +131,38 @@ class Biography:
             section.last_edit = datetime.now().isoformat()
             return section
         return None
+
+    def export_to_markdown(self) -> str:
+        """Convert the biography to markdown format and save to file.
+        Returns the markdown string."""
+        # First load the latest data from file
+        try:
+            with open(self.file_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                self.root = Section.from_dict(data)
+        except FileNotFoundError:
+            print(f"File not found: {self.file_path}")
+            pass  # Use existing root if file doesn't exist
+
+        def _section_to_markdown(section: Section, level: int = 1) -> str:
+            # Convert section to markdown with appropriate heading level
+            md = f"{'#' * level} {section.title}\n\n"
+            if section.content:
+                md += f"{section.content}\n\n"
+            
+            # Process subsections recursively
+            for subsection in section.subsections.values():
+                md += _section_to_markdown(subsection, level + 1)
+            
+            return md
+
+        # Generate markdown content
+        markdown_content = _section_to_markdown(self.root)
+
+        # Save to markdown file
+        output_path = f"{self.base_path}/biography.md"
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        with open(output_path, 'w', encoding='utf-8') as f:
+            f.write(markdown_content)
+
+        return markdown_content
