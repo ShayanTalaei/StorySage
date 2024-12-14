@@ -169,14 +169,14 @@ class SessionNote:
         session_id = 1
         data = {
             "user_portrait": {
-                "name": "",
-                "age": "",
-                "occupation": "",
-                "location": "",
-                "family_status": "",
-                "interests": [],
-                "background": "",
-                "characteristics": ""
+                "Name": "",
+                "Age": "",
+                "Occupation": "",
+                "Location": "",
+                "Family Status": "",
+                "Interests": [],
+                "Background": "",
+                "Characteristics": ""
             },
             "last_meeting_summary": "This is the first session with the user. We will start by getting to know them and understanding their background.",
             "question_strings": {
@@ -188,27 +188,27 @@ class SessionNote:
                     "How do you like your biography to be written? e.g. chronological, thematic, etc.",
                     "Any specific style preferences? e.g. chronological, thematic, etc.",
                 ],
-                "personal": [
+                "Personal": [
                     "Where did you grow up?",
                     "What was your childhood like?"
                 ],
-                "professional": [
+                "Professional": [
                     "What do you do for work?",
                     "How did you choose your career path?"
                 ],
-                "interests": [
+                "Interests": [
                     "What are your main hobbies or interests?",
                     "What do you like to do in your free time?"
                 ],
-                "relationships": [
+                "Relationships": [
                     "Tell me about your family.",
                     "Who are the most important people in your life?"
                 ],
-                "life_events": [
+                "Life Events": [
                     "What would you say was a defining moment in your life?",
                     "What's one of your most memorable experiences?"
                 ],
-                "future_goals": [
+                "Future Goals": [
                     "What are your hopes and dreams for the future?",
                     "Where do you see yourself in the next few years?"
                 ]
