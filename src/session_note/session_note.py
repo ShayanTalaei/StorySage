@@ -57,6 +57,7 @@ class SessionNote:
                 print(f"Parent question with id {parent_id} not found")
         
     def add_note(self, question_id: str="", note: str=""):
+        """Adds a note to a question or the additional notes list."""
         if note:
             if question_id:
                 question = self.get_question(question_id)
@@ -69,6 +70,7 @@ class SessionNote:
         self.save()
         
     def get_question(self, question_id: str):
+        """Retrieves an InterviewQuestion object by its ID."""
         topic = None
         # Find the topic that contains this question
         for t, questions in self.topics.items():
@@ -99,6 +101,7 @@ class SessionNote:
     
     @classmethod
     def load_from_file(cls, file_path):
+        """Loads a SessionNote from a JSON file."""
         with open(file_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
             
@@ -110,6 +113,7 @@ class SessionNote:
         return cls(user_id, session_id, data)
         
     def save(self):
+        """Saves the SessionNote to a JSON file."""
         base_path = os.path.join(LOGS_DIR, self.user_id, "session_notes")
         file_path = os.path.join(base_path, f"session_{self.session_id}.json")
         
@@ -137,6 +141,7 @@ class SessionNote:
     
     @classmethod
     def make_session_1_note(cls, user_id):
+        """Creates a new session note for the first session."""
         session_id = 1
         data = {
             "user_portrait": {
@@ -191,6 +196,7 @@ class SessionNote:
     
     @classmethod
     def get_last_session_note(cls, user_id):
+        """Retrieves the last session note for a user."""
         base_path = os.path.join(LOGS_DIR, user_id, "session_notes")
         if not os.path.exists(base_path):
             os.makedirs(base_path)
@@ -208,10 +214,7 @@ class SessionNote:
         if not self.user_portrait:
             return ""
             
-        output = [
-            "\nUser Information:",
-            "-" * 20
-        ]
+        output = []
         for key, value in self.user_portrait.items():
             output.append(f"{key.replace('_', ' ').title()}: {value}")
         return "\n".join(output)
@@ -220,26 +223,25 @@ class SessionNote:
         """Returns a formatted string representation of the session note."""
         if not self.last_meeting_summary:
             return ""
-            
-        output = [
-            "\nPrevious Session Summary:",
-            "-" * 20,
-            self.last_meeting_summary
-        ]
-        
-        return "\n".join(output)
+        return self.last_meeting_summary
     
-    def format_qa(self, qa: InterviewQuestion, prefix="") -> list[str]:
-        """Formats a question and its sub-questions recursively."""
+    def format_qa(self, qa: InterviewQuestion, question_id_prefix="") -> list[str]:
+        """Formats a question and its sub-questions recursively.
+        
+        Args:
+            qa: InterviewQuestion object to format
+            question_id_prefix: The question ID prefix for nested questions (e.g. "1" or "1.2")
+        """
         lines = []
-        lines.append(f"\n{prefix}: {qa.question}")
+        lines.append(f"\n[ID] {question_id_prefix}: {qa.question}")
         if qa.notes:
             for note in qa.notes:
-                lines.append(f"→ {note}")
+                lines.append(f"[note] {note}")
             
         if qa.sub_questions:
             for sub_qa in qa.sub_questions:
-                lines.extend(self.format_qa(sub_qa, f"{prefix}.{qa.question_id}" if prefix else qa.question_id))
+                lines.extend(self.format_qa(sub_qa, 
+                    f"{question_id_prefix}.{qa.question_id}" if question_id_prefix else qa.question_id))
         return lines
 
     def get_questions_and_notes_str(self) -> str:
@@ -247,9 +249,7 @@ class SessionNote:
         if not self.topics:
             return ""
             
-        output = [
-            "\nInterview Notes:"
-        ]
+        output = []
         
         for topic, questions in self.topics.items():
             output.append(f"\nTopic: {topic}")
@@ -262,12 +262,7 @@ class SessionNote:
         """Returns formatted string of additional notes."""
         if not self.additional_notes:
             return ""
-            
-        output = [
-            "\nAdditional Notes:",
-            self.additional_notes
-        ]
-        return "\n".join(output)
+        return "\n".join(self.additional_notes)
 
 
 
