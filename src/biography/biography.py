@@ -80,16 +80,14 @@ class Biography:
         
         return _search(self.root)
 
-    def add_section(self, path: str, title: str, content: str = "") -> Section:
+    def add_section(self, path: str, content: str = "") -> Section:
         """Add a new section at the specified path, creating parent sections if they don't exist."""
         if not path:
-            # If no path provided, add directly to root
-            new_section = Section(title, content, self.root)
-            self.root.subsections[title] = new_section
-            return new_section
+            raise ValueError("Path cannot be empty - must provide a section path")
 
         # Split the path into parts
         path_parts = path.split('/')
+        title = path_parts[-1]
         
         # Get or create the parent section
         current = self.root
@@ -135,15 +133,6 @@ class Biography:
     def export_to_markdown(self) -> str:
         """Convert the biography to markdown format and save to file.
         Returns the markdown string."""
-        # First load the latest data from file
-        try:
-            with open(self.file_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                self.root = Section.from_dict(data)
-        except FileNotFoundError:
-            print(f"File not found: {self.file_path}")
-            pass  # Use existing root if file doesn't exist
-
         def _section_to_markdown(section: Section, level: int = 1) -> str:
             # Convert section to markdown with appropriate heading level
             md = f"{'#' * level} {section.title}\n\n"
@@ -166,3 +155,55 @@ class Biography:
             f.write(markdown_content)
 
         return markdown_content
+
+    def is_valid_path_format(self, path: str) -> bool:
+        """
+        Validate if the path follows the required format rules.
+        Returns True if valid, False otherwise.
+        """
+        if not path:
+            return True  # Empty path is valid (root)
+
+        parts = path.split('/')
+        
+        # Check maximum depth
+        if len(parts) > 4:
+            return False
+            
+        # Validate first level requires number prefix
+        if not parts[0].split()[0].isdigit():
+            return False
+            
+        # Validate second level requires decimal notation
+        if len(parts) > 1:
+            if not self._is_valid_subsection_number(parts[0], parts[1]):
+                return False
+                
+        # Third and fourth levels should not have numbers
+        if len(parts) > 2:
+            for part in parts[2:]:
+                if part.split()[0].replace('.', '').isdigit():
+                    return False
+                    
+        return True
+
+    def _is_valid_subsection_number(self, parent: str, child: str) -> bool:
+        """
+        Validate if subsection number matches parent section number.
+        Example: "1 Early Life" -> oytho is valid
+        """
+        try:
+            parent_num = parent.split()[0]
+            child_num = child.split()[0]
+            if not child_num.count('.') == 1:
+                return False
+            return child_num.startswith(f"{parent_num}.")
+        except (IndexError, ValueError):
+            return False
+
+    def path_exists(self, path: str) -> bool:
+        """
+        Check if a given path exists in the biography.
+        Returns True if the path exists, False otherwise.
+        """
+        return self.get_section_by_path(path) is not None

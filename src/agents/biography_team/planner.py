@@ -99,12 +99,10 @@ class BiographyPlanner(BiographyTeamAgent):
                 for plan in root.findall("plan"):
                     action_type = plan.find("action_type").text.strip()
                     section_path = plan.find("section_path").text.strip()
-                    section_title = section_path.split("/")[-1]
                     
                     plans.append({
                         "action_type": action_type,
                         "section_path": section_path,
-                        "section_title": section_title,
                         "relevant_memories": self._parse_relevant_memories(plan),
                         "update_plan": plan.find("update_plan").text.strip()
                     })
@@ -221,8 +219,7 @@ Provide your response in the following XML format:
 Important Notes about the XML format:
 - Set action_type as "create" when adding a new section
 - Set action_type as "update" when modifying an existing section
-- For "create" actions, both section_path and section_title are required
-- For "update" actions, only section_path is needed
+- The section_path is the full path to the section
 - Each plan must include a detailed update_plan explaining the changes
 
 Important Note About Section Paths:

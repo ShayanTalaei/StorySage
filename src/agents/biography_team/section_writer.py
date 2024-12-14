@@ -113,7 +113,6 @@ class SectionWriter(BiographyTeamAgent):
                     # Use the add_section tool to create a new section
                     result = self.tools["add_section"]._run(
                         path=todo_item.section_path,
-                        title=todo_item.section_title,
                         content=content
                     )
                     self.add_event(sender=self.name, tag="create_section_result", content=result)
@@ -222,8 +221,7 @@ class UpdateSectionInput(BaseModel):
     content: str = Field(description="New content for the section")
 
 class AddSectionInput(BaseModel):
-    path: str = Field(description="Path where to add the section (e.g., 'Chapter 1/Early Life')")
-    title: str = Field(description="Title of the new section")
+    path: str = Field(description="Full path to the new section (e.g., '1 Early Life/1.1 Childhood')")
     content: str = Field(description="Content of the new section")
 
 class SaveBiographyInput(BaseModel):
@@ -273,9 +271,9 @@ class AddSection(BaseTool):
     args_schema: Type[BaseModel] = AddSectionInput
     biography: Biography
 
-    def _run(self, path: str, title: str, content: str, run_manager: Optional[CallbackManagerForToolRun] = None) -> str:
+    def _run(self, path: str, content: str, run_manager: Optional[CallbackManagerForToolRun] = None) -> str:
         try:
-            self.biography.add_section(path, title, content)
-            return f"Successfully added section titled '{title}' at path '{path}'"
+            self.biography.add_section(path, content)
+            return f"Successfully added section at path '{path}'"
         except Exception as e:
             raise ToolException(f"Error adding section: {e}")
