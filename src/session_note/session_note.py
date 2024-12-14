@@ -38,6 +38,21 @@ class SessionNote:
         self.additional_notes: list[str] = data.get("additional_notes", [])
         
     def add_interview_question(self, topic: str, question: str, question_id: str = None, parent_id: str = None):
+        """Adds a new interview question to the session notes.
+        
+        Args:
+            topic: The topic category for the question (e.g. "personal", "professional")
+            question: The actual question text
+            question_id: Optional custom ID for the question. If not provided:
+                - Option 1: uses next_available_number
+                - Option 2: uses parent_id.next_available_number
+            parent_id: Optional ID of parent question. If provided, adds this as a sub-question
+                under the parent question (e.g. "1.1" under question "1")
+        
+        Example:
+            add_interview_question("personal", "Where did you grow up?", "1")
+            add_interview_question("personal", "What schools?", "1", "1")  # Creates question 1.1
+        """
         if topic not in self.topics:
             self.topics[topic] = []
             
@@ -50,7 +65,16 @@ class SessionNote:
             # Sub-question
             parent = self.get_question(parent_id)
             if parent:
-                sub_id = f"{parent_id}.{question_id}" if question_id else f"{parent_id}.{len(parent.sub_questions) + 1}"
+                # Option 1: question_id is parent_id.next_available_number
+                if '.' in question_id:
+                    sub_id = question_id
+                # Option 2: question_id is next_available_number
+                elif question_id:
+                    sub_id = f"{parent_id}.{question_id}"
+                # If no question_id provided, use next_available_number
+                else:
+                    sub_id = f"{parent_id}.{len(parent.sub_questions) + 1}"
+                
                 new_question = InterviewQuestion(topic, sub_id, question)
                 parent.sub_questions.append(new_question)
             else:
