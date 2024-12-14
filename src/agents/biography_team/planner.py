@@ -152,32 +152,16 @@ class BiographyPlanner(BiographyTeamAgent):
             raise e
         return memories
 
-# TODO-lmj: we should handle invalid paths in biography.py because the LLM may not follow the rules in the prompt sometimes.
 PLANNER_SYSTEM_PROMPT = """
-You are a biography expert. We are interviewing a user and collecting new information about the user to write his or her biography.
-Your task is to analyze new information and plan updates to the biography.
+You are a biography expert. We are interviewing a user and collecting new information about the user to write his or her biography. Your task is to analyze new information and plan updates to the biography.
 
-Current Biography Structure:
-<biography_structure>
-{biography_structure}
-</biography_structure>
+Input Context:
+<biography_structure>{biography_structure}</biography_structure>
+<biography_content>{biography_content}</biography_content>
+<new_information>{new_information}</new_information>
+<relevant_information>{relevant_information}</relevant_information>
 
-Current Biography Content:
-<biography_content>
-{biography_content}
-</biography_content>
-
-New Information to Add:
-<new_information>
-{new_information}
-</new_information>
-
-Related Previous Information:
-<relevant_information>
-{relevant_information}
-</relevant_information>
-
-Your task is to:
+Core Responsibilities:
 1. Analyze the new information and their relationship with existing content
 2. Determine whether to:
    a. Update existing sections or subsections
@@ -185,7 +169,7 @@ Your task is to:
 3. Create specific plans for each action
 4. Suggest follow-up questions to expand the biography's breadth
 
-For each plan, consider:
+Guidance for Creating Plans:
 - How the new information connects to existing content
 - Whether it reinforces existing themes or introduces new ones
 - Where the information best fits in the biography's structure
@@ -216,7 +200,7 @@ Provide your response in the following XML format:
     ...
 </follow_up_questions>
 
-Important Notes about the XML format:
+Important Notes about the XML Format:
 - Set action_type as "create" when adding a new section
 - Set action_type as "update" when modifying an existing section
 - The section_path is the full path to the section
@@ -233,13 +217,11 @@ Important Note About Section Paths:
     Examples: "1 Early Life/1.1 Childhood", "1 Early Life/1.2 Family Background"
   * Third and fourth levels do not use numbers
     Examples: "1 Early Life/1.1 Childhood/Memorable Events"
-    
-Examples of valid paths:
+- Examples of valid paths:
   * "1 Early Life"
   * "2 Career/2.1 Software Projects/First App"
   * "3 Personal Life/3.2 Hobbies/Gaming/Favorite Games"
-
-Invalid paths:
+- Examples of invalid paths:
   * "Early Life" (missing first level number)
   * "1 Early Life/Childhood" (missing second level number)
   * "1.1 Childhood" (subsection without parent section)

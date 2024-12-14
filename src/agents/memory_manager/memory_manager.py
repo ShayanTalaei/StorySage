@@ -50,7 +50,6 @@ class MemoryManager(BaseAgent, Participant):
 
     def update_session_note(self) -> None:
         prompt = self.get_formatted_prompt("update_session_note")
-        # print(prompt)
         response = self.call_engine(prompt)
         self.add_event(sender=self.name, tag="update_session_note", content=response)
         self.handle_tool_calls(response)
