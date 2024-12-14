@@ -59,6 +59,9 @@ class Biography:
         if not path:
             return self.root
 
+        if path and not self.is_valid_path_format(path):
+            raise ValueError(f"Invalid path format: {path}. Path must follow the required format rules.")
+
         current = self.root
         for part in path.split('/'):
             if part in current.subsections:
@@ -84,6 +87,9 @@ class Biography:
         """Add a new section at the specified path, creating parent sections if they don't exist."""
         if not path:
             raise ValueError("Path cannot be empty - must provide a section path")
+        
+        if not self.is_valid_path_format(path):
+            raise ValueError(f"Invalid path format: {path}. Path must follow the required format rules.")
 
         # Split the path into parts
         path_parts = path.split('/')
@@ -123,6 +129,12 @@ class Biography:
     def update_section(self, path: str, content: str) -> Optional[Section]:
         """Update the content of a section at the specified path.
         Returns the updated section if found, None otherwise."""
+        if not path:
+            raise ValueError("Path cannot be empty - must provide a section path")
+        
+        if not self.is_valid_path_format(path):
+            raise ValueError(f"Invalid path format: {path}. Path must follow the required format rules.")
+        
         section = self.get_section_by_path(path)
         if section:
             section.content = content
@@ -206,4 +218,6 @@ class Biography:
         Check if a given path exists in the biography.
         Returns True if the path exists, False otherwise.
         """
+        if not self.is_valid_path_format(path):
+            return False
         return self.get_section_by_path(path) is not None
