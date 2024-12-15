@@ -295,7 +295,6 @@ class AddInterviewQuestionInput(BaseModel):
     question_id: str = Field(description="Optional custom ID for the question")
     parent_id: str = Field(description="Optional ID of parent question")
 
-# Add these tool classes
 class UpdateLastMeetingSummary(BaseTool):
     """Tool for updating the last meeting summary."""
     name: str = "update_last_meeting_summary"
@@ -321,6 +320,15 @@ class UpdateUserPortrait(BaseTool):
     args_schema: Type[BaseModel] = UpdateUserPortraitInput
     session_note: SessionNote = Field(...)
 
+    def _format_field_name(self, field_name: str) -> str:
+        """Format field name by replacing underscores with spaces and capitalizing words.
+        
+        Example:
+            hobbies_influence -> Hobbies Influence
+            early_life_experiences -> Early Life Experiences
+        """
+        return ' '.join(word.capitalize() for word in field_name.split('_'))
+
     def _run(
         self,
         field_name: str,
@@ -328,8 +336,9 @@ class UpdateUserPortrait(BaseTool):
         run_manager: Optional[CallbackManagerForToolRun] = None,
     ) -> str:
         try:
-            self.session_note.user_portrait[field_name] = value.strip()
-            return f"Successfully updated user portrait field: {field_name}"
+            formatted_field_name = self._format_field_name(field_name)
+            self.session_note.user_portrait[formatted_field_name] = value.strip()
+            return f"Successfully updated user portrait field: {formatted_field_name}"
         except Exception as e:
             raise ToolException(f"Error updating user portrait: {e}")
 
