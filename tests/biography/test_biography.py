@@ -31,7 +31,11 @@ def test_get_section_by_path():
     assert section.title == "1.1 Childhood"
     
     # Test getting non-existent section
-    assert bio.get_section_by_path("Non/Existent/Path") is None
+    assert bio.get_section_by_path("3 Career") is None
+
+    # Test invalid path format
+    with pytest.raises(ValueError):
+        bio.get_section_by_path("Non/Existent/Path")
 
 def test_add_section():
     bio = Biography(f"test_{USER_ID}")
@@ -67,7 +71,8 @@ def test_update_section():
     assert updated_section.content == "Updated content"
     
     # Test updating non-existent section
-    assert bio.update_section("Non/Existent/Path", "Content") is None
+    with pytest.raises(ValueError):
+        bio.update_section("Non/Existent/Path", "Content")
 
 def test_save_and_load():
     # Create and save biography
