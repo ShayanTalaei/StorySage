@@ -10,7 +10,6 @@ LOGS_DIR = os.getenv("LOGS_DIR")
 
 class SessionNote:
     
-    
     def __init__(self, user_id, session_id, data: dict=None):
         self.user_id = user_id
         self.session_id = session_id
@@ -36,7 +35,77 @@ class SessionNote:
                     self.add_interview_question(topic, question, question_id=str(question_id))
                     question_id += 1
         self.additional_notes: list[str] = data.get("additional_notes", [])
+    
+    @classmethod
+    def initialize_session_note(cls, user_id):
+        """Creates a new session note for the first session."""
+        session_id = 1
+        data = {
+            "user_portrait": {
+                "Name": "",
+                "Age": "",
+                "Occupation": "",
+                "Location": "",
+                "Family Status": "",
+                "Interests": [],
+                "Background": "",
+                "Characteristics": ""
+            },
+            "last_meeting_summary": "This is the first session with the user. We will start by getting to know them and understanding their background.",
+            "question_strings": {
+                "General": [
+                    "What is your name?",
+                    "How old are you?",
+                ],
+                "Biography Style": [
+                    "How do you like your biography to be written? e.g. chronological, thematic, etc.",
+                    "Any specific style preferences? e.g. chronological, thematic, etc.",
+                ],
+                "Personal": [
+                    "Where did you grow up?",
+                    "What was your childhood like?"
+                ],
+                "Professional": [
+                    "What do you do for work?",
+                    "How did you choose your career path?"
+                ],
+                "Interests": [
+                    "What are your main hobbies or interests?",
+                    "What do you like to do in your free time?"
+                ],
+                "Relationships": [
+                    "Tell me about your family.",
+                    "Who are the most important people in your life?"
+                ],
+                "Life Events": [
+                    "What would you say was a defining moment in your life?",
+                    "What's one of your most memorable experiences?"
+                ],
+                "Future Goals": [
+                    "What are your hopes and dreams for the future?",
+                    "Where do you see yourself in the next few years?"
+                ]
+            }
+        }
+        session_note = cls(user_id, session_id, data)
+        session_note.save()
+        return session_note
+    
+    @classmethod
+    def get_last_session_note(cls, user_id):
+        """Retrieves the last session note for a user."""
+        base_path = os.path.join(LOGS_DIR, user_id, "session_notes")
+        if not os.path.exists(base_path):
+            os.makedirs(base_path)
+            
+        files = [f for f in os.listdir(base_path) if f.startswith('session_') and f.endswith('.json')]
+        if not files:
+            return cls.initialize_session_note(user_id)
         
+        files.sort(key=lambda x: int(x.split('_')[1].split('.')[0]), reverse=True)
+        latest_file = os.path.join(base_path, files[0])
+        return cls.load_from_file(latest_file)
+    
     def add_interview_question(self, topic: str, question: str, question_id: str = None, parent_id: str = None):
         """Adds a new interview question to the session notes.
         
@@ -162,76 +231,6 @@ class SessionNote:
             json.dump(data, f, indent=2)
         
         return file_path
-    
-    @classmethod
-    def make_session_1_note(cls, user_id):
-        """Creates a new session note for the first session."""
-        session_id = 1
-        data = {
-            "user_portrait": {
-                "Name": "",
-                "Age": "",
-                "Occupation": "",
-                "Location": "",
-                "Family Status": "",
-                "Interests": [],
-                "Background": "",
-                "Characteristics": ""
-            },
-            "last_meeting_summary": "This is the first session with the user. We will start by getting to know them and understanding their background.",
-            "question_strings": {
-                "General": [
-                    "What is your name?",
-                    "How old are you?",
-                ],
-                "Biography Style": [
-                    "How do you like your biography to be written? e.g. chronological, thematic, etc.",
-                    "Any specific style preferences? e.g. chronological, thematic, etc.",
-                ],
-                "Personal": [
-                    "Where did you grow up?",
-                    "What was your childhood like?"
-                ],
-                "Professional": [
-                    "What do you do for work?",
-                    "How did you choose your career path?"
-                ],
-                "Interests": [
-                    "What are your main hobbies or interests?",
-                    "What do you like to do in your free time?"
-                ],
-                "Relationships": [
-                    "Tell me about your family.",
-                    "Who are the most important people in your life?"
-                ],
-                "Life Events": [
-                    "What would you say was a defining moment in your life?",
-                    "What's one of your most memorable experiences?"
-                ],
-                "Future Goals": [
-                    "What are your hopes and dreams for the future?",
-                    "Where do you see yourself in the next few years?"
-                ]
-            }
-        }
-        session_note = cls(user_id, session_id, data)
-        session_note.save()
-        return session_note
-    
-    @classmethod
-    def get_last_session_note(cls, user_id):
-        """Retrieves the last session note for a user."""
-        base_path = os.path.join(LOGS_DIR, user_id, "session_notes")
-        if not os.path.exists(base_path):
-            os.makedirs(base_path)
-            
-        files = [f for f in os.listdir(base_path) if f.startswith('session_') and f.endswith('.json')]
-        if not files:
-            return cls.make_session_1_note(user_id)
-        
-        files.sort(key=lambda x: int(x.split('_')[1].split('.')[0]), reverse=True)
-        latest_file = os.path.join(base_path, files[0])
-        return cls.load_from_file(latest_file)
 
     def get_user_portrait_str(self) -> str:
         """Returns formatted string of user portrait information."""
@@ -249,27 +248,38 @@ class SessionNote:
             return ""
         return self.last_meeting_summary
     
-    def format_qa(self, qa: InterviewQuestion, question_id_prefix="") -> list[str]:
+    def format_qa(self, qa: InterviewQuestion, hide_answered=False) -> list[str]:
         """Formats a question and its sub-questions recursively.
         
         Args:
             qa: InterviewQuestion object to format
-            question_id_prefix: The question ID prefix for nested questions (e.g. "1" or "1.2")
+            hide_answered: If True, only show question IDs for answered questions
         """
         lines = []
-        lines.append(f"\n[ID] {question_id_prefix}: {qa.question}")
-        if qa.notes:
-            for note in qa.notes:
-                lines.append(f"[note] {note}")
+        
+        # If question has notes and hide_answered is True, just show it's answered
+        if hide_answered and qa.notes:
+            lines.append(f"\n[ID] {qa.question_id}: (Answered)")
+        else:
+            lines.append(f"\n[ID] {qa.question_id}: {qa.question}")
+            if qa.notes:
+                for note in qa.notes:
+                    lines.append(f"[note] {note}")
             
         if qa.sub_questions:
             for sub_qa in qa.sub_questions:
-                lines.extend(self.format_qa(sub_qa, 
-                    f"{question_id_prefix}.{qa.question_id}" if question_id_prefix else qa.question_id))
+                lines.extend(self.format_qa(
+                    sub_qa,
+                    hide_answered=hide_answered
+                ))
         return lines
 
-    def get_questions_and_notes_str(self) -> str:
-        """Returns formatted string for questions and notes."""
+    def get_questions_and_notes_str(self, hide_answered=False) -> str:
+        """Returns formatted string for questions and notes.
+        
+        Args:
+            hide_answered: If True, only show question IDs for answered questions
+        """
         if not self.topics:
             return ""
             
@@ -278,7 +288,7 @@ class SessionNote:
         for topic, questions in self.topics.items():
             output.append(f"\nTopic: {topic}")
             for qa in questions:
-                output.extend(self.format_qa(qa, qa.question_id))
+                output.extend(self.format_qa(qa, hide_answered=hide_answered))
                 
         return "\n".join(output)
 
