@@ -21,9 +21,6 @@ class BiographyPlanner(BiographyTeamAgent):
         """
         Create update plans for the biography based on new memories.
         """
-        self.add_event(sender=self.name, tag="planning_start", 
-                      content=f"Starting to plan updates for {len(new_memories)} new memories")
-        
         prompt = self._create_planning_prompt(new_memories)
         self.add_event(sender=self.name, tag="planning_prompt", content=prompt)
         
@@ -31,10 +28,8 @@ class BiographyPlanner(BiographyTeamAgent):
         self.add_event(sender=self.name, tag="llm_response", content=response)
 
         plans = self._parse_plans(response)
-        self.add_event(sender=self.name, tag="parsed_plans", content=f"{plans}")
         
         self.follow_up_questions = self._parse_questions(response)
-        self.add_event(sender=self.name, tag="follow_up_questions", content=f"{self.follow_up_questions}")
 
         return plans
 
@@ -54,13 +49,24 @@ class BiographyPlanner(BiographyTeamAgent):
         relevant_memories = list(relevant_memories_dict.values())
         self.add_event(sender=self.name, tag="memory_search_complete", 
                        content=f"{relevant_memories}")
-
+        
         prompt = PLANNER_SYSTEM_PROMPT.format(
             biography_structure=json.dumps(self.get_biography_structure(), indent=2),
             biography_content=self._get_full_biography_content(),
-            new_information="\n".join([f"- {m['text']}" for m in new_memories]),
-            relevant_information="\n".join(
-                [f"- {m['text']} (Similarity: {m['similarity_score']:.2f})" for m in relevant_memories])
+            new_information="\n".join([
+                "<memory>\n"
+                f"<title>{m['title']}</title>\n"
+                f"<content>{m['text']}</content>\n"
+                "</memory>\n"
+                for m in new_memories
+            ]),
+            relevant_information="\n".join([
+                "<memory>\n"
+                f"<title>{m['title']}</title>\n"
+                f"<content>{m['text']}</content>\n"
+                "</memory>\n"
+                for m in relevant_memories
+            ])
         )
         
         return prompt
@@ -126,9 +132,13 @@ class BiographyPlanner(BiographyTeamAgent):
                 questions_text = response[start_pos:end_pos]
                 root = ET.fromstring(questions_text)
                 for question in root.findall("question"):
-                    questions.append({
-                        "question": question.text.strip(),
-                    })
+                    content_elem = question.find("content")
+                    context_elem = question.find("context")
+                    if content_elem is not None and content_elem.text:
+                        questions.append({
+                            "content": content_elem.text.strip(),
+                            "context": context_elem.text.strip() if context_elem is not None else ""
+                        })
         except Exception as e:
             self.add_event(sender=self.name, tag="error", 
                           content=f"Error parsing questions: {str(e)}\nResponse: {response}")
@@ -155,10 +165,21 @@ PLANNER_SYSTEM_PROMPT = """
 You are a biography expert. We are interviewing a user and collecting new information about the user to write his or her biography. Your task is to analyze new information and plan updates to the biography.
 
 Input Context:
-<biography_structure>{biography_structure}</biography_structure>
-<biography_content>{biography_content}</biography_content>
-<new_information>{new_information}</new_information>
-<relevant_information>{relevant_information}</relevant_information>
+<biography_structure>
+{biography_structure}
+</biography_structure>
+
+<biography_content>
+{biography_content}
+</biography_content>
+
+<new_information>
+{new_information}
+</new_information>
+
+<relevant_information>
+{relevant_information}
+</relevant_information>
 
 Core Responsibilities:
 1. Analyze the new information and their relationship with existing content
@@ -195,7 +216,13 @@ Provide your response in the following XML format:
 </plans>
 
 <follow_up_questions>
-    <question>Question text that would help expand the biography's breadth</question>
+    <question>
+        <context>
+            One brief sentence explaining which memory/information this follows up on.
+            Example: "Follows up on mother's garden memory to explore career influence."
+        </context>
+        <content>Question text that would help expand the biography's breadth</content>
+    </question>
     ...
 </follow_up_questions>
 

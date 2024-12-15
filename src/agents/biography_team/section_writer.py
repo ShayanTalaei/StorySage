@@ -39,8 +39,6 @@ class SectionWriter(BiographyTeamAgent):
         """
         Update a biography section based on a plan.
         """
-        self.add_event(sender=self.name, tag="update_start", 
-                      content=f"Starting to {todo_item.action_type} section: {todo_item.section_path}")
         
         prompt = self._create_section_write_prompt(todo_item)
         self.add_event(sender=self.name, tag="section_write_prompt", content=prompt)
@@ -80,7 +78,10 @@ class SectionWriter(BiographyTeamAgent):
             section_path=todo_item.section_path,
             update_plan=todo_item.update_plan,
             current_content=current_content,
-            relevant_memories=todo_item.relevant_memories
+            relevant_memories='\n'.join([
+                f"- {memory_text}"
+                for memory_text in todo_item.relevant_memories
+            ])
         )
 
     def _handle_section_update(self, response: str, todo_item: TodoItem) -> bool:
@@ -97,16 +98,12 @@ class SectionWriter(BiographyTeamAgent):
                 root = ET.fromstring(update_text)
                 content = root.find("content").text.strip()
                 
-                self.add_event(sender=self.name, tag="parsed_content", 
-                             content=f"Parsed content for {todo_item.section_path}:\n{content}")
-                
                 if todo_item.action_type == "update":
                     # Use the update_section tool to apply changes
                     result = self.tools["update_section"]._run(
                         path=todo_item.section_path,
                         content=content
                     )
-                    self.add_event(sender=self.name, tag="update_section_result", content=result)
                     return "Successfully" in result
 
                 elif todo_item.action_type == "create":
@@ -115,7 +112,6 @@ class SectionWriter(BiographyTeamAgent):
                         path=todo_item.section_path,
                         content=content
                     )
-                    self.add_event(sender=self.name, tag="create_section_result", content=result)
                     return "Successfully" in result
                 
                 else:
@@ -143,13 +139,13 @@ class SectionWriter(BiographyTeamAgent):
                 questions_text = response[start_pos:end_pos]
                 root = ET.fromstring(questions_text)
                 for question in root.findall("question"):
-                    questions.append({
-                        "question": question.text.strip(),
-                    })
-                
-                self.add_event(sender=self.name, tag="follow_up_questions", 
-                             content="Parsed questions:\n" + 
-                                    "\n".join([f"- {q['question']}" for q in questions]))
+                    content_elem = question.find("content")
+                    context_elem = question.find("context")
+                    if content_elem is not None and content_elem.text:
+                        questions.append({
+                            "content": content_elem.text.strip(),
+                            "context": context_elem.text.strip() if context_elem is not None else ""
+                        })
         except Exception as e:
             self.add_event(sender=self.name, tag="error", 
                           content=f"Error parsing questions: {str(e)}\nResponse: {response}")
@@ -160,9 +156,13 @@ You are a professional biography writer responsible for crafting and updating bi
 
 Input Context:
 <section_path>{section_path}</section_path>
-<update_plan>{update_plan}</update_plan>
 <current_content>{current_content}</current_content>
-<relevant_memories>{relevant_memories}</relevant_memories>
+<relevant_memories>
+{relevant_memories}
+</relevant_memories>
+<update_plan>
+{update_plan}
+</update_plan>
 
 Core Responsibilities:
 1. Write/update the biography section according to the update plan
@@ -207,9 +207,14 @@ Required Output Format:
 </section_update>
 
 <follow_up_questions>
-    <question>[Single specific question focused on filling information gaps]</question>
-    <question>[Another specific question to clarify or expand content]</question>
-    [Add more questions as needed]
+    <question>
+        <context>
+            One brief sentence connecting to specific content in the section.
+            Example: "Expands on mentioned gardening hobby techniques."
+        </context>
+        <content>Question text that would help expand this section's detail</content>
+    </question>
+    <!-- Add more questions as needed -->
 </follow_up_questions>
 """
 
@@ -250,7 +255,7 @@ class GetSection(BaseTool):
     def _run(self, path: str, run_manager: Optional[CallbackManagerForToolRun] = None) -> str:
         section = self.biography.get_section_by_path(path)
         if not section:
-            return f"Section at path '{path}' not found"
+            return ""
         return section.content
 
 class UpdateSection(BaseTool):

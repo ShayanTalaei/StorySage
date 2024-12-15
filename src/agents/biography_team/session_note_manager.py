@@ -46,9 +46,15 @@ class SessionNoteManager(BiographyTeamAgent):
             user_portrait=self.session_note.get_user_portrait_str(),
             last_meeting_summary=self.session_note.get_last_meeting_summary_str(),
             questions_and_notes=self.session_note.get_questions_and_notes_str(),
-            new_memories="\n".join([f"Memory: {m['text']}" for m in new_memories]),
+            new_memories="\n".join([
+                f"- {m['text']}"
+                for m in new_memories
+            ]),
             follow_up_questions="\n".join([
-                f"- {q['question']}" 
+                "<question>\n"
+                f"<content>{q['content']}</content>\n"
+                f"<context>{q['context']}</context>\n" 
+                "</question>\n"
                 for q in follow_up_questions
             ])
         )
