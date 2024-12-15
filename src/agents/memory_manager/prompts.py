@@ -170,7 +170,7 @@ INSTRUCTIONS_UPDATE_SESSION_NOTE_PROMPT = """
 - Also consider any additional information that the user mentions that doesn't fit into the existing questions, but it's worth storing
 - For each piece of information worth storing:
   1. Use the update_session_note tool to store the information
-  2. Specify the question ID to which the note belongs, or leave it empty if the note is not related to any specific question
+  2. Specify the question ID with is a number following [ID] tag to which the note belongs, or leave it empty if the note is not related to any specific question
   3. Add a concise note
 # Calling Tools
 - For each piece of information worth storing, use the update_session_note tool.
