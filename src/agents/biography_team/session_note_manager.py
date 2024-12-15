@@ -57,7 +57,7 @@ class SessionNoteManager(BiographyTeamAgent):
         return SESSION_NOTE_AGENT_PROMPT.format(
             user_portrait=self.session_note.get_user_portrait_str(),
             last_meeting_summary=self.session_note.get_last_meeting_summary_str(),
-            questions_and_notes=self.session_note.get_questions_and_notes_str(),
+            questions_and_notes=self.session_note.get_questions_and_notes_str(hide_answered="a"),
             new_memories="\n".join([
                 f"- {m['text']}"
                 for m in new_memories
@@ -112,9 +112,9 @@ class SessionNoteManager(BiographyTeamAgent):
                         self.add_event(sender=self.name, tag="portrait_update", content=result)
                 
                 # Handle new fields
-                for new_field in portrait_updates.findall("new_field"):
-                    field_name = new_field.get("name")
-                    value_elem = new_field.find("value")
+                for field_create in portrait_updates.findall("field_create"):
+                    field_name = field_create.get("name")
+                    value_elem = field_create.find("value")
                     if field_name and value_elem is not None and value_elem.text:
                         result = self.tools["update_user_portrait"]._run(
                             field_name=field_name,
@@ -130,25 +130,43 @@ class SessionNoteManager(BiographyTeamAgent):
                     if not topic_name:
                         continue
                     
+                    # Handle independent questions (no parent)
                     for question in topic.findall("question"):
                         question_text = question.text.strip() if question.text else ""
-                        if not question_text:
+                        if not question_text or question.get("type") == "existing":
                             continue
-                        
-                        question_type = question.get("type")
-                        question_id = question.get("id")
-                        parent_id = question.get("parent_id")
-                        
-                        # Only add questions marked as new
-                        if question_type != "existing":
+                            
+                        result = self.tools["add_interview_question"]._run(
+                            topic=topic_name,
+                            question=question_text,
+                            question_id=question.get("id")
+                        )
+                        self.add_event(sender=self.name, tag="question_update", content=result)
+                    
+                    # Handle question groups (parent with sub-questions)
+                    for group in topic.findall("question_group"):
+                        parent = group.find("parent")
+                        if parent is None or not parent.text:
+                            continue
+                            
+                        parent_id = parent.get("id")
+                        sub_questions = group.find("sub_questions")
+                        if sub_questions is None:
+                            continue
+                            
+                        for question in sub_questions.findall("question"):
+                            question_text = question.text.strip() if question.text else ""
+                            if not question_text:
+                                continue
+                                
                             result = self.tools["add_interview_question"]._run(
                                 topic=topic_name,
                                 question=question_text,
-                                question_id=question_id,
+                                question_id=question.get("id"),
                                 parent_id=parent_id
                             )
                             self.add_event(sender=self.name, tag="question_update", content=result)
-                        
+            
         except Exception as e:
             error_msg = f"Error processing session note update: {str(e)}\nResponse: {response}"
             self.add_event(sender=self.name, tag="error", content=error_msg)
@@ -181,63 +199,70 @@ Input Context:
 </existing_session_notes>
 
 Core Responsibilities:
-
+<core_responsibilities>
 1. Write the last meeting summary
-   - Summarize key points from new memories
-   - Connect new information with existing knowledge
-   - Focus on significant revelations or patterns
+- Summarize key points from new memories
+- Connect new information with existing knowledge
+- Focus on significant revelations or patterns
 
 2. Update the user portrait
 - You can either update one field of portrait or create a new field for the portrait.
 - If you update one non-empty field of the user portrait:
-    * Think carefully about why the original information needs to be changed
-    * Explain your reasoning in a <thinking> tag for each field update
+    * Use <field_update> tag for each field update
+    * Think carefully about why the original information needs to be changed and explain your reasoning in a <thinking> tag for each field update
     * Example: changing age from "30s" to "35" based on specific memory about birth year
-- If you create a new field for the portrait:
-    * Consider what important aspects of the user are not yet captured
-    * Explain in <thinking> tag why this new field adds value
-    * Example: adding "career_transitions" field after learning about job changes
+- For creating new fields in the portrait:
+    * Use <field_create> tag for each field creation
+    * Think carefully about why the new field is important and explain your reasoning in a <thinking> tag for each field creation
+    * Be very selective - only add fundamental, high-level aspects of the user
+    * The portrait should capture core characteristics, not specific details
+    * It's perfectly fine to make NO additions if existing fields are sufficient
+    * Good examples of portrait fields:
+        - "Career Path": "Software Engineer turned Entrepreneur"
+        - "Life Philosophy": "Believes in continuous learning and giving back"
+        - "Core Values": "Family, Education, Innovation"
+    * Avoid adding detailed or narrow fields like:
+        - "Gardening Techniques" (too specific)
+        - "College Projects" (too detailed)
+        - "Daily Routine" (too granular)
+    * If a detail is important, it should go into the biography sections instead
 
 3. Add new follow-up questions
-- You only need to include new questions in your output
-- For new questions (from two sources):
-    * Source 1: Expert-provided follow-up questions in <collected_follow_up_questions>
-        - Mark them with type="collected"
-        - Remove any duplicate questions from the collected follow-ups
-    * Source 2: Your own proposed questions based on:
-        - Gaps you identify in the user's story
-        - Interesting threads in new memories that need exploration
-        - Mark them with type="proposed"
-    * For ALL new questions:
-        - Choose an appropriate topic category
-        - Assign new question ID that doesn't conflict with existing ones
-        - Carefully consider parent-child relationships:
-            * When to use parent_id:
-                - The new question deepens/details an existing question
-                - The new question explores a specific aspect of a broader question
-                - The new question follows up on a particular point from parent
-            * Examples of parent-child relationships:
-                - Parent: "Tell me about your education background"
-                  Child: "What experiences did you have in university?"
-                  Child: "How did your education influence your career choice?"
-                
-                - Parent: "What was your childhood like?"
-                  Child: "Tell me about your relationship with siblings"
-                  Child: "What were your favorite activities?"
-            * ID Assignment for sub-questions:
-                - If parent_id is "6", sub-questions should be "6.1", "6.2", etc.
-                - Keep sub-question IDs sequential within their parent
-            * When NOT to use parent_id:
-                - The question introduces a new, independent topic, which explores breadth rather than depth
-                - The question is related but explores a different aspect
-                - The question shifts focus to a different time period/theme
-- Only include existing questions when:
-    * You want to add sub-questions under them
-    * Including the parent question helps provide context for the new sub-questions
-    * In this case:
-        - Mark parent question with type="existing"
-        - Use its exact question ID and text
-        - Add your new sub-questions after it
+A. Question Sources:
+   - Source 1: Expert-provided follow-up questions in <collected_follow_up_questions>
+       * Mark them with type="collected"
+   - Source 2: Your own proposed questions based on:
+       * Gaps you identify in the user's story
+       * Interesting threads in new memories that need exploration
+       * Mark them with type="proposed"
+
+B. Question Organization:
+    B.1. Parent-Child Relationships:
+      - When to create sub-questions:
+          * To deepen/detail an existing question
+          * To explore a specific aspect of a broader question
+          * To follow up on a particular point from parent
+      - When NOT to create sub-questions:
+          * For new, independent topics (exploring breadth rather than depth)
+          * When exploring a different aspect or time period
+          * When shifting focus to a different theme
+
+    B.2. ID Assignment:
+      - For sub-questions:
+          * Parent ID MUST come first: if parent is "6", use "6.1", "6.2", etc.
+          * Keep sub-question IDs sequential within their parent
+      - For new top-level questions:
+          * Use next available number in the topic
+
+    B.3. Including Existing Questions:
+      - When to include:
+          * When adding sub-questions under it
+          * To provide context for the new sub-questions
+      - How to include:
+          * Mark with type="existing"
+          * Use exact question ID and text
+          * Place before its new sub-questions
+</core_responsibilities>
 
 Please update the session notes using this XML format:
 
@@ -248,38 +273,81 @@ Please update the session notes using this XML format:
 
     <user_portrait_updates>
         <field_update name="[field_name]">
-            <thinking>
-                [Specific reasoning for updating this field:
-                 - What new information triggered this update
-                 - Why the change is necessary
-                 - How it improves accuracy]
-            </thinking>
-            <value>[updated value]</value>
+            <thinking>[Clear reasoning for update]</thinking>
+            <value>[Updated information]</value>
         </field_update>
         <!-- Repeat for each updated field -->
         
-        <new_field name="[field_name]">
-            <thinking>
-                [Specific reasoning for adding this field:
-                 - What information prompted this addition
-                 - Why this field is important for the biography
-                 - What aspect of the user it captures]
-            </thinking>
-            <value>[field value]</value>
-        </new_field>
+        <field_create name="[field_name]">
+            <thinking>[Clear reasoning for addition]</thinking>
+            <value>[New information]</value>
+        </field_create>
         <!-- Repeat for each new field -->
     </user_portrait_updates>
     
     <questions>
+        <!-- Example of organizing questions in a topic -->
         <topic name="[topic_name]">
-            <thinking>[Reasoning for question organization]</thinking>
-            <question id="[id]" type="existing">[Exact existing question]</question>
-            <question id="[id]" type="collected" parent_id="[optional]">[Expert question]</question>
-            <question id="[id]" type="proposed" parent_id="[optional]">[Your question]</question>
+            <thinking>Adding depth to university experience and its impact</thinking>
+            
+            <!-- Independent questions (no parent) -->
+            <question id="4" type="collected">What continuing education have you pursued?</question>
+            <!-- Repeat for each independent question -->
+            
+            <!-- Question group with parent and its sub-questions -->
+            <question_group>
+                <!-- Parent question must be included and marked as existing -->
+                <parent type="existing" id="3">Tell me about your university years</parent>
+                <!-- Sub-questions under this parent -->
+                <sub_questions>
+                    <question id="3.1" type="collected">What extracurricular activities were most meaningful?</question>
+                    <question id="3.2" type="proposed">How did these experiences shape your career choice?</question>
+                </sub_questions>
+            </question_group>
+            <!-- Repeat for each for each question group -->
         </topic>
         <!-- Repeat for each topic -->
     </questions>
 </session_note_update>
+
+Important Notes about Questions XML Format:
+<format_notes>
+1. For independent questions (no parent):
+   - Place directly under <topic>
+   - Do not include parent_id
+   - Use next available number in topic for id
+
+2. For sub-questions:
+   - Must use <question_group> structure
+   - Must include parent question with exact ID and text
+   - All questions in <sub_questions> automatically use parent's ID as prefix
+   - Keep sub-question IDs sequential (e.g., 3.1, 3.2)
+
+3. Question types:
+   - type="existing": For parent questions that already exist
+   - type="collected": For questions from follow-up questions list
+   - type="proposed": For your own suggested questions
+
+Example Organization of Questions:
+<topic name="Education">
+    <thinking>Adding depth to university experience and its impact</thinking>
+    
+    <!-- Independent questions (no parent) -->
+    <question id="4" type="collected">What continuing education have you pursued?</question>
+    
+    <!-- Question group with parent and its sub-questions -->
+    <question_group>
+        <!-- Parent question must be included and marked as existing -->
+        <parent type="existing" id="3">Tell me about your university years</parent>
+        <!-- Sub-questions under this parent -->
+        <sub_questions>
+            <question id="3.1" type="collected">What extracurricular activities were most meaningful?</question>
+            <question id="3.2" type="proposed">How did these experiences shape your career choice?</question>
+        </sub_questions>
+    </question_group>
+</topic>
+
+</format_notes>
 """
 
 class UpdateLastMeetingSummaryInput(BaseModel):
