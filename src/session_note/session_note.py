@@ -149,6 +149,8 @@ class SessionNote:
             if parent:
                 # Option 1: question_id is parent_id.next_available_number
                 if '.' in question_id:
+                    if not question_id.startswith(parent_id):
+                        raise ValueError(f"Question ID {question_id} does not start with parent ID {parent_id}")
                     sub_id = question_id
                 # Option 2: question_id is next_available_number
                 elif question_id:
@@ -247,23 +249,36 @@ class SessionNote:
             return ""
         return self.last_meeting_summary
     
-    def format_qa(self, qa: InterviewQuestion, hide_answered=False) -> list[str]:
+    def format_qa(self, qa: InterviewQuestion, hide_answered: str = "") -> list[str]:
         """Formats a question and its sub-questions recursively.
         
         Args:
             qa: InterviewQuestion object to format
-            hide_answered: If True, only show question IDs for answered questions
+            hide_answered: How to display answered questions:
+                - "": Show everything (default)
+                - "a": Hide answers but show questions
+                - "qa": Hide both questions and answers
+        
+        Raises:
+            ValueError: If hide_answered is not one of "", "a", "qa"
         """
+        if hide_answered not in ["", "a", "qa"]:
+            raise ValueError('hide_answered must be "", "a", or "qa"')
+            
         lines = []
         
-        # If question has notes and hide_answered is True, just show it's answered
-        if hide_answered and qa.notes:
-            lines.append(f"\n[ID] {qa.question_id}: (Answered)")
+        # Handle different display modes for answered questions
+        if qa.notes:
+            if hide_answered == "qa":
+                lines.append(f"\n[ID] {qa.question_id}: (Answered)")
+            else:
+                lines.append(f"\n[ID] {qa.question_id}: {qa.question}")
+                if hide_answered != "a":  # Show answers if not hiding them
+                    for note in qa.notes:
+                        lines.append(f"[note] {note}")
         else:
+            # For unanswered questions, always show the question
             lines.append(f"\n[ID] {qa.question_id}: {qa.question}")
-            if qa.notes:
-                for note in qa.notes:
-                    lines.append(f"[note] {note}")
             
         if qa.sub_questions:
             for sub_qa in qa.sub_questions:
@@ -273,11 +288,17 @@ class SessionNote:
                 ))
         return lines
 
-    def get_questions_and_notes_str(self, hide_answered=False) -> str:
+    def get_questions_and_notes_str(self, hide_answered: str = "") -> str:
         """Returns formatted string for questions and notes.
         
         Args:
-            hide_answered: If True, only show question IDs for answered questions
+            hide_answered: How to display answered questions:
+                - "": Show everything (default)
+                - "a": Hide answers but show questions
+                - "qa": Hide both questions and answers
+        
+        Raises:
+            ValueError: If hide_answered is not one of "", "a", "qa"
         """
         if not self.topics:
             return ""

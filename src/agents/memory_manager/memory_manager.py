@@ -65,7 +65,7 @@ class MemoryManager(BaseAgent, Participant):
         elif prompt_type == "update_session_note":
             event_stream = self.get_event_stream_str(filter=[{"tag": "message"}])
             return format_prompt(prompt, {"event_stream": event_stream,
-                                         "questions_and_notes": self.interview_session.session_note.get_questions_and_notes_str(hide_answered=True),
+                                         "questions_and_notes": self.interview_session.session_note.get_questions_and_notes_str(hide_answered="qa"),
                                          "tool_descriptions": self.get_tools_description(selected_tools=["update_session_note"])})
             
     def add_new_memory(self, memory: Dict):

@@ -60,7 +60,7 @@ class Interviewer(BaseAgent, Participant):
         user_portrait_str = self.interview_session.session_note.get_user_portrait_str()
         last_meeting_summary_str = self.interview_session.session_note.get_last_meeting_summary_str()
         chat_history_str = self.get_event_stream_str()
-        questions_and_notes_str = self.interview_session.session_note.get_questions_and_notes_str(hide_answered=True)
+        questions_and_notes_str = self.interview_session.session_note.get_questions_and_notes_str(hide_answered="qa")
         ## TODO: Add additional notes
         tool_descriptions_str = self.get_tools_description()
         
