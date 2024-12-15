@@ -1,6 +1,12 @@
 from typing import Dict, List, TYPE_CHECKING
 from agents.biography_team.base_biography_agent import BiographyTeamAgent
 import xml.etree.ElementTree as ET
+from pydantic import BaseModel, Field
+from langchain_core.tools import BaseTool, ToolException
+from typing import Type, Optional
+from langchain_core.callbacks.manager import CallbackManagerForToolRun
+
+from session_note.session_note import SessionNote
 
 if TYPE_CHECKING:
     from interview_session.interview_session import InterviewSession
@@ -14,6 +20,12 @@ class SessionNoteManager(BiographyTeamAgent):
             interview_session=interview_session
         )
         self.session_note = self.interview_session.session_note
+        
+        self.tools = {
+            "update_last_meeting_summary": UpdateLastMeetingSummary(session_note=self.session_note),
+            "update_user_portrait": UpdateUserPortrait(session_note=self.session_note),
+            "add_interview_question": AddInterviewQuestion(session_note=self.session_note)
+        }
         
     async def update_session_note(self, new_memories: List[Dict], follow_up_questions: List[Dict]):
         """Update session notes with new memories and follow-up questions."""
@@ -54,7 +66,7 @@ class SessionNoteManager(BiographyTeamAgent):
                 "<question>\n"
                 f"<content>{q['content']}</content>\n"
                 f"<context>{q['context']}</context>\n" 
-                "</question>\n"
+                "</question>"
                 for q in follow_up_questions
             ])
         )
@@ -80,35 +92,35 @@ class SessionNoteManager(BiographyTeamAgent):
             if summary_elem is not None:
                 content = summary_elem.find("content")
                 if content is not None and content.text:
-                    summary_text = content.text.strip()
-                    self.session_note.last_meeting_summary = summary_text
-                    self.add_event(
-                        sender=self.name,
-                        tag="summary_update",
-                        content=f"Updated last meeting summary:\n{summary_text}"
+                    result = self.tools["update_last_meeting_summary"]._run(
+                        summary=content.text.strip()
                     )
+                    self.add_event(sender=self.name, tag="summary_update", content=result)
             
             # Update user portrait
             portrait_updates = root.find("user_portrait_updates")
             if portrait_updates is not None:
-                
                 # Handle updated fields
                 for field_update in portrait_updates.findall("field_update"):
                     field_name = field_update.get("name")
                     value_elem = field_update.find("value")
-                    
                     if field_name and value_elem is not None and value_elem.text:
-                        new_value = value_elem.text.strip()
-                        self.session_note.user_portrait[field_name] = new_value
+                        result = self.tools["update_user_portrait"]._run(
+                            field_name=field_name,
+                            value=value_elem.text.strip()
+                        )
+                        self.add_event(sender=self.name, tag="portrait_update", content=result)
                 
                 # Handle new fields
                 for new_field in portrait_updates.findall("new_field"):
                     field_name = new_field.get("name")
                     value_elem = new_field.find("value")
-                    
                     if field_name and value_elem is not None and value_elem.text:
-                        new_value = value_elem.text.strip()
-                        self.session_note.user_portrait[field_name] = new_value
+                        result = self.tools["update_user_portrait"]._run(
+                            field_name=field_name,
+                            value=value_elem.text.strip()
+                        )
+                        self.add_event(sender=self.name, tag="portrait_update", content=result)
             
             # Update questions
             questions_elem = root.find("questions")
@@ -117,7 +129,7 @@ class SessionNoteManager(BiographyTeamAgent):
                     topic_name = topic.get("name")
                     if not topic_name:
                         continue
-                                        
+                    
                     for question in topic.findall("question"):
                         question_text = question.text.strip() if question.text else ""
                         if not question_text:
@@ -129,13 +141,14 @@ class SessionNoteManager(BiographyTeamAgent):
                         
                         # Only add questions marked as new
                         if question_type != "existing":
-                            self.session_note.add_interview_question(
+                            result = self.tools["add_interview_question"]._run(
                                 topic=topic_name,
                                 question=question_text,
                                 question_id=question_id,
                                 parent_id=parent_id
                             )
-            
+                            self.add_event(sender=self.name, tag="question_update", content=result)
+                        
         except Exception as e:
             error_msg = f"Error processing session note update: {str(e)}\nResponse: {response}"
             self.add_event(sender=self.name, tag="error", content=error_msg)
@@ -267,4 +280,81 @@ Please update the session notes using this XML format:
         <!-- Repeat for each topic -->
     </questions>
 </session_note_update>
-""" 
+"""
+
+class UpdateLastMeetingSummaryInput(BaseModel):
+    summary: str = Field(description="The new summary text for the last meeting")
+
+class UpdateUserPortraitInput(BaseModel):
+    field_name: str = Field(description="The name of the field to update")
+    value: str = Field(description="The new value for the field")
+
+class AddInterviewQuestionInput(BaseModel):
+    topic: str = Field(description="The topic category for the question")
+    question: str = Field(description="The actual question text")
+    question_id: str = Field(description="Optional custom ID for the question")
+    parent_id: str = Field(description="Optional ID of parent question")
+
+# Add these tool classes
+class UpdateLastMeetingSummary(BaseTool):
+    """Tool for updating the last meeting summary."""
+    name: str = "update_last_meeting_summary"
+    description: str = "Updates the last meeting summary in the session note"
+    args_schema: Type[BaseModel] = UpdateLastMeetingSummaryInput
+    session_note: SessionNote = Field(...)
+
+    def _run(
+        self,
+        summary: str,
+        run_manager: Optional[CallbackManagerForToolRun] = None,
+    ) -> str:
+        try:
+            self.session_note.last_meeting_summary = summary.strip()
+            return "Successfully updated last meeting summary"
+        except Exception as e:
+            raise ToolException(f"Error updating last meeting summary: {e}")
+
+class UpdateUserPortrait(BaseTool):
+    """Tool for updating the user portrait."""
+    name: str = "update_user_portrait"
+    description: str = "Updates a field in the user portrait"
+    args_schema: Type[BaseModel] = UpdateUserPortraitInput
+    session_note: SessionNote = Field(...)
+
+    def _run(
+        self,
+        field_name: str,
+        value: str,
+        run_manager: Optional[CallbackManagerForToolRun] = None,
+    ) -> str:
+        try:
+            self.session_note.user_portrait[field_name] = value.strip()
+            return f"Successfully updated user portrait field: {field_name}"
+        except Exception as e:
+            raise ToolException(f"Error updating user portrait: {e}")
+
+class AddInterviewQuestion(BaseTool):
+    """Tool for adding new interview questions."""
+    name: str = "add_interview_question"
+    description: str = "Adds a new interview question to the session notes"
+    args_schema: Type[BaseModel] = AddInterviewQuestionInput
+    session_note: SessionNote = Field(...)
+
+    def _run(
+        self,
+        topic: str,
+        question: str,
+        question_id: str = None,
+        parent_id: str = None,
+        run_manager: Optional[CallbackManagerForToolRun] = None,
+    ) -> str:
+        try:
+            self.session_note.add_interview_question(
+                topic=topic,
+                question=question,
+                question_id=question_id,
+                parent_id=parent_id
+            )
+            return f"Successfully added question to topic: {topic}"
+        except Exception as e:
+            raise ToolException(f"Error adding interview question: {e}")
