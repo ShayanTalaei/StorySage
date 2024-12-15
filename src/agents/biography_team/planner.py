@@ -128,7 +128,6 @@ class BiographyPlanner(BiographyTeamAgent):
                 for question in root.findall("question"):
                     questions.append({
                         "question": question.text.strip(),
-                        "type": "breadth"
                     })
         except Exception as e:
             self.add_event(sender=self.name, tag="error", 

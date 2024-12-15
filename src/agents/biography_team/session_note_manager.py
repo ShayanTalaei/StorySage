@@ -88,7 +88,7 @@ class SessionNoteManager(BiographyTeamAgent):
                 
                 # Handle updated fields
                 for field_update in portrait_updates.findall("field_update"):
-                    field_name = field_update.get("name").lower()
+                    field_name = field_update.get("name")
                     value_elem = field_update.find("value")
                     
                     if field_name and value_elem is not None and value_elem.text:
@@ -122,21 +122,13 @@ class SessionNoteManager(BiographyTeamAgent):
                         parent_id = question.get("parent_id")
                         
                         # Only add questions marked as new
-                        if question_type == "new":
+                        if question_type != "existing":
                             self.session_note.add_interview_question(
                                 topic=topic_name,
                                 question=question_text,
                                 question_id=question_id,
                                 parent_id=parent_id
                             )
-            
-            # Save the updated session note
-            saved_path = self.session_note.save()
-            self.add_event(
-                sender=self.name,
-                tag="save_success",
-                content=f"Saved session note to: {saved_path}"
-            )
             
         except Exception as e:
             error_msg = f"Error processing session note update: {str(e)}\nResponse: {response}"
@@ -199,9 +191,27 @@ Core Responsibilities:
         - Mark them with type="proposed"
     * For ALL new questions:
         - Choose an appropriate topic category
-        - Assign a new question ID that doesn't conflict with existing ones
-        - Can be either top-level or sub-questions
-        - If it's a sub-question which deepens an existing question, specify the parent_id. If the parent_id is 6, you can begin with 6.1, 6.2, etc if there is no conflict.
+        - Assign new question ID that doesn't conflict with existing ones
+        - Carefully consider parent-child relationships:
+            * When to use parent_id:
+                - The new question deepens/details an existing question
+                - The new question explores a specific aspect of a broader question
+                - The new question follows up on a particular point from parent
+            * Examples of parent-child relationships:
+                - Parent: "Tell me about your education background"
+                  Child: "What experiences did you have in university?"
+                  Child: "How did your education influence your career choice?"
+                
+                - Parent: "What was your childhood like?"
+                  Child: "Tell me about your relationship with siblings"
+                  Child: "What were your favorite activities?"
+            * ID Assignment for sub-questions:
+                - If parent_id is "6", sub-questions should be "6.1", "6.2", etc.
+                - Keep sub-question IDs sequential within their parent
+            * When NOT to use parent_id:
+                - The question introduces a new, independent topic, which explores breadth rather than depth
+                - The question is related but explores a different aspect
+                - The question shifts focus to a different time period/theme
 - Only include existing questions when:
     * You want to add sub-questions under them
     * Including the parent question helps provide context for the new sub-questions
@@ -243,20 +253,10 @@ Please update the session notes using this XML format:
     
     <questions>
         <topic name="[topic_name]">
-            <thinking>
-                [Reasoning for question organization:
-                 - Why these questions are grouped together
-                 - Why new questions were added
-                 - How they relate to new memories]
-            </thinking>
-            <!-- Include both existing and new questions -->
-            <question id="[question_id]" type="existing" parent_id="[optional_parent_id]">
-                [Existing question text - must match exactly]
-            </question>
-            <question id="[question_id]" type="new" parent_id="[optional_parent_id]">
-                [New question text]
-            </question>
-            <!-- Repeat for each question -->
+            <thinking>[Reasoning for question organization]</thinking>
+            <question id="[id]" type="existing">[Exact existing question]</question>
+            <question id="[id]" type="collected" parent_id="[optional]">[Expert question]</question>
+            <question id="[id]" type="proposed" parent_id="[optional]">[Your question]</question>
         </topic>
         <!-- Repeat for each topic -->
     </questions>

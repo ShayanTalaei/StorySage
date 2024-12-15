@@ -177,7 +177,7 @@ def test_initialize_session_note(temp_logs_dir):
     note = SessionNote.initialize_session_note(USER_ID)
     
     # Verify basic structure
-    assert note.session_id == 1
+    assert note.session_id == 0
     assert "Name" in note.user_portrait
     assert note.last_meeting_summary != ""
     
@@ -190,7 +190,7 @@ def test_get_last_session_note(temp_logs_dir):
     """Test retrieving last session note"""
     # First time should create new note
     note1 = SessionNote.get_last_session_note(USER_ID)
-    assert str(note1.session_id) == "1"
+    assert str(note1.session_id) == "0"
     
     # Save another session note
     data = {"user_portrait": {"Name": "Test User"}}

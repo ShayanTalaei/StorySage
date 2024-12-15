@@ -145,7 +145,6 @@ class SectionWriter(BiographyTeamAgent):
                 for question in root.findall("question"):
                     questions.append({
                         "question": question.text.strip(),
-                        "type": "depth"
                     })
                 
                 self.add_event(sender=self.name, tag="follow_up_questions", 

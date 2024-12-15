@@ -25,6 +25,7 @@ class InterviewSession:
 
         self.user_id = user_id
         self.session_note = SessionNote.get_last_session_note(user_id)
+        self.session_note.session_id += 1
         self.session_id = self.session_note.session_id
         setup_logger(user_id, self.session_id, console_output_files=["execution_log"])
         
@@ -122,6 +123,8 @@ class InterviewSession:
                 SessionLogger.log_to_file("execution_log", f"[RUN] Error during biography update: {str(e)}")
             finally:
                 SessionLogger.log_to_file("execution_log", f"[RUN] Interview session completed")
+        
+        self.session_note.save()
     
     async def update_biography(self):
         """Update biography using the biography team."""
