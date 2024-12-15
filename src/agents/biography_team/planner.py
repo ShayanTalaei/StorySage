@@ -40,15 +40,15 @@ class BiographyPlanner(BiographyTeamAgent):
         self.add_event(sender=self.name, tag="memory_search_start", 
                       content=f"Searching for memories relevant to {len(new_memories)} new memories")
         
-        # Get all relevant memories from memory bank
-        relevant_memories_dict = {}
-        for memory in new_memories:
-            search_results = self.memory_bank.search_memories(memory['text'], k=3)
-            for result in search_results:
-                relevant_memories_dict[result['id']] = result
-        relevant_memories = list(relevant_memories_dict.values())
-        self.add_event(sender=self.name, tag="memory_search_complete", 
-                       content=f"{relevant_memories}")
+        # # Get all relevant memories from memory bank
+        # relevant_memories_dict = {}
+        # for memory in new_memories:
+        #     search_results = self.memory_bank.search_memories(memory['text'], k=3)
+        #     for result in search_results:
+        #         relevant_memories_dict[result['id']] = result
+        # relevant_memories = list(relevant_memories_dict.values())
+        # self.add_event(sender=self.name, tag="memory_search_complete", 
+        #                content=f"{relevant_memories}")
         
         prompt = PLANNER_SYSTEM_PROMPT.format(
             biography_structure=json.dumps(self.get_biography_structure(), indent=2),
@@ -59,13 +59,6 @@ class BiographyPlanner(BiographyTeamAgent):
                 f"<content>{m['text']}</content>\n"
                 "</memory>\n"
                 for m in new_memories
-            ]),
-            relevant_information="\n".join([
-                "<memory>\n"
-                f"<title>{m['title']}</title>\n"
-                f"<content>{m['text']}</content>\n"
-                "</memory>\n"
-                for m in relevant_memories
             ])
         )
         
@@ -177,17 +170,13 @@ Input Context:
 {new_information}
 </new_information>
 
-<relevant_information>
-{relevant_information}
-</relevant_information>
-
 Core Responsibilities:
-1. Analyze the new information and their relationship with existing content
-2. Determine whether to:
-   a. Update existing sections or subsections
-   b. Create new sections or subsections
-3. Create specific plans for each action
-4. Suggest follow-up questions to expand the biography's breadth
+- Analyze the new information and their relationship with existing content
+- Determine whether to:
+   * Update existing sections or subsections
+   * Create new sections or subsections
+- Create specific plans for each action
+- Suggest follow-up questions to expand the biography's breadth
 
 Guidance for Creating Plans:
 - How the new information connects to existing content
@@ -227,12 +216,15 @@ Provide your response in the following XML format:
 </follow_up_questions>
 
 Important Notes about the XML Format:
+<format_notes>
 - Set action_type as "create" when adding a new section
 - Set action_type as "update" when modifying an existing section
 - The section_path is the full path to the section
 - Each plan must include a detailed update_plan explaining the changes
+</format_notes>
 
 Important Note About Section Paths:
+<format_notes>
 - Section paths must be specified using forward slashes to indicate hierarchy
 - Each part of the path should be the exact title of a section
 - Maximum 4 levels of hierarchy allowed
@@ -252,4 +244,5 @@ Important Note About Section Paths:
   * "1 Early Life/Childhood" (missing second level number)
   * "1.1 Childhood" (subsection without parent section)
   * "1 Early Life/1.1 Childhood/Games/Types/Specific" (exceeds 4 levels)
+</format_notes>
 """

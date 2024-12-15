@@ -190,10 +190,10 @@ Requirements for Section Writing:
    - Exclude irrelevant memories even if provided
 
 Requirements for Follow-Up Questions:
-- Target specific information gaps
-- Be clear and direct
-- Focus on one topic per question
-- Aim to enhance the current section
+1. Target specific information gaps
+2. Be clear and direct
+3. Focus on one topic per question
+4. Aim to enhance the current section
 
 Required Output Format:
 <section_update>
