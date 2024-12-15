@@ -37,9 +37,22 @@ class SessionNote:
         self.additional_notes: list[str] = data.get("additional_notes", [])
     
     @classmethod
+    def load_from_file(cls, file_path):
+        """Loads a SessionNote from a JSON file."""
+        with open(file_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            
+        # Extract the core fields from the file
+        user_id = data.pop('user_id', '')
+        session_id = data.pop('session_id', '')
+        
+        # Create new SessionNote instance
+        return cls(user_id, session_id, data)
+    
+    @classmethod
     def initialize_session_note(cls, user_id):
         """Creates a new session note for the first session."""
-        session_id = 1
+        session_id = 0
         data = {
             "user_portrait": {
                 "Name": "",
@@ -147,7 +160,7 @@ class SessionNote:
                 new_question = InterviewQuestion(topic, sub_id, question)
                 parent.sub_questions.append(new_question)
             else:
-                print(f"Parent question with id {parent_id} not found")
+                raise ValueError(f"Parent question with id {parent_id} not found")
         
     def add_note(self, question_id: str="", note: str=""):
         """Adds a note to a question or the additional notes list."""
@@ -160,7 +173,6 @@ class SessionNote:
                     print(f"Question with id {question_id} not found")
             else:
                 self.additional_notes.append(note)
-        self.save()
         
     def get_question(self, question_id: str):
         """Retrieves an InterviewQuestion object by its ID."""
@@ -191,19 +203,6 @@ class SessionNote:
             current = next((q for q in current.sub_questions if q.question_id.endswith(part)), None)
             
         return current
-    
-    @classmethod
-    def load_from_file(cls, file_path):
-        """Loads a SessionNote from a JSON file."""
-        with open(file_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-            
-        # Extract the core fields from the file
-        user_id = data.pop('user_id', '')
-        session_id = data.pop('session_id', '')
-        
-        # Create new SessionNote instance
-        return cls(user_id, session_id, data)
         
     def save(self):
         """Saves the SessionNote to a JSON file."""
