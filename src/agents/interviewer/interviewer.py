@@ -11,6 +11,7 @@ from agents.prompt_utils import format_prompt
 from memory_bank.memory_bank_vector_db import MemoryBank
 from interview_session.session_models import Participant, Message
 from utils.text_to_speech import create_tts_engine
+from utils.audio_player import create_audio_player, AudioPlayerBase
 
 if TYPE_CHECKING:
     from interview_session.interview_session import InterviewSession
@@ -127,6 +128,7 @@ class RespondToUser(BaseTool):
     base_path: str = Field(...)
     args_schema: Type[BaseModel] = ResponseToUserInput
     tts_engine: Optional[Any] = Field(default=None, exclude=True)
+    audio_player: Optional[Any] = Field(default=None, exclude=True)
 
     def __init__(self, **data):
         super().__init__(**data)
@@ -135,6 +137,7 @@ class RespondToUser(BaseTool):
                 provider=self.tts_config.get("provider", "openai"),
                 voice=self.tts_config.get("voice", "alloy")
             )
+            self.audio_player: AudioPlayerBase = create_audio_player()
 
     def _run(
         self,
@@ -152,8 +155,12 @@ class RespondToUser(BaseTool):
                     output_path=f"{self.base_path}/audio_outputs/response_{int(time.time())}.mp3"
                 )
                 print(f"{GREEN}Audio saved to: {audio_path}{RESET}")
+                
+                # Play the audio
+                self.audio_player.play(audio_path)
+                
             except Exception as e:
-                print(f"{RED}Failed to generate speech: {e}{RESET}")
+                print(f"{RED}Failed to generate/play speech: {e}{RESET}")
         
         self.interviewer.turn_to_respond = False
         return "Response sent to the user."

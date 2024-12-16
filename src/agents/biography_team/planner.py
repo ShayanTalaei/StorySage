@@ -173,6 +173,7 @@ Core Responsibilities:
    * Update existing sections or subsections
    * Create new sections or subsections
 - Create specific plans for each action
+   * Note: only update sections, no need to update titles and other metadata
 - Suggest follow-up questions to expand the biography's breadth
 
 Guidance for Creating Plans:
@@ -237,6 +238,7 @@ Important Note About Section Paths:
   * "2 Career/2.1 Software Projects/First App"
   * "3 Personal Life/3.2 Hobbies/Gaming/Favorite Games"
 - Examples of invalid paths:
+  * "Title" (missing first level number and no need to update a title)
   * "Early Life" (missing first level number)
   * "1 Early Life/Childhood" (missing second level number)
   * "1.1 Childhood" (subsection without parent section)
