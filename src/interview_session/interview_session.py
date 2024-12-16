@@ -20,7 +20,7 @@ load_dotenv(override=True)
 
 class InterviewSession: 
     
-    def __init__(self, user_id: str, user_agent: bool = False, enable_tts: bool = False):
+    def __init__(self, user_id: str, user_agent: bool = False, enable_voice_output: bool = False, enable_voice_input: bool = False):
         """Initialize the interview session."""
 
         self.user_id = user_id
@@ -37,12 +37,12 @@ class InterviewSession:
         if user_agent:
             self.user: User = UserAgent(user_id=user_id, interview_session=self)
         else:
-            self.user: User = User(user_id=user_id, interview_session=self)
+            self.user: User = User(user_id=user_id, interview_session=self, enable_voice_input=enable_voice_input)
         
         SessionLogger.log_to_file("execution_log", f"[INIT] User instance created")        
         
         # Agents in the interview session
-        self.interviewer: Interviewer = Interviewer(config={"user_id": user_id, "tts": {"enabled": enable_tts}}, interview_session=self)
+        self.interviewer: Interviewer = Interviewer(config={"user_id": user_id, "tts": {"enabled": enable_voice_output}}, interview_session=self)
         self.memory_manager: MemoryManager = MemoryManager(config={"user_id": user_id}, interview_session=self)
         self.biography_orchestrator = BiographyOrchestrator(config={"user_id": user_id}, interview_session=self)
         
