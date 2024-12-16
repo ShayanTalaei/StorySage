@@ -10,6 +10,7 @@ from agents.interviewer.prompts import get_prompt
 from agents.prompt_utils import format_prompt
 from memory_bank.memory_bank_vector_db import MemoryBank
 from interview_session.session_models import Participant, Message
+from utils.text_to_speech import create_tts_engine
 
 if TYPE_CHECKING:
     from interview_session.interview_session import InterviewSession
@@ -29,28 +30,34 @@ class Interviewer(BaseAgent, Participant):
         
         self.user_id = config.get("user_id")
         self.memory_bank = MemoryBank.load_from_file(self.user_id)
+        
+        # Initialize TTS configuration
+        tts_config = config.get("tts", {})
+        self.base_path = f"data/{self.user_id}/"
+        
         self.tools = {
             "recall": Recall(memory_bank=self.memory_bank),
-            "respond_to_user": RespondToUser(interviewer=self),
+            "respond_to_user": RespondToUser(
+                interviewer=self,
+                tts_config=tts_config,
+                base_path=self.base_path
+            ),
             "end_conversation": EndConversation(interviewer=self)
         }
         
         self.turn_to_respond = False
 
-        
     async def on_message(self, message: Message):
         if message:
             self.add_event(sender=message.role, tag="message", content=message.content)
         self.turn_to_respond = True
         while self.turn_to_respond:
             prompt = self.get_prompt()
-            # print(f"{GREEN}Interviewer:\n{prompt}{RESET}")
             response = self.call_engine(prompt)
             print(f"{GREEN}Interviewer:\n{response}{RESET}")
         
             # Add interviewer's response to both chat histories
             self.add_event(sender=self.name, tag="interviewer_response", content=response)
-            # self.interview_session.memory_manager.add_event(sender=self.name, content=response)
             
             self.handle_tool_calls(response)
     
@@ -116,7 +123,18 @@ class RespondToUser(BaseTool):
         "A tool for responding to the user."
     )
     interviewer: Interviewer = Field(...)
+    tts_config: Dict = Field(default_factory=dict)
+    base_path: str = Field(...)
     args_schema: Type[BaseModel] = ResponseToUserInput
+    tts_engine: Optional[Any] = Field(default=None, exclude=True)
+
+    def __init__(self, **data):
+        super().__init__(**data)
+        if self.tts_config.get("enabled", False):
+            self.tts_engine = create_tts_engine(
+                provider=self.tts_config.get("provider", "openai"),
+                voice=self.tts_config.get("voice", "alloy")
+            )
 
     def _run(
         self,
@@ -125,6 +143,18 @@ class RespondToUser(BaseTool):
     ) -> Any:
         interview_session = self.interviewer.interview_session
         interview_session.add_message_to_chat_history(role=self.interviewer.title, content=response)
+        
+        # Generate speech if TTS is enabled
+        if self.tts_engine:
+            try:
+                audio_path = self.tts_engine.text_to_speech(
+                    response,
+                    output_path=f"{self.base_path}/audio_outputs/response_{int(time.time())}.mp3"
+                )
+                print(f"{GREEN}Audio saved to: {audio_path}{RESET}")
+            except Exception as e:
+                print(f"{RED}Failed to generate speech: {e}{RESET}")
+        
         self.interviewer.turn_to_respond = False
         return "Response sent to the user."
 
