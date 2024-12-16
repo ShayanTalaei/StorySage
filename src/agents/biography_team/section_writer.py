@@ -41,7 +41,7 @@ class SectionWriter(BiographyTeamAgent):
         """
         
         prompt = self._create_section_write_prompt(todo_item)
-        self.add_event(sender=self.name, tag="section_write_prompt", content=prompt)
+        self.add_event(sender=self.name, tag="prompt", content=prompt)
         
         response = self.call_engine(prompt)
         self.add_event(sender=self.name, tag="llm_response", content=response)
@@ -51,7 +51,7 @@ class SectionWriter(BiographyTeamAgent):
         self.follow_up_questions.extend(self._parse_questions(response))
         
         result_message = "Section updated successfully" if success else "Failed to update section"
-        self.add_event(sender=self.name, tag="update_result", 
+        self.add_event(sender=self.name, tag="event_result", 
                       content=result_message)
         
         return UpdateResult(
@@ -63,9 +63,8 @@ class SectionWriter(BiographyTeamAgent):
         """
         Save the current state of the biography to file.
         """
-        self.add_event(sender=self.name, tag="save_biography", content="Saving biography to file")
         result = self.tools["save_biography"]._run()
-        self.add_event(sender=self.name, tag="save_result", content=result)
+        self.add_event(sender=self.name, tag="event_result", content=result)
         return result
 
     def _create_section_write_prompt(self, todo_item: TodoItem) -> str:

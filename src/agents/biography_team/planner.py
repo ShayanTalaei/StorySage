@@ -22,7 +22,7 @@ class BiographyPlanner(BiographyTeamAgent):
         Create update plans for the biography based on new memories.
         """
         prompt = self._create_planning_prompt(new_memories)
-        self.add_event(sender=self.name, tag="planning_prompt", content=prompt)
+        self.add_event(sender=self.name, tag="prompt", content=prompt)
         
         response = self.call_engine(prompt)
         self.add_event(sender=self.name, tag="llm_response", content=response)
@@ -36,10 +36,7 @@ class BiographyPlanner(BiographyTeamAgent):
     def _create_planning_prompt(self, new_memories: List[Dict]) -> str:
         """
         Create a prompt for the planner to analyze new memories and create update plans.
-        """
-        self.add_event(sender=self.name, tag="memory_search_start", 
-                      content=f"Searching for memories relevant to {len(new_memories)} new memories")
-        
+        """        
         # # Get all relevant memories from memory bank
         # relevant_memories_dict = {}
         # for memory in new_memories:

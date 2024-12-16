@@ -34,7 +34,7 @@ class SessionNoteManager(BiographyTeamAgent):
             new_memories=new_memories,
             follow_up_questions=follow_up_questions
         )
-        self.add_event(sender=self.name, tag="session_note_prompt", content=prompt)
+        self.add_event(sender=self.name, tag="prompt", content=prompt)
         
         # Get and log the LLM response
         response = self.call_engine(prompt)
@@ -45,7 +45,7 @@ class SessionNoteManager(BiographyTeamAgent):
             self._handle_session_note_update(response)
             self.add_event(
                 sender=self.name,
-                tag="update_success",
+                tag="event_result",
                 content="Successfully updated session notes"
             )
         except Exception as e:
@@ -95,7 +95,7 @@ class SessionNoteManager(BiographyTeamAgent):
                     result = self.tools["update_last_meeting_summary"]._run(
                         summary=content.text.strip()
                     )
-                    self.add_event(sender=self.name, tag="summary_update", content=result)
+                    self.add_event(sender=self.name, tag="event_result", content=result)
             
             # Update user portrait
             portrait_updates = root.find("user_portrait_updates")
@@ -109,7 +109,7 @@ class SessionNoteManager(BiographyTeamAgent):
                             field_name=field_name,
                             value=value_elem.text.strip()
                         )
-                        self.add_event(sender=self.name, tag="portrait_update", content=result)
+                        self.add_event(sender=self.name, tag="event_result", content=result)
                 
                 # Handle new fields
                 for field_create in portrait_updates.findall("field_create"):
@@ -120,7 +120,7 @@ class SessionNoteManager(BiographyTeamAgent):
                             field_name=field_name,
                             value=value_elem.text.strip()
                         )
-                        self.add_event(sender=self.name, tag="portrait_update", content=result)
+                        self.add_event(sender=self.name, tag="event_result", content=result)
             
             # Update questions
             questions_elem = root.find("questions")
@@ -141,7 +141,7 @@ class SessionNoteManager(BiographyTeamAgent):
                             question=question_text,
                             question_id=question.get("id")
                         )
-                        self.add_event(sender=self.name, tag="question_update", content=result)
+                        self.add_event(sender=self.name, tag="event_result", content=result)
                     
                     # Handle question groups (parent with sub-questions)
                     for group in topic.findall("question_group"):
@@ -165,7 +165,7 @@ class SessionNoteManager(BiographyTeamAgent):
                                 question_id=question.get("id"),
                                 parent_id=parent_id
                             )
-                            self.add_event(sender=self.name, tag="question_update", content=result)
+                            self.add_event(sender=self.name, tag="event_result", content=result)
             
         except Exception as e:
             error_msg = f"Error processing session note update: {str(e)}\nResponse: {response}"
