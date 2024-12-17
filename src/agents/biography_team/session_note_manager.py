@@ -149,7 +149,6 @@ class SessionNoteManager(BiographyTeamAgent):
                         if parent is None or not parent.text:
                             continue
                             
-                        parent_id = parent.get("id")
                         sub_questions = group.find("sub_questions")
                         if sub_questions is None:
                             continue
@@ -162,8 +161,7 @@ class SessionNoteManager(BiographyTeamAgent):
                             result = self.tools["add_interview_question"]._run(
                                 topic=topic_name,
                                 question=question_text,
-                                question_id=question.get("id"),
-                                parent_id=parent_id
+                                question_id=question.get("id")
                             )
                             self.add_event(sender=self.name, tag="event_result", content=result)
             
@@ -370,8 +368,7 @@ class UpdateUserPortraitInput(BaseModel):
 class AddInterviewQuestionInput(BaseModel):
     topic: str = Field(description="The topic category for the question")
     question: str = Field(description="The actual question text")
-    question_id: str = Field(description="Optional custom ID for the question")
-    parent_id: str = Field(description="Optional ID of parent question")
+    question_id: str = Field(description="The ID that determines question position (e.g. '1' for top-level, '1.1' for sub-question)")
 
 class UpdateLastMeetingSummary(BaseTool):
     """Tool for updating the last meeting summary."""
@@ -439,16 +436,14 @@ class AddInterviewQuestion(BaseTool):
         self,
         topic: str,
         question: str,
-        question_id: str = None,
-        parent_id: str = None,
+        question_id: str,
         run_manager: Optional[CallbackManagerForToolRun] = None,
     ) -> str:
         try:
             self.session_note.add_interview_question(
                 topic=topic,
                 question=question,
-                question_id=question_id,
-                parent_id=parent_id
+                question_id=question_id
             )
             return f"Successfully added question to topic: {topic}"
         except Exception as e:

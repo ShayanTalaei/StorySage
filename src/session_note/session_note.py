@@ -119,50 +119,41 @@ class SessionNote:
         latest_file = os.path.join(base_path, files[0])
         return cls.load_from_file(latest_file)
     
-    def add_interview_question(self, topic: str, question: str, question_id: str = None, parent_id: str = None):
+    def add_interview_question(self, topic: str, question: str, question_id: str):
         """Adds a new interview question to the session notes.
         
         Args:
             topic: The topic category for the question (e.g. "personal", "professional")
             question: The actual question text
-            question_id: Optional custom ID for the question. If not provided:
-                - Option 1: uses next_available_number
-                - Option 2: uses parent_id.next_available_number
-            parent_id: Optional ID of parent question. If provided, adds this as a sub-question
-                under the parent question (e.g. "1.1" under question "1")
+            question_id: Required ID for the question that determines its position:
+                - If no period (e.g. "1", "2"): top-level question
+                - If has period (e.g. "1.1", "2.3"): sub-question under parent
+                The parent ID is extracted from the question_id (e.g. "1" from "1.1")
         
         Example:
-            add_interview_question("personal", "Where did you grow up?", "1")
-            add_interview_question("personal", "What schools?", "1", "1")  # Creates question 1.1
+            add_interview_question("family", "Tell me about your parents", "1")
+            add_interview_question("father_relationship", "How was your relationship with your father?", "1.1")
+            add_interview_question("mother_relationship", "What about your mother?", "1.2")
         """
-        if topic not in self.topics:
-            self.topics[topic] = []
-            
-        if not parent_id:
+        if not question_id:
+            raise ValueError("question_id is required")
+        
+        if '.' not in question_id:
             # Top-level question
-            question_id = question_id if question_id else str(len(self.topics[topic]) + 1)
+            if topic not in self.topics:
+                self.topics[topic] = []
             new_question = InterviewQuestion(topic, question_id, question)
             self.topics[topic].append(new_question)
         else:
             # Sub-question
+            parent_id = question_id.rsplit('.', 1)[0]  # e.g., "1.2.3" -> "1.2"
             parent = self.get_question(parent_id)
-            if parent:
-                # Option 1: question_id is parent_id.next_available_number
-                if '.' in question_id:
-                    if not question_id.startswith(parent_id):
-                        raise ValueError(f"Question ID {question_id} does not start with parent ID {parent_id}")
-                    sub_id = question_id
-                # Option 2: question_id is next_available_number
-                elif question_id:
-                    sub_id = f"{parent_id}.{question_id}"
-                # If no question_id provided, use next_available_number
-                else:
-                    sub_id = f"{parent_id}.{len(parent.sub_questions) + 1}"
-                
-                new_question = InterviewQuestion(topic, sub_id, question)
-                parent.sub_questions.append(new_question)
-            else:
+            
+            if not parent:
                 raise ValueError(f"Parent question with id {parent_id} not found")
+            
+            new_question = InterviewQuestion(topic, question_id, question)
+            parent.sub_questions.append(new_question)
         
     def add_note(self, question_id: str="", note: str=""):
         """Adds a note to a question or the additional notes list."""
