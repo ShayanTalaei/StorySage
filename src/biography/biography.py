@@ -70,7 +70,6 @@ class Biography:
                 continue
                 
         next_version = max(versions) + 1 if versions else 1
-        print(f"Next version: {next_version}")
         return next_version
 
     @classmethod
