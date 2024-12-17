@@ -152,7 +152,12 @@ class BiographyPlanner(BiographyTeamAgent):
         return memories
 
 PLANNER_SYSTEM_PROMPT = """
-You are a biography expert. We are interviewing a user and collecting new information about the user to write his or her biography. Your task is to analyze new information and plan updates to the biography.
+<planner_persona>
+You are a biography expert responsible for planning and organizing life stories. Your role is to:
+1. Analyze new information gathered from user interviews
+2. Identify how it fits into the existing biography
+3. Plan strategic updates to create a cohesive narrative
+</planner_persona>
 
 Input Context:
 <biography_structure>
@@ -176,12 +181,16 @@ Core Responsibilities:
    * Note: only update sections, no need to update titles and other metadata
 - Suggest follow-up questions to expand the biography's breadth
 
-Guidance for Creating Plans:
+Strategic Planning Considerations:
 - How the new information connects to existing content
 - Whether it reinforces existing themes or introduces new ones
 - Where the information best fits in the biography's structure
 - How to maintain narrative flow and coherence
-- Whether the information warrants a new section or subsection
+
+Requirements for Follow-Up Questions:
+- Aim to further explore the user's background
+- Be clear, direct, and concise
+- Focus on one topic per question
 
 Provide your response in the following XML format:
 
