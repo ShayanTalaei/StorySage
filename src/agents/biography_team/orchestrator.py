@@ -2,7 +2,7 @@ from typing import Dict, List, TYPE_CHECKING
 
 from agents.biography_team.planner import BiographyPlanner
 from agents.biography_team.section_writer import SectionWriter
-from agents.biography_team.session_note_agent import SessionNoteAgent
+from agents.biography_team.session_note_manager import SessionNoteManager
 from agents.biography_team.models import TodoItem
 
 if TYPE_CHECKING:
@@ -14,7 +14,7 @@ class BiographyOrchestrator:
         self.todo_items: List[TodoItem] = []
         self.planner = BiographyPlanner(config, interview_session)
         self.section_writer = SectionWriter(config, interview_session)
-        self.session_note_agent = SessionNoteAgent(config, interview_session)
+        self.session_note_agent = SessionNoteManager(config, interview_session)
         
     async def update_biography(self, new_memories: List[Dict]):
         # 1. Get plans from planner

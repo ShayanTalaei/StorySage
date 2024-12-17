@@ -21,46 +21,42 @@ class BiographyPlanner(BiographyTeamAgent):
         """
         Create update plans for the biography based on new memories.
         """
-        self.add_event(sender=self.name, tag="planning_start", 
-                      content=f"Starting to plan updates for {len(new_memories)} new memories")
-        
         prompt = self._create_planning_prompt(new_memories)
-        self.add_event(sender=self.name, tag="planning_prompt", content=prompt)
+        self.add_event(sender=self.name, tag="prompt", content=prompt)
         
         response = self.call_engine(prompt)
         self.add_event(sender=self.name, tag="llm_response", content=response)
 
         plans = self._parse_plans(response)
-        self.add_event(sender=self.name, tag="parsed_plans", content=f"{plans}")
         
         self.follow_up_questions = self._parse_questions(response)
-        self.add_event(sender=self.name, tag="follow_up_questions", content=f"{self.follow_up_questions}")
 
         return plans
 
     def _create_planning_prompt(self, new_memories: List[Dict]) -> str:
         """
         Create a prompt for the planner to analyze new memories and create update plans.
-        """
-        self.add_event(sender=self.name, tag="memory_search_start", 
-                      content=f"Searching for memories relevant to {len(new_memories)} new memories")
+        """        
+        # # Get all relevant memories from memory bank
+        # relevant_memories_dict = {}
+        # for memory in new_memories:
+        #     search_results = self.memory_bank.search_memories(memory['text'], k=3)
+        #     for result in search_results:
+        #         relevant_memories_dict[result['id']] = result
+        # relevant_memories = list(relevant_memories_dict.values())
+        # self.add_event(sender=self.name, tag="memory_search_complete", 
+        #                content=f"{relevant_memories}")
         
-        # Get all relevant memories from memory bank
-        relevant_memories_dict = {}
-        for memory in new_memories:
-            search_results = self.memory_bank.search_memories(memory['text'], k=3)
-            for result in search_results:
-                relevant_memories_dict[result['id']] = result
-        relevant_memories = list(relevant_memories_dict.values())
-        self.add_event(sender=self.name, tag="memory_search_complete", 
-                       content=f"{relevant_memories}")
-
         prompt = PLANNER_SYSTEM_PROMPT.format(
             biography_structure=json.dumps(self.get_biography_structure(), indent=2),
             biography_content=self._get_full_biography_content(),
-            new_information="\n".join([f"- {m['text']}" for m in new_memories]),
-            relevant_information="\n".join(
-                [f"- {m['text']} (Similarity: {m['similarity_score']:.2f})" for m in relevant_memories])
+            new_information="\n".join([
+                "<memory>\n"
+                f"<title>{m['title']}</title>\n"
+                f"<content>{m['text']}</content>\n"
+                "</memory>\n"
+                for m in new_memories
+            ])
         )
         
         return prompt
@@ -99,12 +95,10 @@ class BiographyPlanner(BiographyTeamAgent):
                 for plan in root.findall("plan"):
                     action_type = plan.find("action_type").text.strip()
                     section_path = plan.find("section_path").text.strip()
-                    section_title = section_path.split("/")[-1]
                     
                     plans.append({
                         "action_type": action_type,
                         "section_path": section_path,
-                        "section_title": section_title,
                         "relevant_memories": self._parse_relevant_memories(plan),
                         "update_plan": plan.find("update_plan").text.strip()
                     })
@@ -128,10 +122,13 @@ class BiographyPlanner(BiographyTeamAgent):
                 questions_text = response[start_pos:end_pos]
                 root = ET.fromstring(questions_text)
                 for question in root.findall("question"):
-                    questions.append({
-                        "question": question.text.strip(),
-                        "type": "breadth"
-                    })
+                    content_elem = question.find("content")
+                    context_elem = question.find("context")
+                    if content_elem is not None and content_elem.text:
+                        questions.append({
+                            "content": content_elem.text.strip(),
+                            "context": context_elem.text.strip() if context_elem is not None else ""
+                        })
         except Exception as e:
             self.add_event(sender=self.name, tag="error", 
                           content=f"Error parsing questions: {str(e)}\nResponse: {response}")
@@ -154,45 +151,46 @@ class BiographyPlanner(BiographyTeamAgent):
             raise e
         return memories
 
-# TODO-lmj: we should handle invalid paths in biography.py because the LLM may not follow the rules in the prompt sometimes.
 PLANNER_SYSTEM_PROMPT = """
-You are a biography expert. We are interviewing a user and collecting new information about the user to write his or her biography.
-Your task is to analyze new information and plan updates to the biography.
+<planner_persona>
+You are a biography expert responsible for planning and organizing life stories. Your role is to:
+1. Analyze new information gathered from user interviews
+2. Identify how it fits into the existing biography
+3. Plan strategic updates to create a cohesive narrative
+</planner_persona>
 
-Current Biography Structure:
+Input Context:
 <biography_structure>
 {biography_structure}
 </biography_structure>
 
-Current Biography Content:
 <biography_content>
 {biography_content}
 </biography_content>
 
-New Information to Add:
 <new_information>
 {new_information}
 </new_information>
 
-Related Previous Information:
-<relevant_information>
-{relevant_information}
-</relevant_information>
+Core Responsibilities:
+- Analyze the new information and their relationship with existing content
+- Determine whether to:
+   * Update existing sections or subsections
+   * Create new sections or subsections
+- Create specific plans for each action
+   * Note: only update sections, no need to update titles and other metadata
+- Suggest follow-up questions to expand the biography's breadth
 
-Your task is to:
-1. Analyze the new information and their relationship with existing content
-2. Determine whether to:
-   a. Update existing sections or subsections
-   b. Create new sections or subsections
-3. Create specific plans for each action
-4. Suggest follow-up questions to expand the biography's breadth
-
-For each plan, consider:
+Strategic Planning Considerations:
 - How the new information connects to existing content
 - Whether it reinforces existing themes or introduces new ones
 - Where the information best fits in the biography's structure
 - How to maintain narrative flow and coherence
-- Whether the information warrants a new section or subsection
+
+Requirements for Follow-Up Questions:
+- Aim to further explore the user's background
+- Be clear, direct, and concise
+- Focus on one topic per question
 
 Provide your response in the following XML format:
 
@@ -214,18 +212,26 @@ Provide your response in the following XML format:
 </plans>
 
 <follow_up_questions>
-    <question>Question text that would help expand the biography's breadth</question>
+    <question>
+        <context>
+            One brief sentence explaining which memory/information this follows up on.
+            Example: "Follows up on mother's garden memory to explore career influence."
+        </context>
+        <content>Question text that would help expand the biography's breadth</content>
+    </question>
     ...
 </follow_up_questions>
 
-Important Notes about the XML format:
+Important Notes about the XML Format:
+<format_notes>
 - Set action_type as "create" when adding a new section
 - Set action_type as "update" when modifying an existing section
-- For "create" actions, both section_path and section_title are required
-- For "update" actions, only section_path is needed
+- The section_path is the full path to the section
 - Each plan must include a detailed update_plan explaining the changes
+</format_notes>
 
 Important Note About Section Paths:
+<format_notes>
 - Section paths must be specified using forward slashes to indicate hierarchy
 - Each part of the path should be the exact title of a section
 - Maximum 4 levels of hierarchy allowed
@@ -236,15 +242,15 @@ Important Note About Section Paths:
     Examples: "1 Early Life/1.1 Childhood", "1 Early Life/1.2 Family Background"
   * Third and fourth levels do not use numbers
     Examples: "1 Early Life/1.1 Childhood/Memorable Events"
-    
-Examples of valid paths:
+- Examples of valid paths:
   * "1 Early Life"
   * "2 Career/2.1 Software Projects/First App"
   * "3 Personal Life/3.2 Hobbies/Gaming/Favorite Games"
-
-Invalid paths:
+- Examples of invalid paths:
+  * "Title" (missing first level number and no need to update a title)
   * "Early Life" (missing first level number)
   * "1 Early Life/Childhood" (missing second level number)
   * "1.1 Childhood" (subsection without parent section)
   * "1 Early Life/1.1 Childhood/Games/Types/Specific" (exceeds 4 levels)
+</format_notes>
 """

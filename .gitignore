@@ -1,5 +1,5 @@
-data/memory_banks/
 data/
+!data/sample_user_profiles
 venv/
 .env
 gabm_interviewer_platform/
@@ -7,3 +7,4 @@ notebooks/
 logs/
 *.pyc
 .DS_Store
+.vscode/

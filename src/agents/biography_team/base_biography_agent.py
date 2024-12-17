@@ -12,7 +12,6 @@ class BiographyTeamAgent(BaseAgent, Participant):
         BaseAgent.__init__(self, name=name, description=description, config=config)
         Participant.__init__(self, title=name, interview_session=interview_session)
         user_id = config.get("user_id")
-        # TODO-lmj: we should not maintain the memory bank and biography object in the base agent.
         self.memory_bank = MemoryBank.load_from_file(user_id)
         self.biography = Biography.load_from_file(user_id)
         

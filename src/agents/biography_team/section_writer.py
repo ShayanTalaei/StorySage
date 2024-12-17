@@ -39,11 +39,9 @@ class SectionWriter(BiographyTeamAgent):
         """
         Update a biography section based on a plan.
         """
-        self.add_event(sender=self.name, tag="update_start", 
-                      content=f"Starting to {todo_item.action_type} section: {todo_item.section_path}")
         
         prompt = self._create_section_write_prompt(todo_item)
-        self.add_event(sender=self.name, tag="section_write_prompt", content=prompt)
+        self.add_event(sender=self.name, tag="prompt", content=prompt)
         
         response = self.call_engine(prompt)
         self.add_event(sender=self.name, tag="llm_response", content=response)
@@ -53,7 +51,7 @@ class SectionWriter(BiographyTeamAgent):
         self.follow_up_questions.extend(self._parse_questions(response))
         
         result_message = "Section updated successfully" if success else "Failed to update section"
-        self.add_event(sender=self.name, tag="update_result", 
+        self.add_event(sender=self.name, tag="event_result", 
                       content=result_message)
         
         return UpdateResult(
@@ -65,9 +63,8 @@ class SectionWriter(BiographyTeamAgent):
         """
         Save the current state of the biography to file.
         """
-        self.add_event(sender=self.name, tag="save_biography", content="Saving biography to file")
         result = self.tools["save_biography"]._run()
-        self.add_event(sender=self.name, tag="save_result", content=result)
+        self.add_event(sender=self.name, tag="event_result", content=result)
         return result
 
     def _create_section_write_prompt(self, todo_item: TodoItem) -> str:
@@ -80,7 +77,10 @@ class SectionWriter(BiographyTeamAgent):
             section_path=todo_item.section_path,
             update_plan=todo_item.update_plan,
             current_content=current_content,
-            relevant_memories=todo_item.relevant_memories
+            relevant_memories='\n'.join([
+                f"- {memory_text}"
+                for memory_text in todo_item.relevant_memories
+            ])
         )
 
     def _handle_section_update(self, response: str, todo_item: TodoItem) -> bool:
@@ -97,26 +97,20 @@ class SectionWriter(BiographyTeamAgent):
                 root = ET.fromstring(update_text)
                 content = root.find("content").text.strip()
                 
-                self.add_event(sender=self.name, tag="parsed_content", 
-                             content=f"Parsed content for {todo_item.section_path}:\n{content}")
-                
                 if todo_item.action_type == "update":
                     # Use the update_section tool to apply changes
                     result = self.tools["update_section"]._run(
                         path=todo_item.section_path,
                         content=content
                     )
-                    self.add_event(sender=self.name, tag="update_section_result", content=result)
                     return "Successfully" in result
 
                 elif todo_item.action_type == "create":
                     # Use the add_section tool to create a new section
                     result = self.tools["add_section"]._run(
                         path=todo_item.section_path,
-                        title=todo_item.section_title,
                         content=content
                     )
-                    self.add_event(sender=self.name, tag="create_section_result", content=result)
                     return "Successfully" in result
                 
                 else:
@@ -144,73 +138,80 @@ class SectionWriter(BiographyTeamAgent):
                 questions_text = response[start_pos:end_pos]
                 root = ET.fromstring(questions_text)
                 for question in root.findall("question"):
-                    questions.append({
-                        "question": question.text.strip(),
-                        "type": "depth"
-                    })
-                
-                self.add_event(sender=self.name, tag="follow_up_questions", 
-                             content="Parsed questions:\n" + 
-                                    "\n".join([f"- {q['question']}" for q in questions]))
+                    content_elem = question.find("content")
+                    context_elem = question.find("context")
+                    if content_elem is not None and content_elem.text:
+                        questions.append({
+                            "content": content_elem.text.strip(),
+                            "context": context_elem.text.strip() if context_elem is not None else ""
+                        })
         except Exception as e:
             self.add_event(sender=self.name, tag="error", 
                           content=f"Error parsing questions: {str(e)}\nResponse: {response}")
         return questions
 
 SECTION_WRITER_PROMPT = """
-You are a biography writer. Your task is to update or create a section of the biography following professional biographical writing standards. Focus on creating engaging, well-structured narrative while maintaining strict factual accuracy.
+<section_writer_persona>
+You are a skilled biography writer who crafts compelling life stories. Your role is to create and revise biography sections based on clear guidelines. You write with precision and engagement, drawing exclusively from verified source materials to ensure accuracy.
+</section_writer_persona>
 
-Section Path: 
-<section_path>
-{section_path}
-</section_path>
-
-Update Plan: 
+Input Context:
+<section_path>{section_path}</section_path>
+<current_content>{current_content}</current_content>
+<relevant_memories>
+{relevant_memories}
+</relevant_memories>
 <update_plan>
 {update_plan}
 </update_plan>
 
-Current Content of the Section:
-<current_content>
-{current_content}
-</current_content>
+Core Responsibilities:
+1. Write/update the biography section according to the update plan
+2. Generate targeted follow-up questions to gather additional relevant information
 
-Available Source Memories:
-<relevant_memories>
-{relevant_memories}
-</relevant_memories>
+Requirements for Section Writing:
+1. Content Standards
+   - Use ONLY information explicitly present in provided memories
+   - Follow the update plan precisely
+   - NO speculation, assumptions, or creative embellishments
+   - Maintain strict factual accuracy
+2. Writing Style
+   - Professional biographical tone
+   - Third-person perspective
+   - Clear paragraph structure
+   - Smooth transitions between ideas
+3. Memory Integration Rules
+   - Reference only provided memories
+   - Integrate information naturally into the narrative
+   - Select relevant details based on update plan
+   - Maintain context when incorporating quotes
 
-Important Guidelines:
-1. Writing Style:
-   - Use professional biographical writing style
-   - Create a flowing narrative that engages readers
-   - Maintain an objective, third-person perspective
-   - Structure content with clear paragraphs and transitions
+Requirements for Follow-Up Questions:
+- Target specific information gaps
+- Be clear, direct, and concise
+- Focus on one topic per question
+- Aim to enhance the current section
 
-2. Content Accuracy:
-   - Follow the update plan's direction for content integration
-   - Only include information that is explicitly present in the provided memories
-   - Do not add speculative or assumed information
-   - Do not embellish or create details not present in the source memories
-
-3. Memory Integration:
-   - Use memories as source material according to the update plan
-   - Integrate selected memories naturally into the narrative
-   - Not every memory needs to be used - follow the update plan's guidance
-
-Please write the updated section content and suggest follow-up questions to deepen this section.
-
-Provide your response in the following XML format:
+Required Output Format:
 <section_update>
     <content>
-Write the plain text content here. Do not include any HTML tags or formatting.
-Use regular paragraphs with line breaks between them.
-The content should be pure text as it would appear in the biography.
+[Write biography section here]
+- Use plain text only
+- Include paragraph breaks
+- No formatting tags
+- No markdown
     </content>
 </section_update>
+
 <follow_up_questions>
-    <question>Question text</question>
-    ...
+    <question>
+        <context>
+            One brief sentence connecting to specific content in the section.
+            Example: "Expands on mentioned gardening hobby techniques."
+        </context>
+        <content>Question text that would help expand this section's detail</content>
+    </question>
+    <!-- Add more questions as needed -->
 </follow_up_questions>
 """
 
@@ -222,8 +223,7 @@ class UpdateSectionInput(BaseModel):
     content: str = Field(description="New content for the section")
 
 class AddSectionInput(BaseModel):
-    path: str = Field(description="Path where to add the section (e.g., 'Chapter 1/Early Life')")
-    title: str = Field(description="Title of the new section")
+    path: str = Field(description="Full path to the new section (e.g., '1 Early Life/1.1 Childhood')")
     content: str = Field(description="Content of the new section")
 
 class SaveBiographyInput(BaseModel):
@@ -252,7 +252,7 @@ class GetSection(BaseTool):
     def _run(self, path: str, run_manager: Optional[CallbackManagerForToolRun] = None) -> str:
         section = self.biography.get_section_by_path(path)
         if not section:
-            return f"Section at path '{path}' not found"
+            return ""
         return section.content
 
 class UpdateSection(BaseTool):
@@ -273,9 +273,9 @@ class AddSection(BaseTool):
     args_schema: Type[BaseModel] = AddSectionInput
     biography: Biography
 
-    def _run(self, path: str, title: str, content: str, run_manager: Optional[CallbackManagerForToolRun] = None) -> str:
+    def _run(self, path: str, content: str, run_manager: Optional[CallbackManagerForToolRun] = None) -> str:
         try:
-            self.biography.add_section(path, title, content)
-            return f"Successfully added section titled '{title}' at path '{path}'"
+            self.biography.add_section(path, content)
+            return f"Successfully added section at path '{path}'"
         except Exception as e:
             raise ToolException(f"Error adding section: {e}")
