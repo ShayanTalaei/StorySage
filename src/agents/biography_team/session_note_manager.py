@@ -173,7 +173,9 @@ class SessionNoteManager(BiographyTeamAgent):
             raise
 
 SESSION_NOTE_AGENT_PROMPT = """\
-You are a session note manager, assisting in drafting a user biography. During interviews, we collect new information and follow-up questions suggested by biography experts to delve deeper into the user's background. Your task is to integrate the collected information and questions into the existing session notes, ensuring they are well-organized and ready for the next session. Focus on accuracy, clarity, and completeness in your updates.
+<session_note_manager_persona>
+You are a session note manager, assisting in drafting a user biography. During interviews, we collect new information/memories from the user and follow-up questions from biography experts to delve deeper into the user's background. Your task is to integrate the collected follow-up questions into the existing session notes, write the meeting summary, and update the user portrait. These notes guide the interviewer in future sessions, helping them track covered topics and identify areas needing exploration.
+</session_note_manager_persona>
 
 Input Context:
 <new_memories>
@@ -229,7 +231,7 @@ Core Responsibilities:
 
 3. Add new follow-up questions
 A. Question Sources:
-   - Source 1: Expert-provided follow-up questions in <collected_follow_up_questions>
+   - Source 1: Expert-provided follow-up questions in <collected_follow_up_questions></collected_follow_up_questions> tags
        * Mark them with type="collected"
    - Source 2: Your own proposed questions based on:
        * Gaps you identify in the user's story
@@ -262,6 +264,14 @@ B. Question Organization:
           * Mark with type="existing"
           * Use exact question ID and text
           * Place before its new sub-questions
+
+C. Question Content Requirements:
+    - Always phrase questions directly to the user using "you/your"
+    - Examples:
+        ✓ "What motivated you to start your own business?"
+        ✓ "How did your childhood experiences shape your career choice?"
+        ✗ "What motivated the user to start their business?"
+        ✗ "How did their childhood experiences shape their career?"
 </core_responsibilities>
 
 Please update the session notes using this XML format:
@@ -389,13 +399,21 @@ class UpdateUserPortrait(BaseTool):
     session_note: SessionNote = Field(...)
 
     def _format_field_name(self, field_name: str) -> str:
-        """Format field name by replacing underscores with spaces and capitalizing words.
+        """Format field name by capitalizing words, handling both spaces and underscores as delimiters.
         
-        Example:
+        Examples:
             hobbies_influence -> Hobbies Influence
-            early_life_experiences -> Early Life Experiences
+            early life_experiences -> Early Life Experiences
+            Career Goals -> Career Goals
+            family_Life History -> Family Life History
         """
-        return ' '.join(word.capitalize() for word in field_name.split('_'))
+        # First split by underscores, then by spaces
+        words = []
+        for part in field_name.split('_'):
+            words.extend(part.split())
+        
+        # Capitalize first letter of each word
+        return ' '.join(word.capitalize() for word in words)
 
     def _run(
         self,
