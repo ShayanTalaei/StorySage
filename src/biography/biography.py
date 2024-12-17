@@ -39,19 +39,68 @@ class Biography:
         self.user_id = user_id or str(uuid.uuid4())
         self.base_path = f"data/{self.user_id}/"
         os.makedirs(self.base_path, exist_ok=True)
-        self.file_path = f"{self.base_path}/biography.json"
+        self.version = self._get_next_version()
+        self.file_name = f"{self.base_path}/biography_{self.version}"
         self.root = Section(f"Biography of {self.user_id}")
 
+    def _get_next_version(self) -> int:
+        """Get the next available version number for the biography file.
+        
+        Scans the directory for existing biography files and returns
+        the next available version number.
+        
+        Example:
+            If directory contains: biography_1.json, biography_2.json
+            Returns: 3
+        """
+        # List all biography JSON files
+        files = [f for f in os.listdir(self.base_path) 
+                if f.startswith('biography_') and f.endswith('.json')]
+        
+        if not files:
+            return 1
+            
+        # Extract version numbers from filenames
+        versions = []
+        for file in files:
+            try:
+                version = int(file.replace('biography_', '').replace('.json', ''))
+                versions.append(version)
+            except ValueError:
+                continue
+                
+        next_version = max(versions) + 1 if versions else 1
+        print(f"Next version: {next_version}")
+        return next_version
+
     @classmethod
-    def load_from_file(cls, user_id: str) -> 'Biography':
-        """Load a biography from file or create new one if it doesn't exist."""
+    def load_from_file(cls, user_id: str, version: int = -1) -> 'Biography':
+        """Load a biography from file or create new one if it doesn't exist.
+        
+        Args:
+            user_id: The ID of the user
+            version: Optional specific version to load. If None, loads latest version.
+        """
         biography = cls(user_id)
+        
+        if version > 0:
+            # Load specific version
+            file_path = f"{biography.base_path}/biography_{version}.json"
+        else:
+            # Use latest version (next version - 1)
+            latest_version = biography._get_next_version() - 1
+            if latest_version < 1:
+                return biography
+            file_path = f"{biography.base_path}/biography_{latest_version}.json"
+        
         try:
-            with open(biography.file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
                 biography.root = Section.from_dict(data)
+                biography.version = version if version > 0 else latest_version
         except FileNotFoundError:
-            pass  # Use the default empty biography if file doesn't exist
+            pass
+        
         return biography
 
     def get_section_by_path(self, path: str) -> Optional[Section]:
@@ -123,7 +172,7 @@ class Biography:
         """Save the biography to a JSON file using user_id."""
         os.makedirs(self.base_path, exist_ok=True)
             
-        with open(self.file_path, 'w', encoding='utf-8') as f:
+        with open(f'{self.file_name}.json', 'w', encoding='utf-8') as f:
             json.dump(self.root.to_dict(), f, indent=4, ensure_ascii=False)
 
     def update_section(self, path: str, content: str) -> Optional[Section]:
@@ -161,7 +210,7 @@ class Biography:
         markdown_content = _section_to_markdown(self.root)
 
         # Save to markdown file
-        output_path = f"{self.base_path}/biography.md"
+        output_path = f"{self.file_name}.md"
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         with open(output_path, 'w', encoding='utf-8') as f:
             f.write(markdown_content)
