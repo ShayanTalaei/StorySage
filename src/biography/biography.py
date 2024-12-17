@@ -216,6 +216,53 @@ class Biography:
             f.write(markdown_content)
 
         return markdown_content
+    
+    @classmethod
+    def export_to_markdown_from_file(cls, json_path: str) -> str:
+        """Convert a biography JSON file to markdown format and save it.
+        
+        Args:
+            json_path: Path to the biography JSON file
+            
+        Returns:
+            str: The generated markdown content
+            
+        Example:
+            Biography.export_to_markdown_from_file("data/user123/biography_1.json")
+            # Creates: data/user123/biography_1.md
+        """
+        # Load and validate JSON file
+        try:
+            with open(json_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            root = Section.from_dict(data)
+        except FileNotFoundError:
+            raise FileNotFoundError(f"Biography file not found: {json_path}")
+        except json.JSONDecodeError:
+            raise ValueError(f"Invalid JSON file: {json_path}")
+        
+        def _section_to_markdown(section: Section, level: int = 1) -> str:
+            # Convert section to markdown with appropriate heading level
+            md = f"{'#' * level} {section.title}\n\n"
+            if section.content:
+                md += f"{section.content}\n\n"
+            
+            # Process subsections recursively
+            for subsection in section.subsections.values():
+                md += _section_to_markdown(subsection, level + 1)
+            
+            return md
+
+        # Generate markdown content
+        markdown_content = _section_to_markdown(root)
+
+        # Save to markdown file
+        output_path = json_path.replace('.json', '.md')
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        with open(output_path, 'w', encoding='utf-8') as f:
+            f.write(markdown_content)
+
+        return markdown_content
 
     def is_valid_path_format(self, path: str) -> bool:
         """
