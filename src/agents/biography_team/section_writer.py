@@ -177,7 +177,7 @@ Requirements for Section Writing:
    - Maintain strict factual accuracy
 2. Writing Style
    - Professional biographical tone
-   - Third-person perspective
+   - First-person perspective
    - Clear paragraph structure
    - Smooth transitions between ideas
 3. Memory Integration Rules
