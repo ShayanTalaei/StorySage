@@ -3,15 +3,14 @@ from sqlalchemy.orm import Session
 import asyncio
 import uuid
 
-from api.schemas import (
-    SessionRequest, MessageRequest, SessionResponse, MessageResponse
+from api.schemas.chat import (
+    SessionRequest, MessageRequest, SessionResponse, MessageResponse, EndSessionResponse
 )
 from database.models import DBSession, DBMessage
 from database.database import get_db
 from interview_session.interview_session import InterviewSession
 
 router = APIRouter(
-    prefix="/chat",
     tags=["chat"]
 )
 
@@ -135,3 +134,27 @@ async def send_message(request: MessageRequest, db: Session = Depends(get_db)):
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/sessions/{session_id}/end", response_model=EndSessionResponse)
+async def end_session(session_id: str, db: Session = Depends(get_db)):
+    """End an interview session and update biography"""
+    try:
+        session: InterviewSession = active_sessions.get(session_id, None)
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found. Check the session ID.")
+        
+        # End the session - this will trigger biography update in the run() method
+        session.session_in_progress = False
+        
+        # Remove from active sessions
+        active_sessions.pop(session_id, None)
+        
+        return EndSessionResponse(
+            status="success",
+            message="Session ended successfully",
+            session_id=session_id
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+

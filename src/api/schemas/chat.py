@@ -11,8 +11,14 @@ class MessageBase(BaseModel):
     class Config:
         orm_mode = True
 
-class MessageResponse(MessageBase):
-    pass
+class MessageResponse(BaseModel):
+    message_id: str
+    content: str
+    created_at: datetime
+    role: str
+
+    class Config:
+        orm_mode = True
 
 class SessionRequest(BaseModel):
     user_id: str
@@ -27,4 +33,9 @@ class SessionResponse(BaseModel):
     message: MessageResponse
 
     class Config:
-        orm_mode = True 
+        orm_mode = True
+
+class EndSessionResponse(BaseModel):
+    status: str
+    message: str
+    session_id: str
