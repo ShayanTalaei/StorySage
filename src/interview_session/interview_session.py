@@ -20,9 +20,18 @@ load_dotenv(override=True)
 
 class InterviewSession: 
     
-    def __init__(self, user_id: str, user_agent: bool = False, enable_voice_output: bool = False, enable_voice_input: bool = False):
-        """Initialize the interview session."""
-
+    def __init__(self, user_id: str, interaction_mode: str = 'terminal', enable_voice_output: bool = False, enable_voice_input: bool = False):
+        """Initialize the interview session.
+        
+        Args:
+            user_id (str): The user's ID
+            interaction_mode (str): How to interact with the user. Options:
+                - 'terminal': Terminal-based user interaction
+                - 'agent': Automated user agent for testing
+                - 'api': API-based interaction (no direct user interface)
+            enable_voice_output (bool): Enable voice output
+            enable_voice_input (bool): Enable voice input
+        """
         self.user_id = user_id
         self.session_note = SessionNote.get_last_session_note(user_id)
         self.session_note.session_id += 1
@@ -34,12 +43,16 @@ class InterviewSession:
         SessionLogger.log_to_file("execution_log", f"[INIT] Session ID: {self.session_id}")
         
         # User in the interview session
-        if user_agent:
+        if interaction_mode == 'agent':
             self.user: User = UserAgent(user_id=user_id, interview_session=self)
-        else:
+        elif interaction_mode == 'terminal':
             self.user: User = User(user_id=user_id, interview_session=self, enable_voice_input=enable_voice_input)
+        elif interaction_mode == 'api':
+            self.user = None  # No direct user interface for API mode
+        else:
+            raise ValueError(f"Invalid interaction_mode: {interaction_mode}")
         
-        SessionLogger.log_to_file("execution_log", f"[INIT] User instance created")        
+        SessionLogger.log_to_file("execution_log", f"[INIT] User instance created with mode: {interaction_mode}")        
         
         # Agents in the interview session
         self.interviewer: Interviewer = Interviewer(config={"user_id": user_id, "tts": {"enabled": enable_voice_output}}, interview_session=self)
@@ -52,14 +65,23 @@ class InterviewSession:
         self.chat_history: list[Message] = []
         self.session_in_progress = False
         
-        # Subscriptions
+        # Subscriptions - only set up if we have a user instance
         self.subscriptions: Dict[str, List[Participant]] = {
-            "Interviewer": [self.user, self.memory_manager],
+            "Interviewer": [self.memory_manager],
             "User": [self.interviewer, self.memory_manager]
         }
+        if self.user:
+            self.subscriptions["Interviewer"].append(self.user)
         
-        # Shutdown signal handler
-        if user_agent:
+        # API participant for handling API responses
+        self.api_participant = None
+        if interaction_mode == 'api':
+            from api.api_participant import APIParticipant
+            self.api_participant = APIParticipant()
+            self.subscriptions["Interviewer"].append(self.api_participant)
+        
+        # Shutdown signal handler - only for agent mode
+        if interaction_mode == 'agent':
             self._setup_signal_handlers()
     
     def _setup_signal_handlers(self):

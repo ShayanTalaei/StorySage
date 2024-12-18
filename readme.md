@@ -8,7 +8,7 @@ Install Python dependencies by running:
 pip install -r requirements.txt
 ```
 
-### PyAudio (for voice features)
+### PyAudio (optional, for voice features)
 
 To use voice input, you need to install PyAudio. For macOS, you can install PortAudio using Homebrew. Here's how to fix it:
 
@@ -22,20 +22,29 @@ Then, install PyAudio with pip, but we need to specify the path to PortAudio:
 pip install --global-option='build_ext' --global-option='-I/opt/homebrew/include' --global-option='-L/opt/homebrew/lib' pyaudio
 ```
 
+### Database (optional, for server mode)
+
+Run the database setup script to create the database and tables:
+```bash
+python src/main.py --mode setup_db
+```
+Note: This will create the database and tables, but **terminal mode doesn't use the database**.
+
 ## Usage
 
-Run the interviewer with:
+### Terminal Mode
+Run the interviewer in terminal mode with:
 ```bash
-python src/main.py --user_id <USER_ID>
+python src/main.py --mode terminal --user_id <USER_ID>
 ```
 
-### Optional Parameters:
+Optional Parameters:
 - `--user_agent`: Enable user agent mode
 - `--voice_output`: Enable voice output
 - `--voice_input`: Enable voice input 
 - `--restart`: Clear previous session data and restart
 
-### Examples:
+Examples:
 ```bash
 # Basic run with just user ID
 python src/main.py --user_id john_doe
@@ -45,4 +54,10 @@ python src/main.py --user_id john_doe --voice_input --voice_output
 
 # Restart a session with user agent
 python src/main.py --user_id john_doe --restart --user_agent
+```
+
+### Server Mode
+Run the interviewer in server mode with:
+```bash
+python src/main.py --mode server --port <PORT>
 ```
