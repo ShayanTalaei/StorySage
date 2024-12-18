@@ -4,13 +4,12 @@ import asyncio
 from typing import Dict
 import uuid
 import os
-from pathlib import Path
 
 from api.schemas import (
     SessionRequest, MessageRequest, SessionResponse, MessageResponse
 )
 from database.models import DBSession, DBMessage
-from database.database import get_db, SQLALCHEMY_DATABASE_URL
+from database.setup_db import get_db, SQLALCHEMY_DATABASE_URL
 from interview_session.interview_session import InterviewSession
 
 app = FastAPI()

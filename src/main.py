@@ -39,6 +39,9 @@ if __name__ == "__main__":
     parser.add_argument('--voice_input', action='store_true', default=False, help='Enable voice input')
     parser.add_argument('--restart', action='store_true', default=False, help='Restart the session')
     
+    # Setup_db mode arguments
+    parser.add_argument('--reset', action='store_true', help='Reset database (clear all data)')
+    
     args = parser.parse_args()
     
     # Run the appropriate mode
@@ -50,8 +53,7 @@ if __name__ == "__main__":
     elif args.mode == 'server':
         run_server_mode(args.port)
     elif args.mode == 'setup_db':
-        setup_database()
-        print("Database setup completed.")
+        setup_database(reset=args.reset)
     else:
         parser.error(f"Invalid mode: {args.mode}")
     
