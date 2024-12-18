@@ -20,6 +20,7 @@ active_sessions = {}
 
 @router.post("/sessions", response_model=SessionResponse)
 async def create_session(request: SessionRequest, db: Session = Depends(get_db)):
+    """Create a new interview session"""
     try:
         # Create a new interview session
         session = InterviewSession(
@@ -91,10 +92,11 @@ async def create_session(request: SessionRequest, db: Session = Depends(get_db))
 
 @router.post("/messages", response_model=MessageResponse)
 async def send_message(request: MessageRequest, db: Session = Depends(get_db)):
+    """Send a message to the interview session"""
     try:
-        session = active_sessions.get(request.session_id)
+        session: InterviewSession = active_sessions.get(request.session_id, None)
         if not session:
-            raise HTTPException(status_code=404, detail="Session not found")
+            raise HTTPException(status_code=404, detail="Session not found. Check the session ID.")
         
         # Store user message in database
         db_message = DBMessage(
