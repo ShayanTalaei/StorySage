@@ -42,7 +42,6 @@ class SectionWriter(BiographyTeamAgent):
         
         prompt = self._create_section_write_prompt(todo_item)
         self.add_event(sender=self.name, tag="prompt", content=prompt)
-        
         response = self.call_engine(prompt)
         self.add_event(sender=self.name, tag="llm_response", content=response)
         
@@ -177,7 +176,7 @@ Requirements for Section Writing:
    - Maintain strict factual accuracy
 2. Writing Style
    - Professional biographical tone
-   - Third-person perspective
+   - First-person perspective
    - Clear paragraph structure
    - Smooth transitions between ideas
 3. Memory Integration Rules

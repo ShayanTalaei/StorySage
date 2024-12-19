@@ -8,3 +8,5 @@ logs/
 *.pyc
 .DS_Store
 .vscode/
+*.db
+data/interview_app.db

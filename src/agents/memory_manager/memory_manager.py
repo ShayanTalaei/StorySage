@@ -43,14 +43,18 @@ class MemoryManager(BaseAgent, Participant):
     def update_memory_bank(self) -> None:
         """Process the latest conversation and update the memory bank if needed."""
         prompt = self.get_formatted_prompt("update_memory_bank")
+        self.add_event(sender=self.name, tag="prompt", content=prompt)
         response = self.call_engine(prompt)
+        self.add_event(sender=self.name, tag="llm_response", content=response)
         self.add_event(sender=self.name, tag="update_memory_bank", content=response)
         self.handle_tool_calls(response)
         self.memory_bank.save_to_file(self.user_id)
 
     def update_session_note(self) -> None:
         prompt = self.get_formatted_prompt("update_session_note")
+        self.add_event(sender=self.name, tag="prompt", content=prompt)
         response = self.call_engine(prompt)
+        self.add_event(sender=self.name, tag="llm_response", content=response)
         self.add_event(sender=self.name, tag="update_session_note", content=response)
         self.handle_tool_calls(response)
     
