@@ -54,7 +54,9 @@ class Interviewer(BaseAgent, Participant):
         self.turn_to_respond = True
         while self.turn_to_respond:
             prompt = self.get_prompt()
+            self.add_event(sender=self.name, tag="prompt", content=prompt)
             response = self.call_engine(prompt)
+            self.add_event(sender=self.name, tag="llm_response", content=response)
             print(f"{GREEN}Interviewer:\n{response}{RESET}")
         
             # Add interviewer's response to both chat histories

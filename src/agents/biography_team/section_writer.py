@@ -42,7 +42,6 @@ class SectionWriter(BiographyTeamAgent):
         
         prompt = self._create_section_write_prompt(todo_item)
         self.add_event(sender=self.name, tag="prompt", content=prompt)
-        
         response = self.call_engine(prompt)
         self.add_event(sender=self.name, tag="llm_response", content=response)
         

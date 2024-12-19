@@ -26,7 +26,9 @@ class UserAgent(BaseAgent, User):
         
         # Generate response using LLM
         prompt = self.get_prompt()
+        self.add_event(sender=self.name, tag="prompt", content=prompt)
         full_response = self.call_engine(prompt)
+        self.add_event(sender=self.name, tag="llm_response", content=full_response)
         
         # Add our full response to the event stream
         self.add_event(sender=self.name, tag="full_response", content=full_response)

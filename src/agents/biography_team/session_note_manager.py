@@ -29,14 +29,11 @@ class SessionNoteManager(BiographyTeamAgent):
         
     async def update_session_note(self, new_memories: List[Dict], follow_up_questions: List[Dict]):
         """Update session notes with new memories and follow-up questions."""
-        # Create and log the prompt
         prompt = self._create_session_note_prompt(
             new_memories=new_memories,
             follow_up_questions=follow_up_questions
         )
         self.add_event(sender=self.name, tag="prompt", content=prompt)
-        
-        # Get and log the LLM response
         response = self.call_engine(prompt)
         self.add_event(sender=self.name, tag="llm_response", content=response)
         

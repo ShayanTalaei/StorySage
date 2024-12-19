@@ -23,7 +23,6 @@ class BiographyPlanner(BiographyTeamAgent):
         """
         prompt = self._create_planning_prompt(new_memories)
         self.add_event(sender=self.name, tag="prompt", content=prompt)
-        
         response = self.call_engine(prompt)
         self.add_event(sender=self.name, tag="llm_response", content=response)
 
