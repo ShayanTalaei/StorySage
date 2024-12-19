@@ -170,7 +170,9 @@ async def end_session(session_id: str, db: Session = Depends(get_db)):
             raise HTTPException(status_code=404, detail="Session not found. Check the session ID.")
         
         # End the session - this will trigger biography update in the run() method
-        session.session_in_progress = False
+        if session is not None:
+            session.session_in_progress = False
+            print("Set session_in_progress to False")
         
         # Remove from active sessions
         active_sessions.pop(session_id, None)
