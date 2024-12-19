@@ -33,6 +33,7 @@ async def create_session(
                 status_code=403, 
                 detail="Cannot access another user's session"
             )
+        
         # Create a new interview session
         session = InterviewSession(
             user_id=request.user_id,
@@ -67,38 +68,40 @@ async def create_session(
                 role="User"
             )
             db.add(db_message)
-            
-            # Wait for interviewer's response
-            response = await session.api_participant.wait_for_response()
-            if not response:
-                raise HTTPException(status_code=408, detail="Timeout waiting for interviewer response")
-            
-            # Store interviewer response in database
-            db_response = DBMessage(
-                id=response.id,
-                session_id=session_id,
-                content=response.content,
-                role="Interviewer",
-                created_at=response.timestamp
-            )
-            db.add(db_response)
-            db.commit()
-            
-            last_message = response
         else:
-            raise HTTPException(status_code=400, detail="The message is empty.")
+            session.add_message_to_chat_history("Interviewer", "Hello!")
+        
+        # Wait for interviewer's response
+        response = await session.api_participant.wait_for_response()
+        if not response:
+            raise HTTPException(status_code=408, detail="Timeout waiting for interviewer response")
+        
+        # Store interviewer response in database
+        db_response = DBMessage(
+            id=response.id,
+            session_id=session_id,
+            content=response.content,
+            role="Interviewer"
+        )
+        db.add(db_response)
+        db.commit()
+        db.refresh(db_response)
+        
+        last_message = response
 
         return SessionResponse(
             session_id=session_id,
             message=MessageResponse(
-                message_id=last_message.id,
+                id=last_message.id,
                 content=last_message.content,
-                created_at=last_message.timestamp,
-                role=last_message.role
+                role=last_message.role,
+                created_at=db_response.created_at
             )
         )
+            
     except Exception as e:
         db.rollback()
+        print(f"Error in create_session: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/messages", response_model=MessageResponse)
@@ -142,17 +145,17 @@ async def send_message(
             id=response.id,
             session_id=request.session_id,
             content=response.content,
-            role="Interviewer",
-            created_at=response.timestamp
+            role="Interviewer"
         )
         db.add(db_response)
         db.commit()
+        db.refresh(db_response)
         
         return MessageResponse(
-            message_id=response.id,
+            id=response.id,
             content=response.content,
-            created_at=response.timestamp,
-            role=response.role
+            role=response.role,
+            created_at=db_response.created_at
         )
     except Exception as e:
         db.rollback()
