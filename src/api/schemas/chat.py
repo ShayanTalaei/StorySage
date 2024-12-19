@@ -2,17 +2,8 @@ from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional
 
-class MessageBase(BaseModel):
-    message_id: str
-    content: str
-    created_at: datetime
-    role: str
-
-    class Config:
-        orm_mode = True
-
 class MessageResponse(BaseModel):
-    message_id: str
+    id: str
     content: str
     created_at: datetime
     role: str
