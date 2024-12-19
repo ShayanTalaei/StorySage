@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 import os
 from database.setup_db import SQLALCHEMY_DATABASE_URL
-from api.routers import chat
+from api.routers import chat, auth
 
 app = FastAPI(title="AI Autobiography API")
 
@@ -18,3 +18,4 @@ async def startup_event():
 
 # Include routers
 app.include_router(chat.router)
+app.include_router(auth.router)
