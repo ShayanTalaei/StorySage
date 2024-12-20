@@ -140,8 +140,8 @@ class InterviewSession:
         finally:
             try:
                 with contextlib.suppress(KeyboardInterrupt):
-                    self.session_note.save()
                     await self.update_biography()
+                    self.session_note.save()
             except Exception as e:
                 SessionLogger.log_to_file("execution_log", f"[RUN] Error during biography update: {str(e)}")
             finally:
