@@ -41,15 +41,15 @@ def format_tool_as_xml_v2(tool: Type[BaseTool]) -> str:
 
 def parse_tool_calls(xml_string: str) -> Dict[str, Any]:
     """
-    Parse XML tool calls in the format:
-    <tool_calls>
-        <tool_name>
-            <arg_name>value</arg_name>
-            ...
-        </tool_name>
-        ...
-    </tool_calls>
+    Parse XML tool calls with proper XML entity handling
     """
+    # Replace XML entities before parsing
+    xml_string = xml_string.replace('&', '&amp;')
+    # xml_string = xml_string.replace('<', '&lt;')
+    # xml_string = xml_string.replace('>', '&gt;')
+    xml_string = xml_string.replace('"', '&quot;')
+    xml_string = xml_string.replace("'", '&apos;')
+    
     root = ET.fromstring(xml_string)
     result = []
     
