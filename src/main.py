@@ -7,6 +7,7 @@ import uvicorn
 
 from interview_session.interview_session import InterviewSession
 from database.setup_db import setup_database
+from utils.speech_to_text import PYAUDIO_AVAILABLE
 
 load_dotenv(override=True)
 
@@ -15,7 +16,20 @@ async def run_terminal_mode(args):
         os.system(f"rm -rf {os.getenv('LOGS_DIR')}/{args.user_id}")
         os.system(f"rm -rf {os.getenv('DATA_DIR')}/{args.user_id}")
     
-    interview_session = InterviewSession(args.user_id, 'agent' if args.user_agent else 'terminal', args.voice_output, args.voice_input)
+    # Check if voice features are available when requested
+    if (args.voice_input or args.voice_output) and not PYAUDIO_AVAILABLE:
+        print("\nWarning: Voice features were requested but PyAudio is not installed.")
+        print("Continuing without voice features...\n")
+        args.voice_input = False
+        args.voice_output = False
+    
+    interview_session = InterviewSession(
+        args.user_id, 
+        'agent' if args.user_agent else 'terminal',
+        args.voice_output,
+        args.voice_input
+    )
+    
     with contextlib.suppress(KeyboardInterrupt):
         await interview_session.run()
 

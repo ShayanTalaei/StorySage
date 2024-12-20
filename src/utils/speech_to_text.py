@@ -1,10 +1,15 @@
 from abc import ABC, abstractmethod
 import os
 import wave
-import pyaudio
 from openai import OpenAI
 from typing import Optional
 import threading
+
+try:
+    import pyaudio
+    PYAUDIO_AVAILABLE = True
+except ImportError:
+    PYAUDIO_AVAILABLE = False
 
 class SpeechToTextBase(ABC):
     """Base class for speech-to-text implementations"""
@@ -29,6 +34,9 @@ class OpenAISTT(SpeechToTextBase):
         self.channels = 1
         self.rate = 44100
         self.recording = False
+        self.audio_available = PYAUDIO_AVAILABLE
+        if self.audio_available:
+            self.p = pyaudio.PyAudio()
         
     def record_audio(self, output_path: str, duration: Optional[int] = None):
         """
@@ -38,9 +46,11 @@ class OpenAISTT(SpeechToTextBase):
             output_path: Path to save the recorded audio
             duration: Recording duration in seconds. If None, will record until enter is pressed
         """
-        p = pyaudio.PyAudio()
+        if not self.audio_available:
+            print("Error: Voice input unavailable - PyAudio not installed")
+            return None
         
-        stream = p.open(
+        stream = self.p.open(
             format=self.format,
             channels=self.channels,
             rate=self.rate,
@@ -77,13 +87,13 @@ class OpenAISTT(SpeechToTextBase):
         
         stream.stop_stream()
         stream.close()
-        p.terminate()
+        self.p.terminate()
         
         # Save the recorded audio
         os.makedirs(os.path.dirname(output_path) if os.path.dirname(output_path) else '.', exist_ok=True)
         wf = wave.open(output_path, 'wb')
         wf.setnchannels(self.channels)
-        wf.setsampwidth(p.get_sample_size(self.format))
+        wf.setsampwidth(self.p.get_sample_size(self.format))
         wf.setframerate(self.rate)
         wf.writeframes(b''.join(frames))
         wf.close()
@@ -105,6 +115,13 @@ class OpenAISTT(SpeechToTextBase):
             )
         return transcript.text
 
-def create_stt_engine() -> SpeechToTextBase:
+def create_stt_engine() -> Optional[SpeechToTextBase]:
     """Factory function to create STT engine"""
+    if not PYAUDIO_AVAILABLE:
+        print("Warning: Voice features unavailable - PyAudio not installed.")
+        print("To install PyAudio, follow the instructions in the readme:")
+        print("For macOS:")
+        print("1. brew install portaudio")
+        print("2. pip install --global-option='build_ext' --global-option='-I/opt/homebrew/include' --global-option='-L/opt/homebrew/lib' pyaudio")
+        return None
     return OpenAISTT() 
