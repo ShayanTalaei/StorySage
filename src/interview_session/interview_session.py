@@ -76,7 +76,7 @@ class InterviewSession:
         # API participant for handling API responses
         self.api_participant = None
         if interaction_mode == 'api':
-            from api.api_participant import APIParticipant
+            from api.core.api_participant import APIParticipant
             self.api_participant = APIParticipant()
             self.subscriptions["Interviewer"].append(self.api_participant)
         

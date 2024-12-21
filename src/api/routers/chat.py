@@ -10,8 +10,8 @@ from api.schemas.chat import (
 from database.models import DBSession, DBMessage
 from database.database import get_db
 from interview_session.interview_session import InterviewSession
-from api.auth import get_current_user
-from api.session_manager import session_manager
+from api.core.auth import get_current_user
+from api.core.session_manager import session_manager
 
 router = APIRouter(
     tags=["chat"]
