@@ -84,6 +84,14 @@ class InterviewSession:
         if interaction_mode == 'agent':
             self._setup_signal_handlers()
     
+    def set_db_session_id(self, db_session_id: int):
+        """Set the database session ID"""
+        self.db_session_id = db_session_id
+    
+    def get_db_session_id(self) -> int:
+        """Get the database session ID"""
+        return self.db_session_id
+    
     def _setup_signal_handlers(self):
         """Setup signal handlers for graceful shutdown"""
         loop = asyncio.get_event_loop()

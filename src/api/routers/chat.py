@@ -26,7 +26,8 @@ async def send_message(
     """Send a message to the active session or create a new one"""
     try:
         session = session_manager.get_active_session(current_user)
-        
+        session_id = None
+
         # Get session ID
         if not session:
             # Create a new session if none exists
@@ -37,15 +38,20 @@ async def send_message(
                 enable_voice_input=False
             )
             
-            # Get session ID before starting the session
-            session_id = session.session_id
+            # Get sequence ID from interview session
+            seq_id = session.session_id
             
             # Create database session record
             db_session = DBSession(
-                id=session_id,
+                seq_id=seq_id,
                 user_id=current_user
             )
             db.add(db_session)
+            db.flush()  # Flush to get the auto-generated ID
+
+            # Sync database session ID with interview session
+            session_id = db_session.id
+            session.set_db_session_id(session_id)
             
             # Start session in the background
             asyncio.create_task(session.run())
@@ -53,7 +59,7 @@ async def send_message(
             # Store session in manager after initialization
             session_manager.set_active_session(current_user, session)
         else:
-            session_id = session.session_id
+            seq_id = session.get_db_session_id()
         
         # Store user message
         db_message = DBMessage(
@@ -116,11 +122,19 @@ async def end_session(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/sessions/{session_id}/messages", response_model=List[MessageResponse])
-async def list_session_messages(session_id: str, db: Session = Depends(get_db)):
+@router.get("/sessions/{seq_id}/messages", response_model=List[MessageResponse])
+async def list_session_messages(
+    seq_id: int,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(get_current_user)
+):
     """Retrieve all messages for a specific session (active or not)"""
     try:
-        db_session = db.query(DBSession).filter(DBSession.id == session_id).first()
+        db_session = db.query(DBSession).filter(
+            DBSession.seq_id == seq_id,
+            DBSession.user_id == current_user
+        ).first()
+
         if not db_session:
             raise HTTPException(
                 status_code=404, 
@@ -129,7 +143,7 @@ async def list_session_messages(session_id: str, db: Session = Depends(get_db)):
         
         messages = (
             db.query(DBMessage)
-            .filter(DBMessage.session_id == session_id)
+            .filter(DBMessage.session_id == db_session.id)
             .order_by(DBMessage.created_at)
             .all()
         )
