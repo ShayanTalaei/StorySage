@@ -175,8 +175,10 @@ Requirements for Section Writing:
    - NO speculation, assumptions, or creative embellishments
    - Maintain strict factual accuracy
 2. Writing Style
-   - Professional biographical tone
-   - First-person perspective
+   - ALWAYS write in first-person ("I", "my", "we", "our")
+   - NEVER use third-person perspective (no "he", "she", "they", or the subject's name)
+   - Convert all third-person references to first-person perspective
+   - Professional autobiographical tone
    - Clear paragraph structure
    - Smooth transitions between ideas
 3. Memory Integration Rules
@@ -184,6 +186,12 @@ Requirements for Section Writing:
    - Integrate information naturally into the narrative
    - Select relevant details based on update plan
    - Maintain context when incorporating quotes
+
+First-Person Examples:
+✓ "I graduated from Harvard in 1985" (correct)
+✗ "Margaret graduated from Harvard in 1985" (incorrect)
+✓ "My father taught me how to fish" (correct)
+✗ "Her father taught her how to fish" (incorrect)
 
 Requirements for Follow-Up Questions:
 - Target specific information gaps
@@ -194,7 +202,7 @@ Requirements for Follow-Up Questions:
 Required Output Format:
 <section_update>
     <content>
-[Write biography section here]
+[Write biography section here in FIRST-PERSON perspective]
 - Use plain text only
 - Include paragraph breaks
 - No formatting tags
