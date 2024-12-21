@@ -1,108 +1,21 @@
+from typing import List
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 import asyncio
 import uuid
-from typing import List
 
 from api.schemas.chat import (
-    SessionRequest, MessageRequest, SessionResponse, MessageResponse, EndSessionResponse, MessageResponse
+    MessageRequest, MessageResponse, EndSessionResponse
 )
 from database.models import DBSession, DBMessage
 from database.database import get_db
 from interview_session.interview_session import InterviewSession
 from api.auth import get_current_user
+from api.session_manager import session_manager
 
 router = APIRouter(
     tags=["chat"]
 )
-
-# Store active sessions
-active_sessions = {}
-
-@router.post("/sessions", response_model=SessionResponse)
-async def create_session(
-    request: SessionRequest, 
-    db: Session = Depends(get_db),
-    current_user: str = Depends(get_current_user)
-):
-    """Create a new interview session"""
-    try:
-        # Verify the user is creating a session for themselves
-        if request.user_id != current_user:
-            raise HTTPException(
-                status_code=403, 
-                detail="Cannot access another user's session"
-            )
-        
-        # Create a new interview session
-        session = InterviewSession(
-            user_id=request.user_id,
-            interaction_mode='api',
-            enable_voice_output=False,
-            enable_voice_input=False
-        )
-        
-        # Generate a unique session ID
-        session_id = str(uuid.uuid4())
-        active_sessions[session_id] = session
-        
-        # Create database session record
-        db_session = DBSession(
-            id=session_id,
-            user_id=request.user_id
-        )
-        db.add(db_session)
-        
-        # Start the session in the background
-        asyncio.create_task(session.run())
-        
-        # If initial content is provided, send it
-        if request.content:
-            session.add_message_to_chat_history("User", request.content)
-            
-            # Store user message in database
-            db_message = DBMessage(
-                id=str(uuid.uuid4()),
-                session_id=session_id,
-                content=request.content,
-                role="User"
-            )
-            db.add(db_message)
-        else:
-            session.add_message_to_chat_history("Interviewer", "Hello!")
-        
-        # Wait for interviewer's response
-        response = await session.api_participant.wait_for_response()
-        if not response:
-            raise HTTPException(status_code=408, detail="Timeout waiting for interviewer response")
-        
-        # Store interviewer response in database
-        db_response = DBMessage(
-            id=response.id,
-            session_id=session_id,
-            content=response.content,
-            role="Interviewer"
-        )
-        db.add(db_response)
-        db.commit()
-        db.refresh(db_response)
-        
-        last_message = response
-
-        return SessionResponse(
-            session_id=session_id,
-            message=MessageResponse(
-                id=last_message.id,
-                content=last_message.content,
-                role=last_message.role,
-                created_at=db_response.created_at
-            )
-        )
-            
-    except Exception as e:
-        db.rollback()
-        print(f"Error in create_session: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/messages", response_model=MessageResponse)
 async def send_message(
@@ -110,46 +23,64 @@ async def send_message(
     db: Session = Depends(get_db),
     current_user: str = Depends(get_current_user)
 ):
-    """Send a message to the interview session"""
+    """Send a message to the active session or create a new one"""
     try:
-        session: InterviewSession = active_sessions.get(request.session_id, None)
-        if not session:
-            raise HTTPException(status_code=404, detail="Session not found")
-            
-        # Verify the session belongs to the current user
-        if session.user_id != current_user:
-            raise HTTPException(
-                status_code=403, 
-                detail="Cannot access another user's session"
-            )
+        session = session_manager.get_active_session(current_user)
         
-        # Store user message in database
+        # Get session ID
+        if not session:
+            # Create a new session if none exists
+            session = InterviewSession(
+                user_id=current_user,
+                interaction_mode='api',
+                enable_voice_output=False,
+                enable_voice_input=False
+            )
+            
+            # Get session ID before starting the session
+            session_id = session.session_id
+            
+            # Create database session record
+            db_session = DBSession(
+                id=session_id,
+                user_id=current_user
+            )
+            db.add(db_session)
+            
+            # Start session in the background
+            asyncio.create_task(session.run())
+            
+            # Store session in manager after initialization
+            session_manager.set_active_session(current_user, session)
+        else:
+            session_id = session.session_id
+        
+        # Store user message
         db_message = DBMessage(
-            id=str(uuid.uuid4()),
-            session_id=request.session_id,
+            id=str(uuid.uuid4()),  # Message IDs can still be UUIDs
+            session_id=session_id,
             content=request.content,
             role="User"
         )
         db.add(db_message)
         
-        # Add user message to chat history
+        # Add user message to interview session
         session.add_message_to_chat_history("User", request.content)
         
-        # Wait for interviewer's response
+        # Get response
         response = await session.api_participant.wait_for_response()
         if not response:
             raise HTTPException(status_code=408, detail="Timeout waiting for interviewer response")
         
-        # Store interviewer response in database
+        # Store interviewer response
         db_response = DBMessage(
             id=response.id,
-            session_id=request.session_id,
+            session_id=session_id,
             content=response.content,
             role="Interviewer"
         )
         db.add(db_response)
         db.commit()
-        db.refresh(db_response)
         
         return MessageResponse(
             id=response.id,
@@ -159,28 +90,27 @@ async def send_message(
         )
     except Exception as e:
         db.rollback()
+        if session:  # Clean up session on error
+            session_manager.end_session(current_user)
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/sessions/{session_id}/end", response_model=EndSessionResponse)
-async def end_session(session_id: str, db: Session = Depends(get_db)):
-    """End an interview session and update biography"""
+@router.post("/sessions/end", response_model=EndSessionResponse)
+async def end_session(
+    current_user: str = Depends(get_current_user)
+):
+    """End the active session"""
     try:
-        session: InterviewSession = active_sessions.get(session_id, None)
-        if not session:
-            raise HTTPException(status_code=404, detail="Session not found. Check the session ID.")
+        if not session_manager.has_active_session(current_user):
+            raise HTTPException(
+                status_code=404,
+                detail="No active session found"
+            )
         
-        # End the session - this will trigger biography update in the run() method
-        if session is not None:
-            session.session_in_progress = False
-            print("Set session_in_progress to False")
-        
-        # Remove from active sessions
-        active_sessions.pop(session_id, None)
+        session_manager.end_session(current_user)
         
         return EndSessionResponse(
             status="success",
-            message="Session ended successfully",
-            session_id=session_id
+            message="Session ended successfully"
         )
         
     except Exception as e:
@@ -188,20 +118,15 @@ async def end_session(session_id: str, db: Session = Depends(get_db)):
 
 @router.get("/sessions/{session_id}/messages", response_model=List[MessageResponse])
 async def list_session_messages(session_id: str, db: Session = Depends(get_db)):
-    """Retrieve all messages for a specific session"""
+    """Retrieve all messages for a specific session (active or not)"""
     try:
-        # Check if session exists
-        session: InterviewSession = active_sessions.get(session_id, None)
-        if not session:
-            # If session is not active, check if it exists in database
-            db_session = db.query(DBSession).filter(DBSession.id == session_id).first()
-            if not db_session:
-                raise HTTPException(
-                    status_code=404, 
-                    detail="Session not found. Check the session ID."
-                )
+        db_session = db.query(DBSession).filter(DBSession.id == session_id).first()
+        if not db_session:
+            raise HTTPException(
+                status_code=404, 
+                detail="Session not found."
+            )
         
-        # Query messages from database
         messages = (
             db.query(DBMessage)
             .filter(DBMessage.session_id == session_id)
@@ -241,4 +166,3 @@ async def list_user_messages(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-

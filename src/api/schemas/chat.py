@@ -11,22 +11,9 @@ class MessageResponse(BaseModel):
     class Config:
         orm_mode = True
 
-class SessionRequest(BaseModel):
-    user_id: str
-    content: Optional[str] = None
-
 class MessageRequest(BaseModel):
-    session_id: str
     content: str
-
-class SessionResponse(BaseModel):
-    session_id: str
-    message: MessageResponse
-
-    class Config:
-        orm_mode = True
 
 class EndSessionResponse(BaseModel):
     status: str
     message: str
-    session_id: str
