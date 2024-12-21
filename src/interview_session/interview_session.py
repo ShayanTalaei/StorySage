@@ -32,6 +32,8 @@ class InterviewSession:
             enable_voice_output (bool): Enable voice output
             enable_voice_input (bool): Enable voice input
         """
+
+        # Session setup
         self.user_id = user_id
         self.session_note = SessionNote.get_last_session_note(user_id)
         self.session_note.session_id += 1
@@ -39,7 +41,6 @@ class InterviewSession:
         setup_logger(user_id, self.session_id, console_output_files=["execution_log"])
         
         SessionLogger.log_to_file("execution_log", f"[INIT] Starting interview session for user {user_id}")
-        SessionLogger.log_to_file("execution_log", f"[INIT] Session note loaded from the file")
         SessionLogger.log_to_file("execution_log", f"[INIT] Session ID: {self.session_id}")
         
         # User in the interview session
@@ -105,7 +106,7 @@ class InterviewSession:
         SessionLogger.log_to_file("execution_log", f"[SIGNAL] Shutdown signal received")
         self.session_in_progress = False
 
-    async def notify_participants(self, message: Message):
+    async def _notify_participants(self, message: Message):
         """Notify subscribers asynchronously"""
         subscribers = self.subscriptions.get(message.role, [])
         SessionLogger.log_to_file("execution_log", f"[NOTIFY] Notifying {len(subscribers)} subscribers for message from {message.role}")
@@ -129,18 +130,19 @@ class InterviewSession:
         SessionLogger.log_to_file("execution_log", f"[CHAT_HISTORY] {message.role}'s message has been added to chat history.")
         
         # Schedule async notification
-        asyncio.create_task(self.notify_participants(message))
+        asyncio.create_task(self._notify_participants(message))
 
     async def run(self):
         SessionLogger.log_to_file("execution_log", f"[RUN] Starting interview session")
         self.session_in_progress = True
         
         try:
-            # Only have interviewer initiate if not in API mode aka terminal or agent mode
+            # Only have interviewer initiate the conversation if not in API mode
             if self.user is not None:
                 SessionLogger.log_to_file("execution_log", f"[RUN] Sending initial notification to interviewer by system")
                 await self.interviewer.on_message(None)
             
+            # Monitor the session for completion
             while self.session_in_progress:
                 await asyncio.sleep(0.1)
                 
@@ -150,16 +152,17 @@ class InterviewSession:
         
         finally:
             try:
+                # Update biography and save session note
                 with contextlib.suppress(KeyboardInterrupt):
-                    await self.update_biography()
-                    self.session_note.save()
-                    self.session_completed = True
+                    await self._update_biography()
             except Exception as e:
                 SessionLogger.log_to_file("execution_log", f"[RUN] Error during biography update: {str(e)}")
             finally:
+                self.session_note.save()
+                self.session_completed = True
                 SessionLogger.log_to_file("execution_log", f"[RUN] Interview session completed")
     
-    async def update_biography(self):
+    async def _update_biography(self):
         """Update biography using the biography team."""
         SessionLogger.log_to_file("execution_log", f"[BIOGRAPHY] Starting biography update")
         
