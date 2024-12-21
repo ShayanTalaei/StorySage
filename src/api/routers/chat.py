@@ -17,6 +17,11 @@ router = APIRouter(
     tags=["chat"]
 )
 
+# Console colors
+GREEN = '\033[92m'
+RESET = '\033[0m'
+RED = '\033[91m'
+
 @router.post("/messages", response_model=MessageResponse)
 async def send_message(
     request: MessageRequest, 
@@ -40,30 +45,30 @@ async def send_message(
             
             # Get sequence ID from interview session
             seq_id = session.session_id
+            session_id = str(uuid.uuid4())
             
             # Create database session record
             db_session = DBSession(
+                id=session_id,
                 seq_id=seq_id,
                 user_id=current_user
             )
             db.add(db_session)
-            db.flush()  # Flush to get the auto-generated ID
 
             # Sync database session ID with interview session
-            session_id = db_session.id
             session.set_db_session_id(session_id)
             
             # Start session in the background
             asyncio.create_task(session.run())
             
             # Store session in manager after initialization
-            session_manager.set_active_session(current_user, session)
+            session_manager.set_active_session(current_user, session) 
         else:
-            seq_id = session.get_db_session_id()
+            session_id = session.get_db_session_id()
         
         # Store user message
         db_message = DBMessage(
-            id=str(uuid.uuid4()),  # Message IDs can still be UUIDs
+            id=str(uuid.uuid4()),
             session_id=session_id,
             content=request.content,
             role="User"
@@ -98,6 +103,7 @@ async def send_message(
         db.rollback()
         if session:  # Clean up session on error
             session_manager.end_session(current_user)
+        print(f"{RED}Error:\n{e}\n{RESET}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/sessions/end", response_model=EndSessionResponse)
@@ -120,6 +126,7 @@ async def end_session(
         )
         
     except Exception as e:
+        print(f"{RED}Error:\n{e}\n{RESET}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/sessions/{seq_id}/messages", response_model=List[MessageResponse])
@@ -151,6 +158,7 @@ async def list_session_messages(
         return messages
         
     except Exception as e:
+        print(f"{RED}Error:\n{e}\n{RESET}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/messages", response_model=List[MessageResponse])
@@ -179,4 +187,5 @@ async def list_user_messages(
         return messages
         
     except Exception as e:
+        print(f"{RED}Error:\n{e}\n{RESET}")
         raise HTTPException(status_code=500, detail=str(e))

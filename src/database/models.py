@@ -9,13 +9,13 @@ Base = declarative_base()
 class DBSession(Base):
     __tablename__ = "sessions"
     
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(String, primary_key=True)
     seq_id = Column(Integer, nullable=False)
     user_id = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     messages = relationship("DBMessage", back_populates="session")
-    user = relationship("DBUser")
+    # user = relationship("DBUser")
     
     __table_args__ = (
         sqlalchemy.UniqueConstraint('user_id', 'seq_id', name='unique_user_session_seq'),
