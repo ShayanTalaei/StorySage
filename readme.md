@@ -1,6 +1,18 @@
 # AI Autobiography
 
-## Installation
+## Setup
+
+### Environment Variables
+
+Create a `.env` file in the root directory with the following variables:
+
+```.env
+OPENAI_API_KEY=<your_openai_api_key>
+LOGS_DIR="logs"
+DATA_DIR="data"
+USER_AGENT_PROFILES_DIR="data/sample_user_profiles"
+DATABASE_URL="sqlite:///./data/interview_app.db"
+```
 
 ### Python Dependencies
 
@@ -75,5 +87,5 @@ python src/main.py --user_id john_doe --restart --user_agent
 Run the interviewer in server mode with:
 
 ```bash
-python src/main.py --mode server --port <PORT>
+python src/main.py --mode server --port 8000
 ```

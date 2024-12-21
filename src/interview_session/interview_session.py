@@ -76,13 +76,21 @@ class InterviewSession:
         # API participant for handling API responses
         self.api_participant = None
         if interaction_mode == 'api':
-            from api.api_participant import APIParticipant
+            from api.core.api_participant import APIParticipant
             self.api_participant = APIParticipant()
             self.subscriptions["Interviewer"].append(self.api_participant)
         
         # Shutdown signal handler - only for agent mode
         if interaction_mode == 'agent':
             self._setup_signal_handlers()
+    
+    def set_db_session_id(self, db_session_id: int):
+        """Set the database session ID"""
+        self.db_session_id = db_session_id
+    
+    def get_db_session_id(self) -> int:
+        """Get the database session ID"""
+        return self.db_session_id
     
     def _setup_signal_handlers(self):
         """Setup signal handlers for graceful shutdown"""

@@ -1,8 +1,6 @@
 from .chat import (
     MessageResponse,
-    SessionRequest,
     MessageRequest,
-    SessionResponse,
     EndSessionResponse
 )
 from .base import StatusResponse
@@ -13,8 +11,6 @@ __all__ = [
 
     # Chat schemas
     'MessageResponse',
-    'SessionRequest',
     'MessageRequest',
-    'SessionResponse',
     'EndSessionResponse',
 ] 

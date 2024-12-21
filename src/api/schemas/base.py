@@ -1,5 +1,4 @@
 from pydantic import BaseModel
-from datetime import datetime
 
 class StatusResponse(BaseModel):
     """Base response model for status messages"""
