@@ -3,6 +3,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 import asyncio
 import uuid
+import time
 
 from api.schemas.chat import (
     MessageRequest, MessageResponse, EndSessionResponse
@@ -118,6 +119,25 @@ async def end_session(
                 detail="No active session found"
             )
         
+        # Get the active session
+        session = session_manager.get_active_session(current_user)
+        
+        # Set session_in_progress to False to trigger completion
+        session.session_in_progress = False
+        
+        # Wait for the session to complete its final tasks
+        timeout = 120
+        start_time = time.time()
+        
+        while not session.session_completed:
+            await asyncio.sleep(0.1)
+            if time.time() - start_time > timeout:
+                raise HTTPException(
+                    status_code=408,
+                    detail="Timeout waiting for session to complete."
+                )
+        
+        # Clean up the session
         session_manager.end_session(current_user)
         
         return EndSessionResponse(

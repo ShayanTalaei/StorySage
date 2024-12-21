@@ -63,7 +63,8 @@ class InterviewSession:
         
         # Chat history
         self.chat_history: list[Message] = []
-        self.session_in_progress = False
+        self.session_in_progress = True
+        self.session_completed = False  # New flag to track completion
         
         # Subscriptions - only set up if we have a user instance
         self.subscriptions: Dict[str, List[Participant]] = {
@@ -152,6 +153,7 @@ class InterviewSession:
                 with contextlib.suppress(KeyboardInterrupt):
                     await self.update_biography()
                     self.session_note.save()
+                    self.session_completed = True
             except Exception as e:
                 SessionLogger.log_to_file("execution_log", f"[RUN] Error during biography update: {str(e)}")
             finally:
