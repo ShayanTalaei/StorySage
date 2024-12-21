@@ -15,11 +15,11 @@ class APIParticipant(Participant):
         self.last_message = message
         await self.response_queue.put(message)
     
-    async def wait_for_response(self, timeout: float = 15.0) -> Optional[Message]:
+    async def wait_for_response(self, timeout: float = 60.0) -> Optional[Message]:
         """Wait for a response from the interview session.
         
         Args:
-            timeout (float): Maximum time to wait for response in seconds. Defaults to 15 seconds.
+            timeout (float): Maximum time to wait for response in seconds. Defaults to 60 seconds.
             
         Returns:
             Optional[Message]: The response message if received within timeout, None otherwise.

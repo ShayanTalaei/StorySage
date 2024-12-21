@@ -63,7 +63,8 @@ class InterviewSession:
         
         # Chat history
         self.chat_history: list[Message] = []
-        self.session_in_progress = False
+        self.session_in_progress = True
+        self.session_completed = False  # New flag to track completion
         
         # Subscriptions - only set up if we have a user instance
         self.subscriptions: Dict[str, List[Participant]] = {
@@ -135,8 +136,10 @@ class InterviewSession:
         self.session_in_progress = True
         
         try:
-            SessionLogger.log_to_file("execution_log", f"[RUN] Sending initial notification to interviewer")
-            await self.interviewer.on_message(None)
+            # Only have interviewer initiate if not in API mode aka terminal or agent mode
+            if self.user is not None:
+                SessionLogger.log_to_file("execution_log", f"[RUN] Sending initial notification to interviewer by system")
+                await self.interviewer.on_message(None)
             
             while self.session_in_progress:
                 await asyncio.sleep(0.1)
@@ -150,6 +153,7 @@ class InterviewSession:
                 with contextlib.suppress(KeyboardInterrupt):
                     await self.update_biography()
                     self.session_note.save()
+                    self.session_completed = True
             except Exception as e:
                 SessionLogger.log_to_file("execution_log", f"[RUN] Error during biography update: {str(e)}")
             finally:
