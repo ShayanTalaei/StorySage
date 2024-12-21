@@ -17,9 +17,10 @@ class DBSession(Base):
     messages = relationship("DBMessage", back_populates="session")
     # user = relationship("DBUser")
     
-    __table_args__ = (
-        sqlalchemy.UniqueConstraint('user_id', 'seq_id', name='unique_user_session_seq'),
-    )
+    # TODO: Disabled for development; uncomment for production
+    # __table_args__ = (
+    #     sqlalchemy.UniqueConstraint('user_id', 'seq_id', name='unique_user_session_seq'),
+    # )
 
 class DBMessage(Base):
     __tablename__ = "messages"

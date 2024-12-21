@@ -135,8 +135,10 @@ class InterviewSession:
         self.session_in_progress = True
         
         try:
-            SessionLogger.log_to_file("execution_log", f"[RUN] Sending initial notification to interviewer")
-            await self.interviewer.on_message(None)
+            # Only have interviewer initiate if not in API mode aka terminal or agent mode
+            if self.user is not None:
+                SessionLogger.log_to_file("execution_log", f"[RUN] Sending initial notification to interviewer by system")
+                await self.interviewer.on_message(None)
             
             while self.session_in_progress:
                 await asyncio.sleep(0.1)
