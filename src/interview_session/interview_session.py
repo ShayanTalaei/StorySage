@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 
 from interview_session.session_models import Message, Participant
 from agents.interviewer.interviewer import Interviewer
-from agents.memory_manager.memory_manager import MemoryManager
+from agents.note_taker.note_taker import NoteTaker
 from agents.user.user_agent import UserAgent
 from session_note.session_note import SessionNote
 from utils.logger import SessionLogger, setup_logger
@@ -57,10 +57,10 @@ class InterviewSession:
         
         # Agents in the interview session
         self.interviewer: Interviewer = Interviewer(config={"user_id": user_id, "tts": {"enabled": enable_voice_output}}, interview_session=self)
-        self.memory_manager: MemoryManager = MemoryManager(config={"user_id": user_id}, interview_session=self)
+        self.note_taker: NoteTaker = NoteTaker(config={"user_id": user_id}, interview_session=self)
         self.biography_orchestrator = BiographyOrchestrator(config={"user_id": user_id}, interview_session=self)
         
-        SessionLogger.log_to_file("execution_log", f"[INIT] Agents initialized: Interviewer, MemoryManager, Biography Orchestrator")
+        SessionLogger.log_to_file("execution_log", f"[INIT] Agents initialized: Interviewer, Note Taker, Biography Orchestrator")
         
         # Chat history
         self.chat_history: list[Message] = []
@@ -69,8 +69,8 @@ class InterviewSession:
         
         # Subscriptions - only set up if we have a user instance
         self.subscriptions: Dict[str, List[Participant]] = {
-            "Interviewer": [self.memory_manager],
-            "User": [self.interviewer, self.memory_manager]
+            "Interviewer": [self.note_taker],
+            "User": [self.interviewer, self.note_taker]
         }
         if self.user:
             self.subscriptions["Interviewer"].append(self.user)
@@ -167,7 +167,7 @@ class InterviewSession:
         SessionLogger.log_to_file("execution_log", f"[BIOGRAPHY] Starting biography update")
         
         # Get all memories added during this session
-        new_memories = self.memory_manager.get_session_memories()
+        new_memories = self.note_taker.get_session_memories()
         
         SessionLogger.log_to_file("execution_log", f"[BIOGRAPHY] Found {len(new_memories)} new memories to process")
         

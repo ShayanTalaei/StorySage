@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 
 # Local imports
 from agents.base_agent import BaseAgent
-from agents.memory_manager.prompts import get_prompt
+from agents.note_taker.prompts import get_prompt
 from agents.prompt_utils import format_prompt
 from interview_session.session_models import Participant, Message
 from memory_bank.memory_bank_vector_db import MemoryBank
@@ -17,20 +17,20 @@ from session_note.session_note import SessionNote
 if TYPE_CHECKING:
     from interview_session.interview_session import InterviewSession
 
-class MemoryManager(BaseAgent, Participant):
+class NoteTaker(BaseAgent, Participant):
     def __init__(self, config: Dict, interview_session: 'InterviewSession'):
         BaseAgent.__init__(
-            self,name="MemoryManager",
-            description="Agent that manages and updates the user's memory bank",
+            self,name="NoteTaker",
+            description="Agent that takes notes and manages the user's memory bank",
             config=config
         )
-        Participant.__init__(self, title="MemoryManager", interview_session=interview_session)
+        Participant.__init__(self, title="NoteTaker", interview_session=interview_session)
         
         self.user_id = config.get("user_id")
         self.memory_bank = MemoryBank.load_from_file(self.user_id)
         self.new_memories = []  # Track new memories added in current session
         self.tools = {
-            "update_memory_bank": UpdateMemoryBank(memory_bank=self.memory_bank, memory_manager=self),
+            "update_memory_bank": UpdateMemoryBank(memory_bank=self.memory_bank, note_taker=self),
             "update_session_note": UpdateSessionNote(session_note=self.interview_session.session_note)
         }
         
@@ -101,7 +101,7 @@ class UpdateMemoryBank(BaseTool):
     description: str = "A tool for storing new memories in the memory bank."
     args_schema: Type[BaseModel] = UpdateMemoryBankInput
     memory_bank: MemoryBank = Field(...)
-    memory_manager: MemoryManager = Field(...)
+    note_taker: NoteTaker = Field(...)
 
     def _run(
         self,
@@ -118,7 +118,7 @@ class UpdateMemoryBank(BaseTool):
                 metadata=metadata, 
                 importance_score=importance_score
             )
-            self.memory_manager.add_new_memory(memory.to_dict())
+            self.note_taker.add_new_memory(memory.to_dict())
             return f"Successfully stored memory: {title}"
         except Exception as e:
             raise ToolException(f"Error storing memory: {e}")

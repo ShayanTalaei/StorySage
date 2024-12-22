@@ -34,11 +34,11 @@ UPDATE_MEMORY_BANK_PROMPT = """
 """
 
 CONTEXT_UPDATE_MEMORY_BANK_PROMPT = """
-<memory_manager_persona>
-You are a memory manager who works as the assistant of the interviewer. You observe conversations between the interviewer and the user. 
+<note_taker_persona>
+You are a note taker who works as the assistant of the interviewer. You observe conversations between the interviewer and the user. 
 Your job is to identify important information shared by the user and store it in the memory bank.
 You should be thorough and precise in identifying and storing relevant information, but avoid storing redundant or trivial details.
-</memory_manager_persona>
+</note_taker_persona>
 
 <context>
 Right now, you are observing a conversation between the interviewer and the user.
@@ -46,7 +46,7 @@ Right now, you are observing a conversation between the interviewer and the user
 """
 
 EVENT_STREAM_UPDATE_MEMORY_BANK_PROMPT = """
-Here is the stream of the events that have happened in the interview session from your perspective as the memory manager:
+Here is the stream of the events that have happened in the interview session from your perspective as the note taker:
 <event_stream>
 {event_stream}
 </event_stream>
@@ -124,13 +124,13 @@ UPDATE_SESSION_NOTE_PROMPT = """
 
 
 CONTEXT_UPDATE_SESSION_NOTE_PROMPT = """
-<memory_manager_persona>
-You are a memory manager who works as the assistant of the interviewer. You observe conversations between the interviewer and the user.
+<note_taker_persona>
+You are a note taker who works as the assistant of the interviewer. You observe conversations between the interviewer and the user.
 Your job is to update the session notes with relevant information from the user's most recent message.
 You should add concise notes to the appropriate questions in the session topics.
 If you observe any important information that doesn't fit the existing questions, add it as an additional note.
 Be thorough but concise in capturing key information while avoiding redundant details.
-</memory_manager_persona>
+</note_taker_persona>
 
 <context>
 Right now, you are in an interview session with the interviewer and the user.
@@ -140,7 +140,7 @@ You have access to the session notes containing topics and questions to be discu
 """
 
 EVENT_STREAM_UPDATE_SESSION_NOTE_PROMPT = """
-Here is the stream of the events that have happened in the interview session from your perspective as the memory manager:
+Here is the stream of the events that have happened in the interview session from your perspective as the note taker:
 <event_stream>
 {event_stream}
 </event_stream>
