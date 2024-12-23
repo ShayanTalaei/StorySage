@@ -1,5 +1,5 @@
 import time
-from typing import Dict, Type, Optional, Any, TYPE_CHECKING
+from typing import Dict, Type, Optional, Any, TYPE_CHECKING, TypedDict
 
 from langchain_core.callbacks.manager import CallbackManagerForToolRun
 from langchain_core.tools import BaseTool, ToolException
@@ -10,7 +10,7 @@ from agents.interviewer.prompts import get_prompt
 from agents.prompt_utils import format_prompt
 from memory_bank.memory_bank_vector_db import MemoryBank
 from interview_session.session_models import Participant, Message
-from utils.text_to_speech import create_tts_engine
+from utils.text_to_speech import TextToSpeechBase, create_tts_engine
 from utils.audio_player import create_audio_player, AudioPlayerBase
 
 if TYPE_CHECKING:
@@ -22,8 +22,19 @@ ORANGE = '\033[93m'
 RESET = '\033[0m'
 RED = '\033[91m'
 
+class TTSConfig(TypedDict, total=False):
+    """Configuration for text-to-speech."""
+    enabled: bool
+    provider: str  # e.g. 'openai'
+    voice: str     # e.g. 'alloy'
+
+class InterviewerConfig(TypedDict, total=False):
+    """Configuration for the Interviewer agent."""
+    user_id: str
+    tts: TTSConfig
+
 class Interviewer(BaseAgent, Participant):
-    def __init__(self, config: Dict, interview_session: 'InterviewSession'):
+    def __init__(self, config: InterviewerConfig, interview_session: 'InterviewSession'):
         BaseAgent.__init__(self, name="Interviewer", 
                          description="The agent that interviews the user, asking questions about the user's life.",
                          config=config)
@@ -140,7 +151,7 @@ class RespondToUser(BaseTool):
     def __init__(self, **data):
         super().__init__(**data)
         if self.tts_config.get("enabled", False):
-            self.tts_engine = create_tts_engine(
+            self.tts_engine: TextToSpeechBase = create_tts_engine(
                 provider=self.tts_config.get("provider", "openai"),
                 voice=self.tts_config.get("voice", "alloy")
             )

@@ -54,12 +54,16 @@ class BaseAgent:
                                                  timestamp=datetime.now()))
         SessionLogger.log_to_file(f"{self.name}_event_stream", f"({self.name}) Sender: {sender}, Tag: {tag}\nContent: {content}")
         
-    def get_event_stream_str(self, filter: List[Dict[str, str]] = None):
-        event_stream = ""
+    def get_event_stream_str(self, filter: List[Dict[str, str]] = None, as_list: bool = False):
+        events = []
         for event in self.event_stream:
             if self._passes_filter(event, filter):
-                event_stream += f"<{event.sender}>\n{event.content}\n</{event.sender}>\n"
-        return event_stream
+                event_str = f"<{event.sender}>\n{event.content}\n</{event.sender}>"
+                events.append(event_str)
+        
+        if as_list:
+            return events
+        return "\n".join(events)
     
     def _passes_filter(self, event: Event, filter: List[Dict[str, str]]):
         if filter:

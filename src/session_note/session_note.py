@@ -70,10 +70,11 @@ class SessionNote:
                     "What is your name?",
                     "How old are you?",
                 ],
-                "Biography Style": [
-                    "How do you like your biography to be written? e.g. chronological, thematic, etc.",
-                    "Any specific style preferences? e.g. chronological, thematic, etc.",
-                ],
+                # TODO: Ask these questions when user registers
+                # "Biography Style": [
+                #     "How do you like your biography to be written? e.g. chronological, thematic, etc.",
+                #     "Any specific style preferences? e.g. chronological, thematic, etc.",
+                # ],
                 "Personal": [
                     "Where did you grow up?",
                     "What was your childhood like?"
@@ -119,6 +120,7 @@ class SessionNote:
         latest_file = os.path.join(base_path, files[0])
         return cls.load_from_file(latest_file)
     
+
     def add_interview_question(self, topic: str, question: str, question_id: str):
         """Adds a new interview question to the session notes.
         
@@ -308,6 +310,11 @@ class SessionNote:
         if not self.additional_notes:
             return ""
         return "\n".join(self.additional_notes)
+
+    def increment_session_id(self):
+        """Safely increments the session ID and returns the new value."""
+        self.session_id += 1
+        return self.session_id
 
 
 

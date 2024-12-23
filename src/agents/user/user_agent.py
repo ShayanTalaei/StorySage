@@ -30,11 +30,10 @@ class UserAgent(BaseAgent, User):
         full_response = self.call_engine(prompt)
         self.add_event(sender=self.name, tag="llm_response", content=full_response)
         
-        # Add our full response to the event stream
-        self.add_event(sender=self.name, tag="full_response", content=full_response)
-        
         # Extract just the <response> content to send to chat history
         response_content = self._extract_response(full_response)
+        self.add_event(sender=self.name, tag="message", content=response_content)
+
         if response_content:
             self.interview_session.add_message_to_chat_history(role=self.title, content=response_content)
     
@@ -44,7 +43,7 @@ class UserAgent(BaseAgent, User):
         
         return get_prompt().format(
             profile_background=self.profile_background,
-            chat_history=self.get_event_stream_str()
+            chat_history=self.get_event_stream_str([{"tag": "message"}])
         )
     
     def _extract_response(self, full_response: str) -> str:

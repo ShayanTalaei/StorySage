@@ -1,14 +1,15 @@
 from typing import Dict, List, TYPE_CHECKING
-from agents.biography_team.base_biography_agent import BiographyTeamAgent
+from agents.biography_team.base_biography_agent import BiographyConfig, BiographyTeamAgent
 import json
 import xml.etree.ElementTree as ET
+from biography.biography_styles import BIOGRAPHY_STYLE_PLANNER_INSTRUCTIONS
 
 if TYPE_CHECKING:
     from interview_session.interview_session import InterviewSession
 
 
 class BiographyPlanner(BiographyTeamAgent):
-    def __init__(self, config: Dict, interview_session: 'InterviewSession'):
+    def __init__(self, config: BiographyConfig, interview_session: 'InterviewSession'):
         super().__init__(
             name="BiographyPlanner",
             description="Plans updates to the biography based on new memories",
@@ -55,7 +56,10 @@ class BiographyPlanner(BiographyTeamAgent):
                 f"<content>{m['text']}</content>\n"
                 "</memory>\n"
                 for m in new_memories
-            ])
+            ]),
+            style_instructions=BIOGRAPHY_STYLE_PLANNER_INSTRUCTIONS.get(
+                self.config.get("biography_style")
+            )
         )
         
         return prompt
@@ -191,8 +195,12 @@ Requirements for Follow-Up Questions:
 - Be clear, direct, and concise
 - Focus on one topic per question
 
-Provide your response in the following XML format:
+Style-Specific Instructions:
+<biography_style_instructions>
+{style_instructions}
+</biography_style_instructions>
 
+Provide your response in the following XML format:
 <plans>
     <plan>
         <action_type>create/update</action_type>

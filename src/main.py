@@ -24,10 +24,14 @@ async def run_terminal_mode(args):
         args.voice_output = False
     
     interview_session = InterviewSession(
-        args.user_id, 
-        'agent' if args.user_agent else 'terminal',
-        args.voice_output,
-        args.voice_input
+        interaction_mode='agent' if args.user_agent else 'terminal',
+        user_config={
+            "user_id": args.user_id,
+            "enable_voice": args.voice_input
+        },
+        interview_config={
+            "enable_voice": args.voice_output
+        }
     )
     
     with contextlib.suppress(KeyboardInterrupt):

@@ -38,10 +38,10 @@ async def send_message(
         if not session:
             # Create a new session if none exists
             session = InterviewSession(
-                user_id=current_user,
                 interaction_mode='api',
-                enable_voice_output=False,
-                enable_voice_input=False
+                user_config={
+                    "user_id": current_user
+                }
             )
             
             # Get sequence ID from interview session

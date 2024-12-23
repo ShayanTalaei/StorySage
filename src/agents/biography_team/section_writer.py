@@ -4,11 +4,12 @@ from pydantic import BaseModel, Field
 from langchain_core.callbacks.manager import CallbackManagerForToolRun
 from langchain_core.tools import BaseTool, ToolException
 
-from agents.biography_team.base_biography_agent import BiographyTeamAgent
+from agents.biography_team.base_biography_agent import BiographyConfig, BiographyTeamAgent
 from agents.biography_team.models import TodoItem
 import xml.etree.ElementTree as ET
 
 from biography.biography import Biography
+from biography.biography_styles import BIOGRAPHY_STYLE_WRITER_INSTRUCTIONS
 
 if TYPE_CHECKING:
     from interview_session.interview_session import InterviewSession
@@ -19,7 +20,7 @@ class UpdateResult:
     message: str
 
 class SectionWriter(BiographyTeamAgent):
-    def __init__(self, config: Dict, interview_session: 'InterviewSession'):
+    def __init__(self, config: BiographyConfig, interview_session: 'InterviewSession'):
         super().__init__(
             name="SectionWriter",
             description="Updates individual biography sections based on plans",
@@ -71,7 +72,7 @@ class SectionWriter(BiographyTeamAgent):
         Create a prompt for the section writer to update a biography section.
         """
         current_content = self.tools["get_section"]._run(todo_item.section_path) or "Section does not exist yet."
-        
+                
         return SECTION_WRITER_PROMPT.format(
             section_path=todo_item.section_path,
             update_plan=todo_item.update_plan,
@@ -79,7 +80,10 @@ class SectionWriter(BiographyTeamAgent):
             relevant_memories='\n'.join([
                 f"- {memory_text}"
                 for memory_text in todo_item.relevant_memories
-            ])
+            ]),
+            style_instructions=BIOGRAPHY_STYLE_WRITER_INSTRUCTIONS.get(
+            self.config.get("biography_style", "chronological")
+        )
         )
 
     def _handle_section_update(self, response: str, todo_item: TodoItem) -> bool:
@@ -175,10 +179,6 @@ Requirements for Section Writing:
    - NO speculation, assumptions, or creative embellishments
    - Maintain strict factual accuracy
 2. Writing Style
-   - ALWAYS write in first-person ("I", "my", "we", "our")
-   - NEVER use third-person perspective (no "he", "she", "they", or the subject's name)
-   - Convert all third-person references to first-person perspective
-   - Professional autobiographical tone
    - Clear paragraph structure
    - Smooth transitions between ideas
 3. Memory Integration Rules
@@ -187,11 +187,10 @@ Requirements for Section Writing:
    - Select relevant details based on update plan
    - Maintain context when incorporating quotes
 
-First-Person Examples:
-✓ "I graduated from Harvard in 1985" (correct)
-✗ "Margaret graduated from Harvard in 1985" (incorrect)
-✓ "My father taught me how to fish" (correct)
-✗ "Her father taught her how to fish" (incorrect)
+Style-Specific Instructions:
+<biography_style_instructions>
+{style_instructions}
+</biography_style_instructions>
 
 Requirements for Follow-Up Questions:
 - Target specific information gaps

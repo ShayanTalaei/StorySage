@@ -1,76 +1,104 @@
 import asyncio
 import uuid
 from datetime import datetime
-from typing import Dict, List
+from typing import Dict, List, TypedDict
 import signal
 import contextlib
 
 from dotenv import load_dotenv
 
 from interview_session.session_models import Message, Participant
-from agents.interviewer.interviewer import Interviewer
-from agents.memory_manager.memory_manager import MemoryManager
+from agents.interviewer.interviewer import Interviewer, InterviewerConfig, TTSConfig
+from agents.note_taker.note_taker import NoteTaker, NoteTakerConfig
 from agents.user.user_agent import UserAgent
 from session_note.session_note import SessionNote
 from utils.logger import SessionLogger, setup_logger
 from user.user import User
 from agents.biography_team.orchestrator import BiographyOrchestrator
+from agents.biography_team.base_biography_agent import BiographyConfig
 
 load_dotenv(override=True)
 
+class UserConfig(TypedDict, total=False):
+    """Configuration for user settings.
+    """
+    user_id: str
+    enable_voice: bool
+    biography_style: str
+
+class InterviewConfig(TypedDict, total=False):
+    """Configuration for interview settings."""
+    enable_voice: bool
+
 class InterviewSession: 
     
-    def __init__(self, user_id: str, interaction_mode: str = 'terminal', enable_voice_output: bool = False, enable_voice_input: bool = False):
+    def __init__(self, interaction_mode: str = 'terminal', user_config: UserConfig = {}, interview_config: InterviewConfig = {}):
         """Initialize the interview session.
-        
+
         Args:
-            user_id (str): The user's ID
-            interaction_mode (str): How to interact with the user. Options:
-                - 'terminal': Terminal-based user interaction
-                - 'agent': Automated user agent for testing
-                - 'api': API-based interaction (no direct user interface)
-            enable_voice_output (bool): Enable voice output
-            enable_voice_input (bool): Enable voice input
+            interaction_mode: How to interact with user - 'terminal', 'agent' (automated), or 'api'
+            user_config: User configuration dictionary
+                user_id: User identifier (default: 'default_user')
+                enable_voice: Enable voice input (default: False)
+            interview_config: Interview configuration dictionary
+                enable_voice: Enable voice output (default: False)
         """
 
         # Session setup
-        self.user_id = user_id
-        self.session_note = SessionNote.get_last_session_note(user_id)
-        self.session_note.session_id += 1
-        self.session_id = self.session_note.session_id
-        setup_logger(user_id, self.session_id, console_output_files=["execution_log"])
+        self.user_id = user_config.get("user_id", "default_user")
+        self.session_note = SessionNote.get_last_session_note(self.user_id)
+        self.session_id = self.session_note.increment_session_id()
+        setup_logger(self.user_id, self.session_id, console_output_files=["execution_log"])
         
-        SessionLogger.log_to_file("execution_log", f"[INIT] Starting interview session for user {user_id}")
+        # Chat history and session state
+        self.chat_history: list[Message] = []
+        self.session_in_progress = True
+        self.session_completed = False
+
+        SessionLogger.log_to_file("execution_log", f"[INIT] Starting interview session for user {self.user_id}")
         SessionLogger.log_to_file("execution_log", f"[INIT] Session ID: {self.session_id}")
         
         # User in the interview session
         if interaction_mode == 'agent':
-            self.user: User = UserAgent(user_id=user_id, interview_session=self)
+            self.user: User = UserAgent(user_id=self.user_id, interview_session=self)
         elif interaction_mode == 'terminal':
-            self.user: User = User(user_id=user_id, interview_session=self, enable_voice_input=enable_voice_input)
+            self.user: User = User(user_id=self.user_id, interview_session=self, enable_voice_input=user_config.get("enable_voice", False))
         elif interaction_mode == 'api':
             self.user = None  # No direct user interface for API mode
         else:
             raise ValueError(f"Invalid interaction_mode: {interaction_mode}")
         
-        SessionLogger.log_to_file("execution_log", f"[INIT] User instance created with mode: {interaction_mode}")        
+        SessionLogger.log_to_file("execution_log", f"[INIT] User instance created with mode: {interaction_mode}")
         
         # Agents in the interview session
-        self.interviewer: Interviewer = Interviewer(config={"user_id": user_id, "tts": {"enabled": enable_voice_output}}, interview_session=self)
-        self.memory_manager: MemoryManager = MemoryManager(config={"user_id": user_id}, interview_session=self)
-        self.biography_orchestrator = BiographyOrchestrator(config={"user_id": user_id}, interview_session=self)
+        self.interviewer: Interviewer = Interviewer(
+            config=InterviewerConfig(
+                user_id=self.user_id,
+                tts=TTSConfig(enabled=interview_config.get("enable_voice", False))
+            ),
+            interview_session=self
+        )
+        self.note_taker: NoteTaker = NoteTaker(
+            config=NoteTakerConfig(
+                user_id=self.user_id,
+                followup_interval=3
+            ),
+            interview_session=self
+        )
+        self.biography_orchestrator = BiographyOrchestrator(
+            config=BiographyConfig(
+                user_id=self.user_id,
+                biography_style=user_config.get("biography_style", "chronological")
+            ),
+            interview_session=self
+        )
         
-        SessionLogger.log_to_file("execution_log", f"[INIT] Agents initialized: Interviewer, MemoryManager, Biography Orchestrator")
-        
-        # Chat history
-        self.chat_history: list[Message] = []
-        self.session_in_progress = True
-        self.session_completed = False  # New flag to track completion
+        SessionLogger.log_to_file("execution_log", f"[INIT] Agents initialized: Interviewer, Note Taker, Biography Orchestrator")
         
         # Subscriptions - only set up if we have a user instance
         self.subscriptions: Dict[str, List[Participant]] = {
-            "Interviewer": [self.memory_manager],
-            "User": [self.interviewer, self.memory_manager]
+            "Interviewer": [self.note_taker],
+            "User": [self.interviewer, self.note_taker]
         }
         if self.user:
             self.subscriptions["Interviewer"].append(self.user)
@@ -167,7 +195,7 @@ class InterviewSession:
         SessionLogger.log_to_file("execution_log", f"[BIOGRAPHY] Starting biography update")
         
         # Get all memories added during this session
-        new_memories = self.memory_manager.get_session_memories()
+        new_memories = self.note_taker.get_session_memories()
         
         SessionLogger.log_to_file("execution_log", f"[BIOGRAPHY] Found {len(new_memories)} new memories to process")
         
