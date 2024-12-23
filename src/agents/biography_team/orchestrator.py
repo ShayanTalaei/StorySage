@@ -1,5 +1,6 @@
-from typing import Dict, List, TYPE_CHECKING
+from typing import Dict, List, TYPE_CHECKING, TypedDict
 
+from agents.biography_team.base_biography_agent import BiographyConfig
 from agents.biography_team.planner import BiographyPlanner
 from agents.biography_team.section_writer import SectionWriter
 from agents.biography_team.session_note_manager import SessionNoteManager
@@ -9,7 +10,7 @@ if TYPE_CHECKING:
     from interview_session.interview_session import InterviewSession
 
 class BiographyOrchestrator:
-    def __init__(self, config: Dict, interview_session: 'InterviewSession'):
+    def __init__(self, config: BiographyConfig, interview_session: 'InterviewSession'):
         self.config = config
         self.todo_items: List[TodoItem] = []
         self.planner = BiographyPlanner(config, interview_session)

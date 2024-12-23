@@ -1,5 +1,5 @@
 # Python standard library imports
-from typing import Dict, Type, Optional, List, TYPE_CHECKING
+from typing import Dict, Type, Optional, List, TYPE_CHECKING, TypedDict
 
 # Third-party imports
 from langchain_core.callbacks.manager import CallbackManagerForToolRun
@@ -17,8 +17,13 @@ from session_note.session_note import SessionNote
 if TYPE_CHECKING:
     from interview_session.interview_session import InterviewSession
 
+class NoteTakerConfig(TypedDict, total=False):
+    """Configuration for the NoteTaker agent."""
+    user_id: str
+    followup_interval: int  # Number of turns between follow-ups
+
 class NoteTaker(BaseAgent, Participant):
-    def __init__(self, config: Dict, interview_session: 'InterviewSession'):
+    def __init__(self, config: NoteTakerConfig, interview_session: 'InterviewSession'):
         BaseAgent.__init__(
             self,name="NoteTaker",
             description="Agent that takes notes and manages the user's memory bank",

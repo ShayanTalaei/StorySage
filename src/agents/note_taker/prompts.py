@@ -96,7 +96,6 @@ INSTRUCTIONS_UPDATE_MEMORY_BANK_PROMPT = """
 - If there's no information worth storing, you can skip making any tool calls.
 </instructions>
 """
-## TODO: We might need to add an instruction on not to repeat the same memory twice
 
 OUTPUT_FORMAT_UPDATE_MEMORY_BANK_PROMPT = """
 <output_format>

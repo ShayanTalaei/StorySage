@@ -1,5 +1,5 @@
 from typing import Dict, List, TYPE_CHECKING
-from agents.biography_team.base_biography_agent import BiographyTeamAgent
+from agents.biography_team.base_biography_agent import BiographyConfig, BiographyTeamAgent
 import xml.etree.ElementTree as ET
 from pydantic import BaseModel, Field
 from langchain_core.tools import BaseTool, ToolException
@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from interview_session.interview_session import InterviewSession
 
 class SessionNoteManager(BiographyTeamAgent):
-    def __init__(self, config: Dict, interview_session: 'InterviewSession'):
+    def __init__(self, config: BiographyConfig, interview_session: 'InterviewSession'):
         super().__init__(
             name="SessionNoteManager",
             description="Updates session notes based on new memories and follow-up questions",
