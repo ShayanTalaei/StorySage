@@ -251,9 +251,9 @@ B. Question Organization:
       - For new top-level questions:
           * Use next available number in the topic
 
-    B.3. Including Existing Questions:
+    B.3. Including Existing Parent Questions:
       - When to include:
-          * When adding sub-questions under it
+          * When adding sub-questions under the parent question
           * To provide context for the new sub-questions
       - How to include:
           * Mark with type="existing"

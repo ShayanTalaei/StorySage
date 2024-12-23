@@ -29,9 +29,13 @@ class NoteTaker(BaseAgent, Participant):
         self.user_id = config.get("user_id")
         self.memory_bank = MemoryBank.load_from_file(self.user_id)
         self.new_memories = []  # Track new memories added in current session
+        self.message_count = 0  # Counter for messages since last follow-up
+        self.followup_interval = config.get("followup_interval", 3)  # Number of turns between follow-ups
+        
         self.tools = {
             "update_memory_bank": UpdateMemoryBank(memory_bank=self.memory_bank, note_taker=self),
-            "update_session_note": UpdateSessionNote(session_note=self.interview_session.session_note)
+            "update_session_note": UpdateSessionNote(session_note=self.interview_session.session_note),
+            "add_interview_question": AddInterviewQuestion(session_note=self.interview_session.session_note)
         }
         
     async def on_message(self, message: Message):
@@ -39,11 +43,25 @@ class NoteTaker(BaseAgent, Participant):
         if message.role == "User":
             self.update_session_note()
             self.update_memory_bank()
-        
+            
+            # Increment counter and check if it's time to propose follow-ups
+            self.message_count += 1
+            if self.message_count >= self.followup_interval:
+                self.propose_followups()
+                self.message_count = 0
+    
+    def propose_followups(self) -> None:
+        """Propose follow-up questions based on the user's recent answers."""
+        prompt = self.get_formatted_prompt("propose_followups")
+        self.add_event(sender=self.name, tag="propose_followups_prompt", content=prompt)
+        response = self.call_engine(prompt)
+        self.add_event(sender=self.name, tag="llm_response", content=response)
+        self.handle_tool_calls(response)
+
     def update_memory_bank(self) -> None:
         """Process the latest conversation and update the memory bank if needed."""
         prompt = self.get_formatted_prompt("update_memory_bank")
-        self.add_event(sender=self.name, tag="prompt", content=prompt)
+        self.add_event(sender=self.name, tag="update_memory_bank_prompt", content=prompt)
         response = self.call_engine(prompt)
         self.add_event(sender=self.name, tag="llm_response", content=response)
         self.add_event(sender=self.name, tag="update_memory_bank", content=response)
@@ -52,7 +70,7 @@ class NoteTaker(BaseAgent, Participant):
 
     def update_session_note(self) -> None:
         prompt = self.get_formatted_prompt("update_session_note")
-        self.add_event(sender=self.name, tag="prompt", content=prompt)
+        self.add_event(sender=self.name, tag="update_session_note_prompt", content=prompt)
         response = self.call_engine(prompt)
         self.add_event(sender=self.name, tag="llm_response", content=response)
         self.add_event(sender=self.name, tag="update_session_note", content=response)
@@ -67,10 +85,27 @@ class NoteTaker(BaseAgent, Participant):
             return format_prompt(prompt, {"event_stream": event_stream,
                                          "tool_descriptions": self.get_tools_description(selected_tools=["update_memory_bank"])})
         elif prompt_type == "update_session_note":
-            event_stream = self.get_event_stream_str(filter=[{"tag": "message"}])
-            return format_prompt(prompt, {"event_stream": event_stream,
-                                         "questions_and_notes": self.interview_session.session_note.get_questions_and_notes_str(hide_answered="qa"),
-                                         "tool_descriptions": self.get_tools_description(selected_tools=["update_session_note"])})
+            events = self.get_event_stream_str(filter=[{"tag": "message"}], as_list=True)
+            current_qa = events[-2:] if len(events) >= 2 else []
+            previous_events = events[:-2] if len(events) >= 2 else events
+            
+            return format_prompt(prompt, {
+                "previous_events": "\n".join(previous_events),
+                "current_qa": "\n".join(current_qa),
+                "questions_and_notes": self.interview_session.session_note.get_questions_and_notes_str(hide_answered="qa"),
+                "tool_descriptions": self.get_tools_description(selected_tools=["update_session_note"])
+            })
+        elif prompt_type == "propose_followups":
+            # Get recent messages (2 messages per exchange: interviewer + user)
+            events = self.get_event_stream_str(filter=[{"tag": "message"}], as_list=True)
+            num_messages = 2 * self.followup_interval
+            recent_exchanges = events[-num_messages:] if len(events) >= num_messages else events
+            
+            return format_prompt(prompt, {
+                "event_stream": "\n".join(recent_exchanges),
+                "questions_and_notes": self.interview_session.session_note.get_questions_and_notes_str(),
+                "tool_descriptions": self.get_tools_description(selected_tools=["add_interview_question"])
+            })
             
     def add_new_memory(self, memory: Dict):
         """Track newly added memory"""
@@ -79,6 +114,13 @@ class NoteTaker(BaseAgent, Participant):
     def get_session_memories(self) -> List[Dict]:
         """Get all memories added during current session"""
         return self.new_memories
+
+class AddInterviewQuestionInput(BaseModel):
+    topic: str = Field(description="The topic under which to add the question")
+    question: str = Field(description="The interview question to add")
+    question_id: str = Field(description="The ID for the question (e.g., '1', '1.1', '2.3', etc.)")
+    parent_id: str = Field(description="The ID of the parent question (e.g., '1', '2', etc.)")
+    parent_text: str = Field(description="The text of the parent question")
 
 class UpdateMemoryBankInput(BaseModel):
     title: str = Field(description="A concise but descriptive title for the memory")
@@ -122,6 +164,32 @@ class UpdateMemoryBank(BaseTool):
             return f"Successfully stored memory: {title}"
         except Exception as e:
             raise ToolException(f"Error storing memory: {e}")
+
+class AddInterviewQuestion(BaseTool):
+    """Tool for adding new interview questions."""
+    name: str = "add_interview_question"
+    description: str = "Adds a new interview question to the session notes"
+    args_schema: Type[BaseModel] = AddInterviewQuestionInput
+    session_note: SessionNote = Field(...)
+
+    def _run(
+        self,
+        topic: str,
+        question: str,
+        question_id: str,
+        parent_id: str,
+        parent_text: str,
+        run_manager: Optional[CallbackManagerForToolRun] = None,
+    ) -> str:
+        try:
+            self.session_note.add_interview_question(
+                topic=topic,
+                question=question,
+                question_id=str(question_id)
+            )
+            return f"Successfully added question {question_id} as follow-up to question {parent_id}"
+        except Exception as e:
+            raise ToolException(f"Error adding interview question: {str(e)}")
 
 class UpdateSessionNoteInput(BaseModel):
     question_id: str = Field(description=("The ID of the question to update. "

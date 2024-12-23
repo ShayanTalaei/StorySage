@@ -18,6 +18,15 @@ def get_prompt(prompt_type: str):
             "INSTRUCTIONS": INSTRUCTIONS_UPDATE_SESSION_NOTE_PROMPT,
             "OUTPUT_FORMAT": OUTPUT_FORMAT_UPDATE_SESSION_NOTE_PROMPT
         })
+    elif prompt_type == "propose_followups":
+        return format_prompt(FOLLOWUPS_PROMPT, {
+            "CONTEXT": CONTEXT_FOLLOWUPS_PROMPT,
+            "EVENT_STREAM": EVENT_STREAM_FOLLOWUPS_PROMPT,
+            "QUESTIONS_AND_NOTES": QUESTIONS_AND_NOTES_UPDATE_SESSION_NOTE_PROMPT,
+            "TOOL_DESCRIPTIONS": TOOL_DESCRIPTIONS_UPDATE_SESSION_NOTE_PROMPT,
+            "INSTRUCTIONS": INSTRUCTIONS_FOLLOWUPS_PROMPT,
+            "OUTPUT_FORMAT": OUTPUT_FORMAT_FOLLOWUPS_PROMPT
+        })
 
 #### UPDATE_MEMORY_BANK_PROMPT ####
 
@@ -140,13 +149,19 @@ You have access to the session notes containing topics and questions to be discu
 """
 
 EVENT_STREAM_UPDATE_SESSION_NOTE_PROMPT = """
-Here is the stream of the events that have happened in the interview session from your perspective as the note taker:
-<event_stream>
-{event_stream}
-</event_stream>
+Here is the stream of previous events for context:
+<previous_events>
+{previous_events}
+</previous_events>
+
+Here is the current question-answer exchange you need to process:
+<current_qa>
+{current_qa}
+</current_qa>
+
 - The external tag of each event indicates the role of the sender of the event.
-- While you can see the full conversation history, focus ONLY on processing the last user message.
-- Previous notes you've made are shown to help you avoid duplicates, not to reprocess old information.
+- Focus ONLY on processing the content within the current Q&A exchange above.
+- Previous messages are shown only for context, not for reprocessing.
 """
 
 QUESTIONS_AND_NOTES_UPDATE_SESSION_NOTE_PROMPT = """
@@ -209,5 +224,108 @@ If you identify information worth storing, use the following format:
 </tool_calls>
 - You can make multiple tool calls at once if there are multiple pieces of information worth storing.
 - If there's no information worth storing, don't make any tool calls; i.e. return <tool_calls></tool_calls>.
+</output_format>
+"""
+
+#### FOLLOWUPS_PROMPT ####
+
+FOLLOWUPS_PROMPT = """
+{CONTEXT}
+
+{EVENT_STREAM}
+
+{QUESTIONS_AND_NOTES}
+
+{TOOL_DESCRIPTIONS}
+
+{INSTRUCTIONS}
+
+{OUTPUT_FORMAT}
+"""
+
+CONTEXT_FOLLOWUPS_PROMPT = """
+<note_taker_persona>
+You are a narrative-focused interviewer assistant who specializes in biographical interviewing. Your role is to propose follow-up questions that:
+- Explore the deeper meaning and subjective interpretation of experiences
+- Focus on how experiences interconnect rather than just chronological order
+- Encourage storytelling and reflection
+- Help build a collaborative narrative between interviewer and interviewee
+</note_taker_persona>
+
+<context>
+You are reviewing a recently answered question and proposing narrative-style follow-up questions to deepen the conversation.
+Your goal is to create questions that radiate outward from meaningful events and experiences shared by the user.
+</context>
+"""
+
+EVENT_STREAM_FOLLOWUPS_PROMPT = """
+Here is the most recent question-answer exchange:
+<event_stream>
+{event_stream}
+</event_stream>
+
+This is the exchange we'll use to propose follow-up questions.
+Focus on the themes, experiences, and meaningful events mentioned in this exchange to create relevant follow-up questions.
+"""
+
+INSTRUCTIONS_FOLLOWUPS_PROMPT = """
+<instructions>
+# Follow-up Questions
+## Question Development Process:
+1. Review recently answered questions and their notes
+2. For each answered question that merits follow-up:
+   - Record the parent question's ID and full text
+   - Identify meaningful events, experiences, or themes to explore further
+   - Create sub-questions that build upon the parent question
+
+## Parent-Child Question Structure:
+1. Parent Question Context:
+   - Include the exact ID of the parent question
+   - Copy the full text of the parent question exactly
+   - Use this context to ensure follow-ups are relevant and connected
+
+2. Sub-Question Requirements:
+   - ID Format: Must start with parent's ID (e.g., if parent is "6", use "6.1", "6.2")
+   - Keep sequential within each parent (6.1, 6.2, 6.3, etc.)
+   - Each sub-question should explore a different aspect of the parent topic
+
+## Question Content Guidelines:
+1. Direct Address:
+   - Always use "you/your" to address the user directly
+   - Examples:
+     ✓ "How did you feel when you made that decision?"
+     ✓ "What meaning did that experience have for you?"
+     ✗ "How did they feel about the decision?"
+
+2. Question Types:
+   - Narrative Questions:
+     * Invite storytelling about experiences
+     * Example: "Tell me about a time when..."
+   - Explanatory Questions:
+     * Explore meaning and justification
+     * Example: "What made that moment significant for you?"
+
+3. Focus Areas:
+   - Personal meaning and interpretation
+   - Connections to other life experiences
+   - Impact on beliefs and values
+   - Learning and growth from experiences
+   - Relationships and influences
+</instructions>
+"""
+
+OUTPUT_FORMAT_FOLLOWUPS_PROMPT = """
+<output_format>
+For each follow-up question you want to add:
+<tool_calls>
+    <add_interview_question>
+        <topic>Topic name</topic>
+        <parent_id>ID of the parent question</parent_id>
+        <parent_text>Full text of the parent question</parent_text>
+        <question_id>ID in proper parent-child format</question_id>
+        <question>Your narrative-focused follow-up question</question>
+    </add_interview_question>
+    ...
+</tool_calls>
 </output_format>
 """
