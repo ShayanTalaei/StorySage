@@ -1,5 +1,7 @@
 # AI Autobiography
 
+📝 The project allows you to create an AI-generated autobiography.
+
 ## Setup
 
 ### Environment Variables
