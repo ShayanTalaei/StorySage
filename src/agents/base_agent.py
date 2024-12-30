@@ -102,3 +102,4 @@ class BaseAgent:
                     except Exception as e:
                         self.add_event(sender="system", tag="error", content=f"Error calling tool {tool_name}: {e}")
                         SessionLogger.log_to_file("execution_log", f"({self.name}) Error calling tool {tool_name}: {e}", log_level="error")
+            return result

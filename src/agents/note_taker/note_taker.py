@@ -1,5 +1,7 @@
 # Python standard library imports
 from typing import Dict, Type, Optional, List, TYPE_CHECKING, TypedDict
+import os
+from dotenv import load_dotenv
 
 # Third-party imports
 from langchain_core.callbacks.manager import CallbackManagerForToolRun
@@ -17,10 +19,11 @@ from session_note.session_note import SessionNote
 if TYPE_CHECKING:
     from interview_session.interview_session import InterviewSession
 
+load_dotenv()
+
 class NoteTakerConfig(TypedDict, total=False):
     """Configuration for the NoteTaker agent."""
     user_id: str
-    followup_interval: int  # Number of turns between follow-ups
 
 class NoteTaker(BaseAgent, Participant):
     def __init__(self, config: NoteTakerConfig, interview_session: 'InterviewSession'):
@@ -34,13 +37,14 @@ class NoteTaker(BaseAgent, Participant):
         self.user_id = config.get("user_id")
         self.memory_bank = MemoryBank.load_from_file(self.user_id)
         self.new_memories = []  # Track new memories added in current session
-        self.message_count = 0  # Counter for messages since last follow-up
-        self.followup_interval = config.get("followup_interval", 3)  # Number of turns between follow-ups
+        self.max_events_len = int(os.getenv("MAX_EVENTS_LEN", 40))
         
         self.tools = {
             "update_memory_bank": UpdateMemoryBank(memory_bank=self.memory_bank, note_taker=self),
             "update_session_note": UpdateSessionNote(session_note=self.interview_session.session_note),
-            "add_interview_question": AddInterviewQuestion(session_note=self.interview_session.session_note)
+            "add_interview_question": AddInterviewQuestion(session_note=self.interview_session.session_note),
+            "recall": Recall(memory_bank=self.memory_bank),
+            "decide_followups": DecideFollowups()
         }
         
     async def on_message(self, message: Message):
@@ -48,47 +52,91 @@ class NoteTaker(BaseAgent, Participant):
         if message.role == "User":
             self.update_session_note()
             self.update_memory_bank()
-            
-            # Increment counter and check if it's time to propose follow-ups
-            self.message_count += 1
-            if self.message_count >= self.followup_interval:
-                self.propose_followups()
-                self.message_count = 0
+            self.consider_followups()
     
+    def consider_followups(self) -> None:
+        """Determine if follow-up questions should be proposed based on the conversation context."""
+        iterations = 0
+        max_consideration_iterations = 3
+        
+        while iterations < max_consideration_iterations:
+            prompt = self._get_formatted_prompt("consider_followups")
+            self.add_event(sender=self.name, tag="consider_followups_prompt", content=prompt)
+            tool_call = self.call_engine(prompt)
+            self.add_event(sender=self.name, tag="consider_followups_response", content=tool_call)
+            tool_responses = self.handle_tool_calls(tool_call)
+
+            if "decide_followups" in tool_call:
+                if "yes" in tool_responses:
+                    self.add_event(sender=self.name, tag="decide_propose_followups", content=tool_responses)
+                    self.propose_followups()
+                break
+            elif "recall" in tool_call:
+                self.add_event(sender=self.name, tag="recall_response", content=tool_responses)
+            
+            iterations += 1
+        
+        if iterations >= max_consideration_iterations:
+            self.add_event(
+                sender="system",
+                tag="error",
+                content=f"Exceeded maximum number of consideration iterations ({max_consideration_iterations})"
+            )
+
     def propose_followups(self) -> None:
         """Propose follow-up questions based on the user's recent answers."""
-        prompt = self.get_formatted_prompt("propose_followups")
+        prompt = self._get_formatted_prompt("propose_followups")
         self.add_event(sender=self.name, tag="propose_followups_prompt", content=prompt)
         response = self.call_engine(prompt)
-        self.add_event(sender=self.name, tag="llm_response", content=response)
+        self.add_event(sender=self.name, tag="propose_followups_response", content=response)
         self.handle_tool_calls(response)
 
     def update_memory_bank(self) -> None:
         """Process the latest conversation and update the memory bank if needed."""
-        prompt = self.get_formatted_prompt("update_memory_bank")
+        prompt = self._get_formatted_prompt("update_memory_bank")
         self.add_event(sender=self.name, tag="update_memory_bank_prompt", content=prompt)
         response = self.call_engine(prompt)
-        self.add_event(sender=self.name, tag="llm_response", content=response)
-        self.add_event(sender=self.name, tag="update_memory_bank", content=response)
+        self.add_event(sender=self.name, tag="update_memory_bank_response", content=response)
         self.handle_tool_calls(response)
         self.memory_bank.save_to_file(self.user_id)
 
     def update_session_note(self) -> None:
-        prompt = self.get_formatted_prompt("update_session_note")
+        prompt = self._get_formatted_prompt("update_session_note")
         self.add_event(sender=self.name, tag="update_session_note_prompt", content=prompt)
         response = self.call_engine(prompt)
-        self.add_event(sender=self.name, tag="llm_response", content=response)
-        self.add_event(sender=self.name, tag="update_session_note", content=response)
+        self.add_event(sender=self.name, tag="update_session_note_response", content=response)
         self.handle_tool_calls(response)
     
-    def get_formatted_prompt(self, prompt_type: str) -> str:
+    def _get_formatted_prompt(self, prompt_type: str) -> str:
         prompt = get_prompt(prompt_type)
-        if prompt_type == "update_memory_bank":
-            event_stream = self.get_event_stream_str(filter=[{"tag": "message"}, 
-                                                            {"sender": self.name, "tag": "update_memory_bank"},
-                                                            {"sender": "system", "tag": "update_memory_bank"}])
-            return format_prompt(prompt, {"event_stream": event_stream,
-                                         "tool_descriptions": self.get_tools_description(selected_tools=["update_memory_bank"])})
+        if prompt_type in ["consider_followups", "propose_followups"]:
+            events = self.get_event_stream_str(filter=[
+                {"tag": "message"},
+                {"tag": "decide_propose_followups"},
+                {"sender": self.name, "tag": "recall_response"},
+            ], as_list=True)
+            
+            recent_events = events[-self.max_events_len:] if len(events) > self.max_events_len else events
+            
+            return format_prompt(prompt, {
+                "event_stream": "\n".join(recent_events),
+                "questions_and_notes": self.interview_session.session_note.get_questions_and_notes_str(),
+                "tool_descriptions": self.get_tools_description(
+                    selected_tools=["recall", "decide_followups"] if prompt_type == "consider_followups" else ["add_interview_question"]
+                )
+            })
+        elif prompt_type == "update_memory_bank":
+            events = self.get_event_stream_str(filter=[
+                {"tag": "message"}, 
+                {"sender": self.name, "tag": "update_memory_bank_response"},
+            ], as_list=True)
+            
+            recent_events = events[-self.max_events_len:] if len(events) > self.max_events_len else events
+            
+            return format_prompt(prompt, {
+                "event_stream": "\n".join(recent_events),
+                "tool_descriptions": self.get_tools_description(selected_tools=["update_memory_bank"])
+            })
         elif prompt_type == "update_session_note":
             events = self.get_event_stream_str(filter=[{"tag": "message"}], as_list=True)
             current_qa = events[-2:] if len(events) >= 2 else []
@@ -100,17 +148,6 @@ class NoteTaker(BaseAgent, Participant):
                 "questions_and_notes": self.interview_session.session_note.get_questions_and_notes_str(hide_answered="qa"),
                 "tool_descriptions": self.get_tools_description(selected_tools=["update_session_note"])
             })
-        elif prompt_type == "propose_followups":
-            # Get recent messages (2 messages per exchange: interviewer + user)
-            events = self.get_event_stream_str(filter=[{"tag": "message"}], as_list=True)
-            num_messages = 2 * self.followup_interval
-            recent_exchanges = events[-num_messages:] if len(events) >= num_messages else events
-            
-            return format_prompt(prompt, {
-                "event_stream": "\n".join(recent_exchanges),
-                "questions_and_notes": self.interview_session.session_note.get_questions_and_notes_str(),
-                "tool_descriptions": self.get_tools_description(selected_tools=["add_interview_question"])
-            })
             
     def add_new_memory(self, memory: Dict):
         """Track newly added memory"""
@@ -119,13 +156,6 @@ class NoteTaker(BaseAgent, Participant):
     def get_session_memories(self) -> List[Dict]:
         """Get all memories added during current session"""
         return self.new_memories
-
-class AddInterviewQuestionInput(BaseModel):
-    topic: str = Field(description="The topic under which to add the question")
-    question: str = Field(description="The interview question to add")
-    question_id: str = Field(description="The ID for the question (e.g., '1', '1.1', '2.3', etc.)")
-    parent_id: str = Field(description="The ID of the parent question (e.g., '1', '2', etc.)")
-    parent_text: str = Field(description="The text of the parent question")
 
 class UpdateMemoryBankInput(BaseModel):
     title: str = Field(description="A concise but descriptive title for the memory")
@@ -169,6 +199,13 @@ class UpdateMemoryBank(BaseTool):
             return f"Successfully stored memory: {title}"
         except Exception as e:
             raise ToolException(f"Error storing memory: {e}")
+
+class AddInterviewQuestionInput(BaseModel):
+    topic: str = Field(description="The topic under which to add the question")
+    question: str = Field(description="The interview question to add")
+    question_id: str = Field(description="The ID for the question (e.g., '1', '1.1', '2.3', etc.)")
+    parent_id: str = Field(description="The ID of the parent question (e.g., '1', '2', etc.)")
+    parent_text: str = Field(description="The text of the parent question")
 
 class AddInterviewQuestion(BaseTool):
     """Tool for adding new interview questions."""
@@ -218,3 +255,76 @@ class UpdateSessionNote(BaseTool):
         self.session_note.add_note(question_id=str(question_id), note=note)
         target_question = question_id if question_id else "additional note"
         return f"Successfully added the note for `{target_question}`."
+
+class RecallInput(BaseModel):
+    query: str = Field(description="The query to search for in the memory bank")
+    reasoning: str = Field(description="Explain: "
+                          "1. Why you need this specific information "
+                          "2. How the results will help determine follow-up questions")
+
+class Recall(BaseTool):
+    """Tool for recalling memories."""
+    name: str = "recall"
+    description: str = (
+        "A tool for recalling memories. "
+        "Use this tool to check if we already have relevant information about a topic "
+        "before deciding to propose follow-up questions. "
+        "Explain your search intent and how the results will guide your decision."
+    )
+    args_schema: Type[BaseModel] = RecallInput
+    memory_bank: MemoryBank = Field(...)
+
+    def _run(
+        self,
+        query: str,
+        reasoning: str,
+        run_manager: Optional[CallbackManagerForToolRun] = None,
+    ) -> str:
+        try:
+            memories = self.memory_bank.search_memories(query)
+            memories_str = "\n".join([f"<memory>{memory['text']}</memory>" for memory in memories])
+            return f"""\
+<memory_search>
+<query>{query}</query>
+<reasoning>{reasoning}</reasoning>
+<results>
+{memories_str}
+</results>
+</memory_search>
+""" if memories_str else f"""
+<memory_search>
+<query>{query}</query>
+<reasoning>{reasoning}</reasoning>
+<results>No relevant memories found.</results>
+</memory_search>"""
+        except Exception as e:
+            raise ToolException(f"Error recalling memories: {e}")
+
+class DecideFollowupsInput(BaseModel):
+    decision: str = Field(
+        description="Your decision about whether to propose follow-ups (yes or no)",
+        pattern="^(yes|no)$"
+    )
+    reasoning: str = Field(description="Brief explanation of your decision based on the recall results. If yes, explain what kind of follow-ups to propose.")
+
+class DecideFollowups(BaseTool):
+    """Tool for making the final decision about proposing follow-ups."""
+    name: str = "decide_followups"
+    description: str = (
+        "Use this tool to make your final decision about whether to propose follow-up questions "
+        "after you have gathered enough information through recall searches. "
+        "Provide your decision (yes/no) and explain your reasoning based on the recall results."
+    )
+    args_schema: Type[BaseModel] = DecideFollowupsInput
+
+    def _run(
+        self,
+        decision: str,
+        reasoning: str,
+        run_manager: Optional[CallbackManagerForToolRun] = None,
+    ) -> str:
+        return f"""\
+<propose_followups_decision>
+<decision>{decision}</decision>
+<reasoning>{reasoning}</reasoning>
+</propose_followups_decision>"""

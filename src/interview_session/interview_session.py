@@ -80,8 +80,7 @@ class InterviewSession:
         )
         self.note_taker: NoteTaker = NoteTaker(
             config=NoteTakerConfig(
-                user_id=self.user_id,
-                followup_interval=3
+                user_id=self.user_id
             ),
             interview_session=self
         )
