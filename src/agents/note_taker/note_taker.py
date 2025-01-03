@@ -2,6 +2,7 @@
 from typing import Dict, Type, Optional, List, TYPE_CHECKING, TypedDict
 import os
 from dotenv import load_dotenv
+import asyncio
 
 # Third-party imports
 from langchain_core.callbacks.manager import CallbackManagerForToolRun
@@ -50,11 +51,21 @@ class NoteTaker(BaseAgent, Participant):
     async def on_message(self, message: Message):
         self.add_event(sender=message.role, tag="message", content=message.content)
         if message.role == "User":
-            self.update_session_note()
-            self.update_memory_bank()
-            self.consider_followups()
+            # Run both updates concurrently
+            await asyncio.gather(
+                self.write_session_notes(),
+                self.update_memory_bank()
+            )
     
-    def consider_followups(self) -> None:
+    async def write_session_notes(self) -> None:
+        """Process user's response by updating session notes and considering follow-up questions."""
+        # First update the direct response in session notes
+        await self.update_session_note()
+        
+        # Then consider if we need follow-up questions
+        await self.consider_followups()
+
+    async def consider_followups(self) -> None:
         """Determine if follow-up questions should be proposed based on the conversation context."""
         iterations = 0
         max_consideration_iterations = 3
@@ -62,14 +73,14 @@ class NoteTaker(BaseAgent, Participant):
         while iterations < max_consideration_iterations:
             prompt = self._get_formatted_prompt("consider_followups")
             self.add_event(sender=self.name, tag="consider_followups_prompt", content=prompt)
-            tool_call = self.call_engine(prompt)
+            tool_call = await self.call_engine_async(prompt)
             self.add_event(sender=self.name, tag="consider_followups_response", content=tool_call)
             tool_responses = self.handle_tool_calls(tool_call)
 
             if "decide_followups" in tool_call:
                 if "yes" in tool_responses:
                     self.add_event(sender=self.name, tag="decide_propose_followups", content=tool_responses)
-                    self.propose_followups()
+                    await self.propose_followups()
                 break
             elif "recall" in tool_call:
                 self.add_event(sender=self.name, tag="recall_response", content=tool_responses)
@@ -83,27 +94,27 @@ class NoteTaker(BaseAgent, Participant):
                 content=f"Exceeded maximum number of consideration iterations ({max_consideration_iterations})"
             )
 
-    def propose_followups(self) -> None:
+    async def propose_followups(self) -> None:
         """Propose follow-up questions based on the user's recent answers."""
         prompt = self._get_formatted_prompt("propose_followups")
         self.add_event(sender=self.name, tag="propose_followups_prompt", content=prompt)
-        response = self.call_engine(prompt)
+        response = await self.call_engine_async(prompt)
         self.add_event(sender=self.name, tag="propose_followups_response", content=response)
         self.handle_tool_calls(response)
 
-    def update_memory_bank(self) -> None:
+    async def update_memory_bank(self) -> None:
         """Process the latest conversation and update the memory bank if needed."""
         prompt = self._get_formatted_prompt("update_memory_bank")
         self.add_event(sender=self.name, tag="update_memory_bank_prompt", content=prompt)
-        response = self.call_engine(prompt)
+        response = await self.call_engine_async(prompt)
         self.add_event(sender=self.name, tag="update_memory_bank_response", content=response)
         self.handle_tool_calls(response)
         self.memory_bank.save_to_file(self.user_id)
 
-    def update_session_note(self) -> None:
+    async def update_session_note(self) -> None:
         prompt = self._get_formatted_prompt("update_session_note")
         self.add_event(sender=self.name, tag="update_session_note_prompt", content=prompt)
-        response = self.call_engine(prompt)
+        response = await self.call_engine_async(prompt)
         self.add_event(sender=self.name, tag="update_session_note_response", content=response)
         self.handle_tool_calls(response)
     

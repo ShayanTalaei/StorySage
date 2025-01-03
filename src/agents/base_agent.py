@@ -1,6 +1,8 @@
 # Python standard library imports
 from datetime import datetime
 from typing import Dict, List
+import asyncio
+from functools import partial
 
 # Third-party imports
 from dotenv import load_dotenv
@@ -46,6 +48,15 @@ class BaseAgent:
             except Exception as e:
                 SessionLogger.log_to_file("execution_log", f"({self.name}) Failed to invoke the chain {attempt + 1} times.\n{type(e)} <{e}>", log_level="error")
         raise e
+    
+    async def call_engine_async(self, prompt: str) -> str:
+        """Asynchronously call the LLM engine with the given prompt."""
+        # Run call_engine in a thread pool since it's a blocking operation
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(
+            None,
+            partial(self.call_engine, prompt)
+        )
         
     def add_event(self, sender: str, tag: str, content: str):
         self.event_stream.append(BaseAgent.Event(sender=sender, 
