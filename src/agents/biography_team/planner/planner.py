@@ -2,7 +2,7 @@ from typing import Dict, List, TYPE_CHECKING
 from agents.biography_team.base_biography_agent import BiographyConfig, BiographyTeamAgent
 import json
 import xml.etree.ElementTree as ET
-from agents.biography_team.prompts import PLANNER_SYSTEM_PROMPT
+from agents.biography_team.planner.prompts import PLANNER_SYSTEM_PROMPT
 from biography.biography_styles import BIOGRAPHY_STYLE_PLANNER_INSTRUCTIONS
 
 if TYPE_CHECKING:

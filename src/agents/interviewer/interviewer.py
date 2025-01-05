@@ -44,7 +44,6 @@ class Interviewer(BaseAgent, Participant):
         Participant.__init__(self, title="Interviewer", interview_session=interview_session)
         
         self.user_id = config.get("user_id")
-        self.memory_bank = MemoryBank.load_from_file(self.user_id)
         self.max_events_len = int(os.getenv("MAX_EVENTS_LEN", 40))
         
         # Initialize TTS configuration
@@ -52,7 +51,7 @@ class Interviewer(BaseAgent, Participant):
         self.base_path = f"data/{self.user_id}/"
         
         self.tools = {
-            "recall": Recall(memory_bank=self.memory_bank),
+            "recall": Recall(memory_bank=self.interview_session.memory_bank),
             "respond_to_user": RespondToUser(
                 interviewer=self,
                 tts_config=tts_config,

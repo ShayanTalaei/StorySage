@@ -36,26 +36,32 @@ class NoteTaker(BaseAgent, Participant):
         Participant.__init__(self, title="NoteTaker", interview_session=interview_session)
         
         self.user_id = config.get("user_id")
-        self.memory_bank = MemoryBank.load_from_file(self.user_id)
-        self.new_memories = []  # Track new memories added in current session
         self.max_events_len = int(os.getenv("MAX_EVENTS_LEN", 40))
+        self.max_consideration_iterations = int(os.getenv("MAX_CONSIDERATION_ITERATIONS", 3))
+
+        self.new_memories = []  # Track new memories added in current session
+        self._message_lock = asyncio.Lock()
         
         self.tools = {
-            "update_memory_bank": UpdateMemoryBank(memory_bank=self.memory_bank, note_taker=self),
+            "update_memory_bank": UpdateMemoryBank(
+                memory_bank=self.interview_session.memory_bank,
+                note_taker=self
+            ),
             "update_session_note": UpdateSessionNote(session_note=self.interview_session.session_note),
             "add_interview_question": AddInterviewQuestion(session_note=self.interview_session.session_note),
-            "recall": Recall(memory_bank=self.memory_bank),
+            "recall": Recall(memory_bank=self.interview_session.memory_bank),
             "decide_followups": DecideFollowups()
         }
         
     async def on_message(self, message: Message):
-        self.add_event(sender=message.role, tag="message", content=message.content)
-        if message.role == "User":
-            # Run both updates concurrently
-            await asyncio.gather(
-                self.write_session_notes(),
-                self.update_memory_bank()
-            )
+        async with self._message_lock: # Wait until the previous message is processed
+            self.add_event(sender=message.role, tag="message", content=message.content)
+            if message.role == "User":
+                # Run both updates concurrently
+                await asyncio.gather(
+                    self.write_session_notes(),
+                    self.update_memory_bank()
+                )
     
     async def write_session_notes(self) -> None:
         """Process user's response by updating session notes and considering follow-up questions."""
@@ -68,9 +74,8 @@ class NoteTaker(BaseAgent, Participant):
     async def consider_followups(self) -> None:
         """Determine if follow-up questions should be proposed based on the conversation context."""
         iterations = 0
-        max_consideration_iterations = 3
-        
-        while iterations < max_consideration_iterations:
+
+        while iterations < self.max_consideration_iterations:
             prompt = self._get_formatted_prompt("consider_followups")
             self.add_event(sender=self.name, tag="consider_followups_prompt", content=prompt)
             tool_call = await self.call_engine_async(prompt)
@@ -87,11 +92,11 @@ class NoteTaker(BaseAgent, Participant):
             
             iterations += 1
         
-        if iterations >= max_consideration_iterations:
+        if iterations >= self.max_consideration_iterations:
             self.add_event(
                 sender="system",
                 tag="error",
-                content=f"Exceeded maximum number of consideration iterations ({max_consideration_iterations})"
+                content=f"Exceeded maximum number of consideration iterations ({self.max_consideration_iterations})"
             )
 
     async def propose_followups(self) -> None:
@@ -109,7 +114,7 @@ class NoteTaker(BaseAgent, Participant):
         response = await self.call_engine_async(prompt)
         self.add_event(sender=self.name, tag="update_memory_bank_response", content=response)
         self.handle_tool_calls(response)
-        self.memory_bank.save_to_file(self.user_id)
+        self.interview_session.memory_bank.save_to_file(self.user_id)
 
     async def update_session_note(self) -> None:
         prompt = self._get_formatted_prompt("update_session_note")
@@ -228,10 +233,10 @@ class AddInterviewQuestion(BaseTool):
     def _run(
         self,
         topic: str,
-        question: str,
-        question_id: str,
         parent_id: str,
         parent_text: str,
+        question_id: str,
+        question: str,
         run_manager: Optional[CallbackManagerForToolRun] = None,
     ) -> str:
         try:
@@ -302,7 +307,7 @@ class Recall(BaseTool):
 {memories_str}
 </results>
 </memory_search>
-""" if memories_str else f"""
+""" if memories_str else f"""\
 <memory_search>
 <query>{query}</query>
 <reasoning>{reasoning}</reasoning>

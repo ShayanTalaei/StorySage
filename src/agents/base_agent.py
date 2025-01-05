@@ -93,6 +93,7 @@ class BaseAgent:
     
     def handle_tool_calls(self, response: str):
         # Extract tool calls section
+        result = None
         if "<tool_calls>" in response:
             # Split the response to get the tool_calls section
             tool_calls_start = response.find("<tool_calls>")

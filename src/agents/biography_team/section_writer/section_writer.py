@@ -1,4 +1,4 @@
-from typing import Dict, List, Type, Optional, TYPE_CHECKING
+from typing import Type, Optional, TYPE_CHECKING
 from dataclasses import dataclass
 from pydantic import BaseModel, Field
 from langchain_core.callbacks.manager import CallbackManagerForToolRun
@@ -6,7 +6,7 @@ from langchain_core.tools import BaseTool, ToolException
 
 from agents.biography_team.base_biography_agent import BiographyConfig, BiographyTeamAgent
 from agents.biography_team.models import TodoItem
-from agents.biography_team.prompts import SECTION_WRITER_PROMPT
+from agents.biography_team.section_writer.prompts import SECTION_WRITER_PROMPT
 from biography.biography import Biography
 from biography.biography_styles import BIOGRAPHY_STYLE_WRITER_INSTRUCTIONS
 

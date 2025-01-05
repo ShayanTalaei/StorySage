@@ -4,9 +4,9 @@ import os
 from dotenv import load_dotenv
 
 from agents.biography_team.base_biography_agent import BiographyConfig
-from agents.biography_team.planner import BiographyPlanner
-from agents.biography_team.section_writer import SectionWriter
-from agents.biography_team.session_summary_writer import SessionSummaryWriter
+from agents.biography_team.planner.planner import BiographyPlanner
+from agents.biography_team.section_writer.section_writer import SectionWriter
+from agents.biography_team.session_summary_writer.session_summary_writer import SessionSummaryWriter
 from agents.biography_team.models import TodoItem
 
 if TYPE_CHECKING:

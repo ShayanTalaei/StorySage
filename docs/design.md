@@ -51,7 +51,7 @@ src/
 data/                 # Test profiles & sample data
 docs/                 # Documentation
 logs/                 # Interview session logs
-tests/                # Test suite
+tests/                # Unit tests for [Memory & Content]
 ```
 
 ### 1. Core Interview Components
@@ -242,7 +242,9 @@ Tools:
 
 - `update_last_meeting_summary`: Update the summary of the last interview
 - `update_user_portrait`: Update the user portrait
+- `recall`: Recall memories from memory bank to help decide whether to add or delete an interview question
 - `add_interview_question`: Add a follow-up interview question to the session notes
+- `delete_interview_question`: Delete a follow-up interview question from the session notes
 
 ### Memory & Content
 
@@ -271,6 +273,10 @@ Tools:
 
 ### Backend Modules
 
+You can find the design of the backend modules in the [Notion Doc](https://www.notion.so/Application-Design-160f97d87ef18075ae90efad6b14ca89#160f97d87ef180adb70ef351d2d0a0e9).
+
+#### REST APIs
+
 The backend modules are used to run the system as a service, usually in a cloud environment on port 8000.
 
 The backend is structured as follows:
@@ -286,3 +292,23 @@ The backend is structured as follows:
 - `core`: The core functions (authentication and session management, etc.)
 - `routers`: The routers for the backend
 - `schemas`: The HTTP request and response schemas for the backend
+
+#### Database
+
+The database is used to store the user's information.
+
+## Supporting Resources
+
+### Unit Tests
+
+The `tests` directory contains unit tests, particularly for the `Memory & Content` components. These components are crucial to the system and can be easily tested without involving LLM calls. It is recommended to run these tests before committing any changes.
+
+- `biography`: Tests for the `Biography` class
+- `session_note`: Tests for the `SessionNote` class
+
+Running the tests:
+
+```bash
+pytest tests/biography/test_biography.py
+pytest tests/session_note/test_session_note.py
+```

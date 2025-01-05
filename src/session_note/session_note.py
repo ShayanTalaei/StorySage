@@ -120,7 +120,11 @@ class SessionNote:
         latest_file = os.path.join(base_path, files[0])
         return cls.load_from_file(latest_file)
     
-
+    def increment_session_id(self):
+        """Safely increments the session ID and returns the new value."""
+        self.session_id += 1
+        return self.session_id
+    
     def add_interview_question(self, topic: str, question: str, question_id: str):
         """Adds a new interview question to the session notes.
         
@@ -156,6 +160,67 @@ class SessionNote:
             
             new_question = InterviewQuestion(topic, question_id, question)
             parent.sub_questions.append(new_question)
+    
+    def delete_interview_question(self, question_id: str):
+        """Deletes a question by its ID.
+        
+        If the question has sub-questions:
+        - Clears the question text and notes
+        - Keeps the question ID and sub-questions
+        
+        If the question has no sub-questions:
+        - Removes the question completely
+        
+        Args:
+            question_id: The ID of the question to delete (e.g. "1", "1.1", "2.3")
+            
+        Raises:
+            ValueError: If question_id or parent is not found
+        """
+        # If it's a sub-question, verify parent exists first
+        if '.' in question_id:
+            parent_id = question_id.rsplit('.', 1)[0]
+            parent = self.get_question(parent_id)
+            if not parent:
+                raise ValueError(f"Parent question with id {parent_id} not found")
+        
+        # Then check if the question exists
+        question = self.get_question(question_id)
+        if not question:
+            raise ValueError(f"Question with id {question_id} not found")
+        
+        # If it's a top-level question
+        if '.' not in question_id:
+            topic = None
+            # Find the topic containing this question
+            for t, questions in self.topics.items():
+                if any(q.question_id == question_id for q in questions):
+                    topic = t
+                    break
+                
+            if not topic:
+                raise ValueError(f"Topic for question {question_id} not found")
+            
+            # If it has sub-questions, clear content but keep structure
+            if question.sub_questions:
+                question.question = ""
+                question.notes = []
+            else:
+                # No sub-questions, remove completely
+                self.topics[topic] = [q for q in self.topics[topic] if q.question_id != question_id]
+            
+        # If it's a sub-question
+        else:
+            # If it has sub-questions, clear content but keep structure
+            if question.sub_questions:
+                question.question = ""
+                question.notes = []
+            else:
+                # No sub-questions, remove completely
+                def remove_question(questions, target_id):
+                    return [q for q in questions if q.question_id != target_id]
+                
+                parent.sub_questions = remove_question(parent.sub_questions, question_id)
         
     def add_note(self, question_id: str="", note: str=""):
         """Adds a note to a question or the additional notes list."""
@@ -310,11 +375,6 @@ class SessionNote:
         if not self.additional_notes:
             return ""
         return "\n".join(self.additional_notes)
-
-    def increment_session_id(self):
-        """Safely increments the session ID and returns the new value."""
-        self.session_id += 1
-        return self.session_id
 
 
 

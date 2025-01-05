@@ -33,8 +33,8 @@ def get_prompt(prompt_type: str):
             "EVENT_STREAM": FOLLOWUPS_EVENTS,
             "QUESTIONS_AND_NOTES": QUESTIONS_AND_NOTES_UPDATE_SESSION_NOTES,
             "TOOL_DESCRIPTIONS": SESSION_NOTE_TOOL,
-            "INSTRUCTIONS": INSTRUCTIONS_FOLLOWUPS_PROMPT,
-            "OUTPUT_FORMAT": OUTPUT_FORMAT_FOLLOWUPS_PROMPT
+            "INSTRUCTIONS": PROPOSE_FOLLOWUPS_INSTRUCTIONS,
+            "OUTPUT_FORMAT": PROPOSE_FOLLOWUPS_OUTPUT_FORMAT
         })
 
 #### UPDATE_MEMORY_BANK_PROMPT ####
@@ -279,7 +279,7 @@ The following events include the most recent:
 </event_stream>
 """
 
-INSTRUCTIONS_FOLLOWUPS_PROMPT = """
+PROPOSE_FOLLOWUPS_INSTRUCTIONS = """
 <instructions>
 ## Question Development Process:
 1. Review:
@@ -319,7 +319,7 @@ INSTRUCTIONS_FOLLOWUPS_PROMPT = """
 </instructions>
 """
 
-OUTPUT_FORMAT_FOLLOWUPS_PROMPT = """
+PROPOSE_FOLLOWUPS_OUTPUT_FORMAT = """
 <output_format>
 For each follow-up question you want to add:
 <tool_calls>
