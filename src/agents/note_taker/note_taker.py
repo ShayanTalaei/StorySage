@@ -220,8 +220,8 @@ class AddInterviewQuestionInput(BaseModel):
     topic: str = Field(description="The topic under which to add the question")
     question: str = Field(description="The interview question to add")
     question_id: str = Field(description="The ID for the question (e.g., '1', '1.1', '2.3', etc.)")
-    parent_id: str = Field(description="The ID of the parent question (e.g., '1', '2', etc.)")
-    parent_text: str = Field(description="The text of the parent question")
+    parent_id: str = Field(description="The ID of the parent question (e.g., '1', '2', etc.). Still include it but leave it empty if it is a top-level question.")
+    parent_text: str = Field(description="The text of the parent question. Still include it but leave it empty if it is a top-level question.")
 
 class AddInterviewQuestion(BaseTool):
     """Tool for adding new interview questions."""
@@ -275,6 +275,7 @@ class UpdateSessionNote(BaseTool):
 class RecallInput(BaseModel):
     query: str = Field(description="The query to search for in the memory bank")
     reasoning: str = Field(description="Explain: "
+                          "0. The current confidence level (1-10) "
                           "1. Why you need this specific information "
                           "2. How the results will help determine follow-up questions")
 
@@ -321,7 +322,7 @@ class DecideFollowupsInput(BaseModel):
         description="Your decision about whether to propose follow-ups (yes or no)",
         pattern="^(yes|no)$"
     )
-    reasoning: str = Field(description="Brief explanation of your decision based on the recall results. If yes, explain what kind of follow-ups to propose.")
+    reasoning: str = Field(description="Brief explanation of your decision based on the recall results with confidence score (1-10). If yes, explain what kind of follow-ups to propose.")
 
 class DecideFollowups(BaseTool):
     """Tool for making the final decision about proposing follow-ups."""

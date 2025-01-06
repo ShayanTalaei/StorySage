@@ -88,61 +88,77 @@ Available tools you can use:
 </tool_descriptions>
 
 <instructions>
-Process questions in this order:
+# Question Management Process
 
-1. First, Review Existing Questions:
+## 1. Gather Information (Required)
+- You MUST perform recall searches before making decisions if:
+  * No memory searches appear after recent messages in the event stream
+  * You're evaluating questions about topics not covered in recent searches
+- Use recall strategically:
+  * Search for related topics together
+  * One comprehensive search can inform multiple question decisions
+  * Focus searches on gaps between existing notes and new questions
+- The recall search results help you:
+ * Prevents redundant follow-ups by checking existing memories
+ * Provides access to the user's complete history beyond current conversation (or you are limited to see the current conversation and notes)
+
+## 2. Review Existing Questions
    - Check answers/notes under each question
    - Delete questions that are fully answered
    - Keep questions that still need more information or deeper exploration
    
-2. Then, Process New Follow-up Questions:
+## 3. Process New Follow-up Questions
    - Avoid adding questions if:
      * Similar questions already exist (merge them instead)
      * Topic is already well-covered in answers/notes
-     * Information is already available in memories
-   - Use recall strategically:
-     * Only search when unsure about existing coverage
-     * One search can inform decisions about multiple related questions
+     * Information is already available in memories (confirmed by recall searches)
 
-3. Question Management Rules:
-   - Delete Criteria:
-     * Question has comprehensive answers/notes
-     * All important aspects of the topic are covered
-     * Sub-questions have provided sufficient detail so the question itself is no longer needed
-   
-   - Add Criteria:
-     * Question explores new, uncovered aspects
-     * Question deepens understanding of partially covered topics
-     * Question bridges gaps between related topics
-   
-   - Structure Guidelines:
-     * Group related questions under common parents
-     * Use sub-questions to explore specific aspects
-     * Maintain clear topic organization
+Question Management Guidelines:
+- Delete Criteria:
+  * Question has comprehensive answers/notes
+  * All important aspects of the topic are covered
+  * Sub-questions have provided sufficient detail
+
+- Add Criteria:
+  * Question explores new, uncovered aspects
+  * Question deepens understanding of partially covered topics
+  * Question bridges gaps between related topics
+
+- Structure Guidelines:
+  * Group related questions under common parents
+  * Use sub-questions to explore specific aspects
+  * Maintain clear topic organization
 
 Remember:
-- Quality over quantity: Fewer, well-targeted questions are better than many overlapping ones
-- Use recall tool judiciously: One search can inform multiple question decisions
-- Consider the narrative flow: Questions should build upon each other logically
-
+- ALWAYS check for recent recall results before making decisions
+- Quality over quantity: Fewer, well-targeted questions are better
+- Consider the narrative flow: Questions should build upon each other
 </instructions>
 
-<output_format>
-Based on the recent memory searches in event_stream:
-- If you need more information: make recall tool calls
-- If you have enough information: make delete/add tool calls
+<output_format_requirements>
+Check the event stream for recent memory searches:
 
-Choose ONE of the TWO formats:
-
-Format 1 - When you need more information to decide whether to add or delete a question:
+1. If NO recent memory searches, you MUST make recall searches first:
+<output_format_option_1>
 <tool_calls>
     <recall>
         <query>...</query>
         <reasoning>...</reasoning>
     </recall>
 </tool_calls>
+</output_format_option_1>
 
-Format 2 - When you have enough information:
+2. If recent memory searches DO exist in the event stream:
+   You can proceed with question management actions:
+
+<output_format_option_2>
+<plan>
+- Summary of recall results found in event stream
+- Actions to take based on these results:
+  * Deletions: List questions to delete and why
+  * Additions: List questions to add and why
+</plan>
+
 <tool_calls>
     <delete_interview_question>
         <question_id>...</question_id>
@@ -157,5 +173,9 @@ Format 2 - When you have enough information:
         <question>...</question>
     </add_interview_question>
 </tool_calls>
-</output_format>
+</output_format_option_2>
+
+Don't use other output format like markdown, json, code block, etc.
+
+</output_format_requirements>
 """
