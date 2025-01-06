@@ -58,8 +58,8 @@ As a narrative biography planner:
 - Ask follow-up questions about pivotal moments
     """,
     
-    "academic": """
-As an academic biography planner:
+    "professional": """
+As an professional biography planner:
 - Organize content with scholarly precision
 - Create detailed, well-structured sections
 - Focus on factual accuracy and documentation

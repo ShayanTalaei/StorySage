@@ -3,29 +3,38 @@ from agents.prompt_utils import format_prompt
 def get_prompt(prompt_type: str):
     if prompt_type == "update_memory_bank":
         return format_prompt(UPDATE_MEMORY_BANK_PROMPT, {
-            "CONTEXT": CONTEXT_UPDATE_MEMORY_BANK_PROMPT,
-            "EVENT_STREAM": EVENT_STREAM_UPDATE_MEMORY_BANK_PROMPT,
-            "TOOL_DESCRIPTIONS": TOOL_DESCRIPTIONS_UPDATE_MEMORY_BANK_PROMPT,
-            "INSTRUCTIONS": INSTRUCTIONS_UPDATE_MEMORY_BANK_PROMPT,
-            "OUTPUT_FORMAT": OUTPUT_FORMAT_UPDATE_MEMORY_BANK_PROMPT
+            "CONTEXT": UPDATE_MEMORY_BANK_CONTEXT,
+            "EVENT_STREAM": UPDATE_MEMORY_BANK_EVENT,
+            "TOOL_DESCRIPTIONS": UPDATE_MEMORY_BANK_TOOL,
+            "INSTRUCTIONS": UPDATE_MEMORY_BANK_INSTRUCTIONS,
+            "OUTPUT_FORMAT": UPDATE_MEMORY_BANK_OUTPUT_FORMAT
         })
     elif prompt_type == "update_session_note":
         return format_prompt(UPDATE_SESSION_NOTE_PROMPT, {
-            "CONTEXT": CONTEXT_UPDATE_SESSION_NOTE_PROMPT,
-            "EVENT_STREAM": EVENT_STREAM_UPDATE_SESSION_NOTE_PROMPT,
-            "QUESTIONS_AND_NOTES": QUESTIONS_AND_NOTES_UPDATE_SESSION_NOTE_PROMPT,
-            "TOOL_DESCRIPTIONS": TOOL_DESCRIPTIONS_UPDATE_SESSION_NOTE_PROMPT,
-            "INSTRUCTIONS": INSTRUCTIONS_UPDATE_SESSION_NOTE_PROMPT,
-            "OUTPUT_FORMAT": OUTPUT_FORMAT_UPDATE_SESSION_NOTE_PROMPT
+            "CONTEXT": UPDATE_SESSION_NOTE_CONTEXT,
+            "EVENT_STREAM": UPDATE_SESSION_NOTE_EVENT,
+            "QUESTIONS_AND_NOTES": QUESTIONS_AND_NOTES_UPDATE_SESSION_NOTES,
+            "TOOL_DESCRIPTIONS": SESSION_NOTE_TOOL,
+            "INSTRUCTIONS": UPDATE_SESSION_NOTE_INSTRUCTIONS,
+            "OUTPUT_FORMAT": UPDATE_SESSION_NOTE_OUTPUT_FORMAT
+        })
+    elif prompt_type == "consider_followups":
+        return format_prompt(CONSIDER_FOLLOWUPS_PROMPT, {
+            "CONTEXT": CONSIDER_FOLLOWUPS_CONTEXT,
+            "EVENT_STREAM": FOLLOWUPS_EVENTS,
+            "QUESTIONS_AND_NOTES": QUESTIONS_AND_NOTES_UPDATE_SESSION_NOTES,
+            "INSTRUCTIONS": CONSIDER_FOLLOWUPS_INSTRUCTIONS,
+            "TOOL_DESCRIPTIONS": SESSION_NOTE_TOOL,
+            "OUTPUT_FORMAT": CONSIDER_FOLLOWUPS_OUTPUT_FORMAT
         })
     elif prompt_type == "propose_followups":
         return format_prompt(FOLLOWUPS_PROMPT, {
             "CONTEXT": CONTEXT_FOLLOWUPS_PROMPT,
-            "EVENT_STREAM": EVENT_STREAM_FOLLOWUPS_PROMPT,
-            "QUESTIONS_AND_NOTES": QUESTIONS_AND_NOTES_UPDATE_SESSION_NOTE_PROMPT,
-            "TOOL_DESCRIPTIONS": TOOL_DESCRIPTIONS_UPDATE_SESSION_NOTE_PROMPT,
-            "INSTRUCTIONS": INSTRUCTIONS_FOLLOWUPS_PROMPT,
-            "OUTPUT_FORMAT": OUTPUT_FORMAT_FOLLOWUPS_PROMPT
+            "EVENT_STREAM": FOLLOWUPS_EVENTS,
+            "QUESTIONS_AND_NOTES": QUESTIONS_AND_NOTES_UPDATE_SESSION_NOTES,
+            "TOOL_DESCRIPTIONS": SESSION_NOTE_TOOL,
+            "INSTRUCTIONS": PROPOSE_FOLLOWUPS_INSTRUCTIONS,
+            "OUTPUT_FORMAT": PROPOSE_FOLLOWUPS_OUTPUT_FORMAT
         })
 
 #### UPDATE_MEMORY_BANK_PROMPT ####
@@ -42,7 +51,7 @@ UPDATE_MEMORY_BANK_PROMPT = """
 {OUTPUT_FORMAT}
 """
 
-CONTEXT_UPDATE_MEMORY_BANK_PROMPT = """
+UPDATE_MEMORY_BANK_CONTEXT = """
 <note_taker_persona>
 You are a note taker who works as the assistant of the interviewer. You observe conversations between the interviewer and the user. 
 Your job is to identify important information shared by the user and store it in the memory bank.
@@ -54,7 +63,7 @@ Right now, you are observing a conversation between the interviewer and the user
 </context>
 """
 
-EVENT_STREAM_UPDATE_MEMORY_BANK_PROMPT = """
+UPDATE_MEMORY_BANK_EVENT = """
 Here is the stream of the events that have happened in the interview session from your perspective as the note taker:
 <event_stream>
 {event_stream}
@@ -63,16 +72,17 @@ Here is the stream of the events that have happened in the interview session fro
 - You can see the messages exchanged between the interviewer and the user, as well as the memory_updates that you have done in this interview session so far.
 """
 
-TOOL_DESCRIPTIONS_UPDATE_MEMORY_BANK_PROMPT = """
+UPDATE_MEMORY_BANK_TOOL = """
 Here are the tools that you can use to manage memories:
 <tool_descriptions>
 {tool_descriptions}
 </tool_descriptions>
 """
 
-INSTRUCTIONS_UPDATE_MEMORY_BANK_PROMPT = """
+UPDATE_MEMORY_BANK_INSTRUCTIONS = """
 <instructions>
 # Memory Bank Update
+
 ## Process:
 - Analyze the conversation history to identify important information about the user
 - For each piece of information worth storing:
@@ -81,6 +91,7 @@ INSTRUCTIONS_UPDATE_MEMORY_BANK_PROMPT = """
   3. Summarize the information clearly
   4. Add relevant metadata (e.g., topics, people mentioned, emotions, etc.)
   5. Rate the importance of the memory on a scale from 1 to 10
+
 ## Topics to focus on:
 - Information about the user's life
 - Personal experiences
@@ -90,6 +101,7 @@ INSTRUCTIONS_UPDATE_MEMORY_BANK_PROMPT = """
 - Goals and aspirations
 - Emotional moments
 - Anything else that you think is important
+
 # Calling Tools
 - For each piece of information worth storing, use the update_memory_bank tool.
 - If there are multiple pieces of information worth storing, make multiple tool calls.
@@ -97,7 +109,7 @@ INSTRUCTIONS_UPDATE_MEMORY_BANK_PROMPT = """
 </instructions>
 """
 
-OUTPUT_FORMAT_UPDATE_MEMORY_BANK_PROMPT = """
+UPDATE_MEMORY_BANK_OUTPUT_FORMAT = """
 <output_format>
 If you identify information worth storing, use the following format:
 <tool_calls>
@@ -131,7 +143,7 @@ UPDATE_SESSION_NOTE_PROMPT = """
 """
 
 
-CONTEXT_UPDATE_SESSION_NOTE_PROMPT = """
+UPDATE_SESSION_NOTE_CONTEXT = """
 <note_taker_persona>
 You are a note taker who works as the assistant of the interviewer. You observe conversations between the interviewer and the user.
 Your job is to update the session notes with relevant information from the user's most recent message.
@@ -147,7 +159,7 @@ You have access to the session notes containing topics and questions to be discu
 </context>
 """
 
-EVENT_STREAM_UPDATE_SESSION_NOTE_PROMPT = """
+UPDATE_SESSION_NOTE_EVENT = """
 Here is the stream of previous events for context:
 <previous_events>
 {previous_events}
@@ -163,21 +175,21 @@ Here is the current question-answer exchange you need to process:
 - Previous messages are shown only for context, not for reprocessing.
 """
 
-QUESTIONS_AND_NOTES_UPDATE_SESSION_NOTE_PROMPT = """
+QUESTIONS_AND_NOTES_UPDATE_SESSION_NOTES = """
 Here are the questions and notes in the session notes:
 <questions_and_notes>
 {questions_and_notes}
 </questions_and_notes>
 """
 
-TOOL_DESCRIPTIONS_UPDATE_SESSION_NOTE_PROMPT = """
+SESSION_NOTE_TOOL = """
 Here are the tools that you can use to manage session notes:
 <tool_descriptions>
 {tool_descriptions}
 </tool_descriptions>
 """
 
-INSTRUCTIONS_UPDATE_SESSION_NOTE_PROMPT = """
+UPDATE_SESSION_NOTE_INSTRUCTIONS = """
 <instructions>
 # Session Note Update
 ## Process:
@@ -211,13 +223,13 @@ For each piece of new information worth storing:
 </instructions>
 """
 
-OUTPUT_FORMAT_UPDATE_SESSION_NOTE_PROMPT = """
+UPDATE_SESSION_NOTE_OUTPUT_FORMAT = """
 <output_format>
 If you identify information worth storing, use the following format:
 <tool_calls>
     <update_session_note>
-        <question_id>ID of the question to update, or empty if the note is not related to any specific question</question_id>
-        <note>A concise note to add to the question</note>
+        <question_id>...</question_id>
+        <note>...</note>
     </update_session_note>
     ...
 </tool_calls>
@@ -248,47 +260,51 @@ You are a narrative-focused interviewer assistant who specializes in biographica
 - Explore the deeper meaning and subjective interpretation of experiences
 - Focus on how experiences interconnect rather than just chronological order
 - Encourage storytelling and reflection
-- Help build a collaborative narrative between interviewer and interviewee
 </note_taker_persona>
 
 <context>
 You are reviewing a recently answered question and proposing narrative-style follow-up questions to deepen the conversation.
-Your goal is to create questions that radiate outward from meaningful events and experiences shared by the user.
+Your goal is to create questions that radiate outward from meaningful events and experiences shared by the user,
+focusing on areas where the recall results show we need more information.
 </context>
 """
 
-EVENT_STREAM_FOLLOWUPS_PROMPT = """
-Here is the most recent question-answer exchange:
+FOLLOWUPS_EVENTS = """
+The following events include the most recent:
+- Messages exchanged between the interviewer and user
+- Results from memory recalls (showing what information we already have)
+- Decisions on whether to propose follow-ups and the reasoning behind them
 <event_stream>
 {event_stream}
 </event_stream>
-
-This is the exchange we'll use to propose follow-up questions.
-Focus on the themes, experiences, and meaningful events mentioned in this exchange to create relevant follow-up questions.
 """
 
-INSTRUCTIONS_FOLLOWUPS_PROMPT = """
+PROPOSE_FOLLOWUPS_INSTRUCTIONS = """
 <instructions>
-# Follow-up Questions
 ## Question Development Process:
-1. Review recently answered questions and their notes
-2. For each answered question that merits follow-up:
-   - Record the parent question's ID and full text
-   - Identify meaningful events, experiences, or themes to explore further
-   - Create sub-questions that build upon the parent question
+1. Review:
+   - The decision reasoning from consider_followups
+   - The recent conversation and user's answers
+   - Memory recall results in the event stream
+   - Existing questions and notes
 
-## Parent-Child Question Structure:
-1. Parent Question Context:
-   - Include the exact ID of the parent question
-   - Copy the full text of the parent question exactly
-   - Use this context to ensure follow-ups are relevant and connected
+2. Propose follow-ups that:
+   ⭐ MOST IMPORTANT: Follow the specific guidance provided in the decision reasoning
+   - This reasoning explains why follow-ups are needed and what aspects to focus on
+   - Your questions should directly address the gaps and opportunities identified in the reasoning
+   
+   Additionally:
+   - Fill gaps identified in recall results
+   - Explore deeper meaning and personal impact
+   - Connect different experiences and themes
 
-2. Sub-Question Requirements:
-   - ID Format: Must start with parent's ID (e.g., if parent is "6", use "6.1", "6.2")
-   - Keep sequential within each parent (6.1, 6.2, 6.3, etc.)
-   - Each sub-question should explore a different aspect of the parent topic
+3. Avoid questions that:
+   - Duplicate information we already have
+   - Stay on surface level ("What happened next?")
+   - Lead to yes/no answers
+   - Diverge from meaningful topics
 
-## Question Content Guidelines:
+## Question Format:
 1. Direct Address:
    - Always use "you/your" to address the user directly
    - Examples:
@@ -296,24 +312,14 @@ INSTRUCTIONS_FOLLOWUPS_PROMPT = """
      ✓ "What meaning did that experience have for you?"
      ✗ "How did they feel about the decision?"
 
-2. Question Types:
-   - Narrative Questions:
-     * Invite storytelling about experiences
-     * Example: "Tell me about a time when..."
-   - Explanatory Questions:
-     * Explore meaning and justification
-     * Example: "What made that moment significant for you?"
-
-3. Focus Areas:
-   - Personal meaning and interpretation
-   - Connections to other life experiences
-   - Impact on beliefs and values
-   - Learning and growth from experiences
-   - Relationships and influences
+2. Parent-Child Question Structure:
+   - ID Format: Must start with parent's ID (e.g., if parent is "6", use "6.1", "6.2")
+   - Keep sequential within each parent (6.1, 6.2, 6.3, etc.)
+   - Each sub-question should explore a different aspect of the parent topic
 </instructions>
 """
 
-OUTPUT_FORMAT_FOLLOWUPS_PROMPT = """
+PROPOSE_FOLLOWUPS_OUTPUT_FORMAT = """
 <output_format>
 For each follow-up question you want to add:
 <tool_calls>
@@ -326,5 +332,90 @@ For each follow-up question you want to add:
     </add_interview_question>
     ...
 </tool_calls>
+</output_format>
+"""
+
+#### CONSIDER_FOLLOWUPS_PROMPT ####
+
+CONSIDER_FOLLOWUPS_PROMPT = """
+{CONTEXT}
+
+{EVENT_STREAM}
+
+{QUESTIONS_AND_NOTES}
+
+{INSTRUCTIONS}
+
+{TOOL_DESCRIPTIONS}
+
+{OUTPUT_FORMAT}
+"""
+
+CONSIDER_FOLLOWUPS_CONTEXT = """
+<note_taker_persona>
+You are a skilled interviewer's assistant who knows when to propose follow-up questions. 
+
+To help you make informed decisions, you have access to:
+1. A memory bank containing all past information shared by the user (accessible via recall tool)
+2. The current session's questions and notes
+
+Your goal is to propose follow-ups only when they would yield valuable new information that we don't already have.
+</note_taker_persona>
+
+<context>
+Review the recent conversation, check existing memories, and examine current session notes to decide if follow-up questions would be valuable.
+</context>
+"""
+
+CONSIDER_FOLLOWUPS_INSTRUCTIONS = """
+<instructions>
+Process for deciding about follow-up questions:
+
+1. Review recent conversation  and previous recall searches:
+   - Check what information you've already searched for
+   - Consider the results of those searches
+   - Build upon your previous reasoning rather than repeating searches
+
+2. For new topics or aspects not yet explored:
+   - Use the recall tool to check what information we already have
+   - Check if similar questions exist in the current session notes
+   - Evaluate if new questions would yield significant insights
+
+3. Propose follow-ups ONLY when:
+   - Previous recall results show gaps in our knowledge
+   - Your searches reveal new areas worth exploring
+   - No similar questions exist in the session notes
+   - The user seems engaged and the topic deserves deeper exploration
+
+4. Skip follow-ups when:
+   - Previous recall searches didn't reveal significant knowledge gaps
+   - Similar questions already exist in the session notes
+   - The user seems disinterested or uncomfortable
+</instructions>
+"""
+
+CONSIDER_FOLLOWUPS_OUTPUT_FORMAT = """
+<output_format>
+You should either:
+
+1. Make recall tool calls to gather more information:
+<tool_calls>
+    <recall>
+        <query>...</query>
+        <reasoning>...</reasoning>
+    </recall>
+</tool_calls>
+
+OR
+
+2. Make your final decision using the decide_followups tool:
+<tool_calls>
+    <decide_followups>
+        <decision>yes or no</decision>
+        <reasoning>...</reasoning>
+    </decide_followups>
+</tool_calls>
+
+Do not combine recall and decision in the same response. Either make recall calls to gather information, or use decide_followups to make your final decision.
 </output_format>
 """

@@ -16,6 +16,7 @@ from utils.logger import SessionLogger, setup_logger
 from user.user import User
 from agents.biography_team.orchestrator import BiographyOrchestrator
 from agents.biography_team.base_biography_agent import BiographyConfig
+from memory_bank.memory_bank_vector_db import MemoryBank
 
 load_dotenv(override=True)
 
@@ -47,6 +48,7 @@ class InterviewSession:
         # Session setup
         self.user_id = user_config.get("user_id", "default_user")
         self.session_note = SessionNote.get_last_session_note(self.user_id)
+        self.memory_bank = MemoryBank.load_from_file(self.user_id)
         self.session_id = self.session_note.increment_session_id()
         setup_logger(self.user_id, self.session_id, console_output_files=["execution_log"])
         
@@ -80,8 +82,7 @@ class InterviewSession:
         )
         self.note_taker: NoteTaker = NoteTaker(
             config=NoteTakerConfig(
-                user_id=self.user_id,
-                followup_interval=3
+                user_id=self.user_id
             ),
             interview_session=self
         )

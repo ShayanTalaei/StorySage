@@ -1,6 +1,7 @@
+import os
 import time
 from typing import Dict, Type, Optional, Any, TYPE_CHECKING, TypedDict
-
+from dotenv import load_dotenv
 from langchain_core.callbacks.manager import CallbackManagerForToolRun
 from langchain_core.tools import BaseTool, ToolException
 from pydantic import BaseModel, Field
@@ -15,6 +16,8 @@ from utils.audio_player import create_audio_player, AudioPlayerBase
 
 if TYPE_CHECKING:
     from interview_session.interview_session import InterviewSession
+
+load_dotenv()
 
 # Console colors
 GREEN = '\033[92m'
@@ -41,14 +44,14 @@ class Interviewer(BaseAgent, Participant):
         Participant.__init__(self, title="Interviewer", interview_session=interview_session)
         
         self.user_id = config.get("user_id")
-        self.memory_bank = MemoryBank.load_from_file(self.user_id)
+        self.max_events_len = int(os.getenv("MAX_EVENTS_LEN", 40))
         
         # Initialize TTS configuration
         tts_config = config.get("tts", {})
         self.base_path = f"data/{self.user_id}/"
         
         self.tools = {
-            "recall": Recall(memory_bank=self.memory_bank),
+            "recall": Recall(memory_bank=self.interview_session.memory_bank),
             "respond_to_user": RespondToUser(
                 interviewer=self,
                 tts_config=tts_config,
@@ -84,7 +87,8 @@ class Interviewer(BaseAgent, Participant):
             [
                 {"sender": "Interviewer", "tag": "interviewer_response"},
                 {"sender": "User", "tag": "message"}
-            ]
+            ],
+            as_list=True
         )
         questions_and_notes_str = self.interview_session.session_note.get_questions_and_notes_str(hide_answered="qa")
         ## TODO: Add additional notes
@@ -93,7 +97,7 @@ class Interviewer(BaseAgent, Participant):
         return format_prompt(main_prompt, {
             "user_portrait": user_portrait_str,
             "last_meeting_summary": last_meeting_summary_str,
-            "chat_history": chat_history_str,
+            "chat_history": chat_history_str[-self.max_events_len:],
             "questions_and_notes": questions_and_notes_str,
             "tool_descriptions": tool_descriptions_str
         })

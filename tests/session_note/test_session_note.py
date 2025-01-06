@@ -1,6 +1,7 @@
 import pytest
 import os
 import shutil
+from session_note.interview_question import InterviewQuestion
 from src.session_note.session_note import SessionNote
 
 USER_ID = "test_user"
@@ -71,7 +72,7 @@ def test_format_qa_normal(sample_session_note):
 def test_format_qa_hide_answered(sample_session_note):
     """Test question formatting with hiding answered questions"""
     qa = sample_session_note.topics["Personal"][0]
-    lines = sample_session_note.format_qa(qa, hide_answered=True)
+    lines = sample_session_note.format_qa(qa, hide_answered="qa")
     
     expected = [
         "\n[ID] 1: (Answered)",
@@ -108,8 +109,7 @@ def test_add_interview_question(sample_session_note):
     sample_session_note.add_interview_question(
         "Personal",
         "Which high school?",
-        question_id="1",
-        parent_id="3"
+        question_id="3.1",
     )
     assert sample_session_note.get_question("3.1").question == "Which high school?"
 
@@ -200,3 +200,74 @@ def test_get_last_session_note(temp_logs_dir):
     # Should retrieve the latest note
     last_note = SessionNote.get_last_session_note(USER_ID)
     assert str(last_note.session_id) == "2" 
+
+def test_delete_interview_question_no_sub_questions(sample_session_note):
+    """Test deleting a question that has no sub-questions"""
+    # Delete question "2" (Current role?)
+    sample_session_note.delete_interview_question("2")
+    
+    # Verify question was deleted
+    assert sample_session_note.get_question("2") is None
+    assert len(sample_session_note.topics["Professional"]) == 0
+
+def test_delete_interview_question_with_sub_questions(sample_session_note):
+    """Test deleting a question that has sub-questions"""
+    # Delete question "1" (Where did you grow up?)
+    sample_session_note.delete_interview_question("1")
+    
+    # Verify question content was cleared but structure remains
+    question = sample_session_note.get_question("1")
+    assert question.question == ""
+    assert question.notes == []
+    # Verify sub-question remains intact
+    sub_question = sample_session_note.get_question("1.1")
+    assert sub_question.question == "What neighborhood?"
+    assert sub_question.notes == ["South End"]
+
+def test_delete_sub_question_no_children(sample_session_note):
+    """Test deleting a sub-question that has no children"""
+    # Delete question "1.1" (What neighborhood?)
+    sample_session_note.delete_interview_question("1.1")
+    
+    # Verify sub-question was deleted
+    assert sample_session_note.get_question("1.1") is None
+    # Verify parent remains intact
+    parent = sample_session_note.get_question("1")
+    assert parent.question == "Where did you grow up?"
+    assert parent.notes == ["Grew up in Boston"]
+    assert len(parent.sub_questions) == 0
+
+def test_delete_sub_question_with_children(sample_session_note):
+    """Test deleting a sub-question that has children"""
+    # First add a child to 1.1
+    sample_session_note.add_interview_question(
+        "Personal",
+        "Which street?",
+        question_id="1.1.1"
+    )
+    
+    # Delete question "1.1"
+    sample_session_note.delete_interview_question("1.1")
+    
+    # Verify question content was cleared but structure remains
+    question = sample_session_note.get_question("1.1")
+    assert question.question == ""
+    assert question.notes == []
+    # Verify child remains intact
+    child = sample_session_note.get_question("1.1.1")
+    assert child.question == "Which street?"
+
+def test_delete_interview_question_not_found(sample_session_note):
+    """Test deleting a non-existent question"""
+    with pytest.raises(ValueError, match="Question with id 999 not found"):
+        sample_session_note.delete_interview_question("999")
+
+def test_delete_interview_question_parent_not_found(sample_session_note):
+    """Test deleting a sub-question with non-existent parent"""
+    # Add a question with invalid parent ID
+    sample_session_note.topics["Personal"][0].sub_questions.append(
+        InterviewQuestion("Personal", "999.1", "Invalid parent")
+    )
+    
+    with pytest.raises(ValueError, match="Parent question with id 999 not found"):
+        sample_session_note.delete_interview_question("999.1") 

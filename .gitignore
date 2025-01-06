@@ -1,4 +1,4 @@
-data/
+data/*
 !data/sample_user_profiles
 venv/
 .env
@@ -10,3 +10,7 @@ logs/
 .vscode/
 *.db
 data/interview_app.db
+# Elastic Beanstalk Files
+.elasticbeanstalk/*
+!.elasticbeanstalk/*.cfg.yml
+!.elasticbeanstalk/*.global.yml

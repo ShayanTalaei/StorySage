@@ -1,10 +1,27 @@
 # AI Autobiography
 
+**AI Autobiographer** is a framework that uses AI agents to conduct interviews and write biographies for users 📝
+
+**Key Features**:
+
+- 🤝 Natural conversation flow
+- 🧠 Intelligent memory management
+- 📚 Structured biography creation
+- 🔄 Continuous learning from interactions
+- 🔌 Optional backend service mode
+
+**Documentation**:
+
+- [Design](docs/design.md)
+- [InterviewSession](docs/interview_session.md)
+
 ## Setup
 
 ### Environment Variables
 
 Create a `.env` file in the root directory with the following variables:
+
+Example:
 
 ```.env
 OPENAI_API_KEY=<your_openai_api_key>
@@ -68,6 +85,10 @@ Optional Parameters:
 - `--voice_output`: Enable voice output
 - `--voice_input`: Enable voice input
 - `--restart`: Clear previous session data and restart
+
+Reminder:
+
+- If you use user agent mode, you need to specify the user ID, which is the name of the user profile in the `USER_AGENT_PROFILES_DIR` directory in the `.env` file.
 
 Examples:
 
