@@ -194,24 +194,14 @@ class AddInterviewQuestionInput(BaseModel):
     topic: str = Field(description="The topic category for the question (e.g., 'Career', 'Education')")
     question: str = Field(description="The actual question text")
     question_id: str = Field(description="The ID for the question (e.g., '1', '1.1', '2.3')")
-    is_parent: bool = Field(description="Whether this is a parent question (true) or sub-question (false)")
-    parent_id: Optional[str] = Field(
-        description="Required for sub-questions: ID of the parent question",
-        default=None
-    )
-    parent_text: Optional[str] = Field(
-        description="Required for sub-questions: Text of the parent question for context",
-        default=None
-    )
+    parent_id: str = Field(description="The ID of the parent question (e.g., '1', '2', etc.). Still include it but leave it empty if it is a top-level question.")
+    parent_text: str = Field(description="The text of the parent question. Still include it but leave it empty if it is a top-level question.")
 
 class AddInterviewQuestion(BaseTool):
     """Tool for adding new interview questions."""
     name: str = "add_interview_question"
     description: str = (
         "Adds a new interview question to the session notes. "
-        "For parent questions, set is_parent=True and leave parent_id/parent_text empty. "
-        "For sub-questions, set is_parent=False and provide both parent_id and parent_text "
-        "to help maintain context when generating follow-up questions."
     )
     args_schema: Type[BaseModel] = AddInterviewQuestionInput
     session_note: SessionNote = Field(...)
@@ -304,7 +294,9 @@ class Recall(BaseTool):
             return f"""\
 <memory_search>
 <query>{query}</query>
-<reasoning>{reasoning}</reasoning>
+<reasoning>
+{reasoning}
+</reasoning>
 <results>
 {memories_str}
 </results>
@@ -312,7 +304,9 @@ class Recall(BaseTool):
 """ if memories_str else f"""\
 <memory_search>
 <query>{query}</query>
-<reasoning>{reasoning}</reasoning>
+<reasoning>
+{reasoning}
+</reasoning>
 <results>No relevant memories found.</results>
 </memory_search>"""
         except Exception as e:

@@ -324,9 +324,9 @@ class SessionNote:
             raise ValueError('hide_answered must be "", "a", or "qa"')
             
         lines = []
-        
-        # Handle different display modes for answered questions
-        if qa.notes:
+        if not qa.question: # Empty question means it is already deleted
+            pass
+        elif qa.notes:
             if hide_answered == "qa":
                 lines.append(f"\n[ID] {qa.question_id}: (Answered)")
             else:
@@ -337,7 +337,7 @@ class SessionNote:
         else:
             # For unanswered questions, always show the question
             lines.append(f"\n[ID] {qa.question_id}: {qa.question}")
-            
+        
         if qa.sub_questions:
             for sub_qa in qa.sub_questions:
                 lines.extend(self.format_qa(
