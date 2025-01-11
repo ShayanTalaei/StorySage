@@ -33,6 +33,8 @@ DATABASE_URL="sqlite:///./data/interview_app.db"
 
 ### Python Dependencies
 
+Recommend Python version: 3.12
+
 Install Python dependencies by running:
 
 ```bash
