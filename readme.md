@@ -19,17 +19,7 @@
 
 ### Environment Variables
 
-Create a `.env` file in the root directory with the following variables:
-
-Example:
-
-```.env
-OPENAI_API_KEY=<your_openai_api_key>
-LOGS_DIR="logs"
-DATA_DIR="data"
-USER_AGENT_PROFILES_DIR="data/sample_user_profiles"
-DATABASE_URL="sqlite:///./data/interview_app.db"
-```
+Create a `.env` file in the root directory. Copy the `.env.example` file and fill in the values.
 
 ### Python Dependencies
 
