@@ -9,10 +9,10 @@ app = FastAPI(title="AI Autobiography API")
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # Frontend URL
-    allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
+    allow_origins=["*"],  # Allow all origins
+    allow_credentials=False,  # Changed to False since we're using "*" for origins
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 @app.on_event("startup")
