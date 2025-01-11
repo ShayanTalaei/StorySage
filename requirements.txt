@@ -269,3 +269,5 @@ wcwidth==0.2.13
 websockets==14.1
 wheel==0.44.0
 yarl==1.17.2
+passlib==1.7.4
+bcrypt==4.2.1

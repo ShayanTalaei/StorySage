@@ -32,3 +32,10 @@ class DBMessage(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     
     session = relationship("DBSession", back_populates="messages") 
+
+class DBUser(Base):
+    __tablename__ = "users"
+    
+    user_id = Column(String, primary_key=True)
+    password_hash = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow) 
