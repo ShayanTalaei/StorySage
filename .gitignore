@@ -16,3 +16,5 @@ data/interview_app.db
 .elasticbeanstalk/*
 !.elasticbeanstalk/*.cfg.yml
 !.elasticbeanstalk/*.global.yml
+environment.yml
+package-lock.json
