@@ -2,6 +2,8 @@ data/*
 !data/sample_user_profiles
 venv/
 .env
+.env*
+!.env.example
 gabm_interviewer_platform/
 notebooks/
 logs/

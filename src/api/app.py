@@ -2,17 +2,17 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import os
 from database.setup_db import SQLALCHEMY_DATABASE_URL
-from api.routers import chat, auth, register
+from api.routers import chat, auth, biography, register
 
 app = FastAPI(title="AI Autobiography API")
 
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # Frontend URL
-    allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
+    allow_origins=["*"],  # Allow all origins
+    allow_credentials=False,  # Changed to False since we're using "*" for origins
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 @app.on_event("startup")
@@ -29,4 +29,5 @@ async def startup_event():
 # Include routers
 app.include_router(chat.router)
 app.include_router(auth.router)
+app.include_router(biography.router)
 app.include_router(register.router)
