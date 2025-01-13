@@ -40,3 +40,6 @@ EXPOSE 8000
 
 # Use the entrypoint script
 ENTRYPOINT ["./docker-entrypoint.sh"]
+
+# Use the entrypoint script and redirect stdout and stderr to a log file
+CMD ["sh", "-c", "./docker-entrypoint.sh > /app/logs/console_output.log 2>&1"]

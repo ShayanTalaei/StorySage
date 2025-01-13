@@ -11,11 +11,11 @@ class DBSession(Base):
     
     id = Column(String, primary_key=True)
     seq_id = Column(Integer, nullable=False)
-    user_id = Column(String, nullable=False)
+    user_id = Column(String, ForeignKey("users.user_id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     messages = relationship("DBMessage", back_populates="session")
-    # user = relationship("DBUser")
+    user = relationship("DBUser", back_populates="sessions")
     
     # TODO: Disabled for development; uncomment for production
     # __table_args__ = (
@@ -26,7 +26,7 @@ class DBMessage(Base):
     __tablename__ = "messages"
     
     id = Column(String, primary_key=True)
-    session_id = Column(Integer, ForeignKey("sessions.id"), nullable=False)
+    session_id = Column(String, ForeignKey("sessions.id"), nullable=False)
     content = Column(String, nullable=False)
     role = Column(String, nullable=False)  # "User" or "Interviewer"
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -38,4 +38,6 @@ class DBUser(Base):
     
     user_id = Column(String, primary_key=True)
     password_hash = Column(String, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow) 
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    sessions = relationship("DBSession", back_populates="user") 

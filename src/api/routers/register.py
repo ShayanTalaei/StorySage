@@ -18,13 +18,6 @@ async def register_user(request: RegisterRequest, db: Session = Depends(get_db))
         # Check if user already exists
         existing_user = db.query(DBUser).filter(DBUser.user_id == request.user_id).first()
         if existing_user:
-            # raise HTTPException(
-            #     status_code=400,
-            #     detail="User ID already registered"
-            # )
-
-            print(f"Attempted registration with existing user_id: {request.user_id}")  # Added print statement
-
             raise HTTPException(
                 status_code=400,
                 detail="User ID already registered. Please login instead."

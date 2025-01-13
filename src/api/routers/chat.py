@@ -87,8 +87,9 @@ async def send_message(
             raise HTTPException(status_code=408, detail="Timeout waiting for interviewer response")
         
         # Store interviewer response
+        response_id = str(uuid.uuid4())
         db_response = DBMessage(
-            id=response.id,
+            id=response_id,
             session_id=session_id,
             content=response.content,
             role="Interviewer"
@@ -97,7 +98,7 @@ async def send_message(
         db.commit()
         
         return MessageResponse(
-            id=response.id,
+            id=response_id,
             content=response.content,
             role=response.role,
             created_at=db_response.created_at
