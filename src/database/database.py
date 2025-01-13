@@ -5,13 +5,13 @@ from dotenv import load_dotenv
 import os
 import logging
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# logging.basicConfig(level=logging.INFO)
+# logger = logging.getLogger(__name__)
 
 load_dotenv()
 
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./data/interview_app.db")
-logger.info(f"Using database URL: {SQLALCHEMY_DATABASE_URL}")
+# logger.info(f"Using database URL: {SQLALCHEMY_DATABASE_URL}")
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,

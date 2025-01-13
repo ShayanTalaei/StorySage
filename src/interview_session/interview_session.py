@@ -158,24 +158,6 @@ class InterviewSession:
         SessionLogger.log_to_file("chat_history", f"{message.role}: {message.content}")
         SessionLogger.log_to_file("execution_log", f"[CHAT_HISTORY] {message.role}'s message has been added to chat history.")
         
-        # Add database storage for API mode
-        if hasattr(self, 'db_session_id'):
-            from database.models import DBMessage
-            from database.database import SessionLocal
-            
-            db = SessionLocal()
-            try:
-                db_message = DBMessage(
-                    id=message.id,
-                    session_id=self.db_session_id,
-                    content=message.content,
-                    role=message.role
-                )
-                db.add(db_message)
-                db.commit()
-            finally:
-                db.close()
-        
         # Schedule async notification
         asyncio.create_task(self._notify_participants(message))
 
