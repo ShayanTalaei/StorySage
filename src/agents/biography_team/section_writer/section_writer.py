@@ -118,7 +118,7 @@ class UpdateSection(BaseTool):
     biography: Biography
 
     def _run(self, path: str, content: str, run_manager: Optional[CallbackManagerForToolRun] = None) -> str:
-        section = self.biography.update_section(path, content)
+        section = self.biography.update_section(path=path, content=content)
         if not section:
             raise ToolException(f"Section at path '{path}' not found")
         return f"Successfully updated section at path '{path}'"

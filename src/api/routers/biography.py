@@ -1,11 +1,14 @@
 import os
 import json
 from fastapi import APIRouter, HTTPException, Depends
-from typing import Dict, Any
+from typing import Dict, Any, List
 from api.core.auth import get_current_user
+from api.schemas.biography import BiographyEdit
+from biography.biography import Biography
 
 router = APIRouter(
-    tags=["biography"]
+    tags=["biography"],
+    prefix="/biography"
 )
 
 def get_latest_biography(user_id: str) -> Dict[Any, Any]:
@@ -44,7 +47,7 @@ def get_latest_biography(user_id: str) -> Dict[Any, Any]:
             detail=f"Error reading biography file: {str(e)}"
         )
 
-@router.get("/biography/latest")
+@router.get("/latest")
 async def get_user_biography(
     current_user: str = Depends(get_current_user)
 ) -> Dict[Any, Any]:
@@ -58,3 +61,53 @@ async def get_user_biography(
         )
     
     return biography
+
+@router.post("/edit")
+async def edit_biography(
+    edits: List[BiographyEdit],
+    current_user: str = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """Apply a list of edits to the user's biography"""
+    
+    # Load the latest biography
+    bio = Biography.load_from_file(current_user)
+    
+    # Process each edit in order
+    for edit in sorted(edits, key=lambda x: x.timestamp):
+        try:
+            if edit.type == "RENAME":
+                if not edit.data or not edit.data.newTitle:
+                    raise ValueError("New title is required for RENAME operation")
+                bio.update_section(title=edit.title, new_title=edit.data.newTitle)
+                
+            elif edit.type == "DELETE":
+                if not bio.delete_section(title=edit.title):
+                    raise ValueError(f"Section not found: {edit.title}")
+                
+            elif edit.type == "CONTENT_CHANGE":
+                if not edit.data or not edit.data.newContent:
+                    raise ValueError("New content is required for CONTENT_CHANGE operation")
+                bio.update_section(title=edit.title, content=edit.data.newContent)
+
+            # TODO: Implement COMMENT & ADD operation
+                
+        except Exception as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Error processing edit {edit.type} for section '{edit.title}': {str(e)}"
+            )
+    
+    # Save the updated biography
+    bio.save()
+    
+    # Return the latest saved biography
+    latest_bio = get_latest_biography(current_user)
+    if latest_bio is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Failed to retrieve updated biography"
+        )
+    
+    return latest_bio
+
+
