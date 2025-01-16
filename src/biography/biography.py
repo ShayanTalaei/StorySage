@@ -11,7 +11,6 @@ class Section:
         self.content = content
         self.created_at = datetime.now().isoformat()
         self.last_edit = datetime.now().isoformat()
-        self.parent = parent
         self.subsections: Dict[str, 'Section'] = {}
 
     def to_dict(self) -> Dict:
@@ -101,7 +100,103 @@ class Biography:
             pass
         
         return biography
+    
+    def save(self) -> None:
+        """Save the biography to a JSON file using user_id."""
+        os.makedirs(self.base_path, exist_ok=True)
+            
+        with open(f'{self.file_name}.json', 'w', encoding='utf-8') as f:
+            json.dump(self.root.to_dict(), f, indent=4, ensure_ascii=False)
 
+    def is_valid_path_format(self, path: str) -> bool:
+        """
+        Validate if the path follows the required format rules.
+        Returns True if valid, False otherwise.
+        """
+        if not path:
+            return True  # Empty path is valid (root)
+
+        parts = path.split('/')
+        
+        # Check maximum depth
+        if len(parts) > 3:
+            return False
+            
+        # Validate first level requires single number prefix
+        if not parts[0].split()[0].isdigit():
+            return False
+            
+        # Validate second and third levels using _is_valid_subsection_number
+        for i in range(1, len(parts)):
+            if not self._is_valid_subsection_number(parts[i-1], parts[i]):
+                return False
+            
+        return True
+
+    def _is_valid_subsection_number(self, parent: str, child: str) -> bool:
+        """
+        Validate if subsection number matches parent section number.
+        Examples:
+            "1 Early Life" -> "1.1 Childhood" is valid
+            "1.1 Childhood" -> "1.1.1 Details" is valid
+        """
+        try:
+            parent_num = parent.split()[0]
+            child_num = child.split()[0]
+            
+            # For second level (e.g., "1.1 Section")
+            if parent_num.isdigit():
+                return child_num.count('.') == 1 and child_num.startswith(f"{parent_num}.")
+            
+            # For third level (e.g., "1.1.1 Subsection")
+            if '.' in parent_num:
+                return child_num.count('.') == 2 and child_num.startswith(f"{parent_num}.")
+            
+            return False
+        except (IndexError, ValueError):
+            return False
+
+    def _path_exists(self, path: str) -> bool:
+        """
+        Check if a given path exists in the biography.
+        Returns True if the path exists, False otherwise.
+        """
+        if not self.is_valid_path_format(path):
+            return False
+        return self.get_section_by_path(path) is not None
+
+    def _sort_sections(self, sections: Dict[str, Section]) -> Dict[str, Section]:
+        """Sort sections based on their numeric prefixes."""
+        def get_sort_key(title: str) -> tuple:
+            # Split the title into parts (e.g., "1.2" from "1.2 Something")
+            parts = title.split()[0].split('.')
+            # Convert each numeric part to int for proper sorting
+            return tuple(int(p) for p in parts if p.isdigit())
+
+        # Sort sections by their numeric prefixes
+        sorted_items = sorted(sections.items(), key=lambda x: get_sort_key(x[0]))
+        return dict(sorted_items)
+
+    def _find_parent(self, title: str) -> Optional[Section]:
+        """Find the parent section of a section with the given title using DFS.
+        
+        Args:
+            title: Title of the section whose parent we want to find
+            
+        Returns:
+            Parent section if found, None if section is root or not found
+        """
+        def _search(section: Section) -> Optional[Section]:
+            for subsection_title, subsection in section.subsections.items():
+                if subsection_title == title:
+                    return section
+                parent = _search(subsection)
+                if parent:
+                    return parent
+            return None
+        
+        return _search(self.root)
+    
     def get_section_by_path(self, path: str) -> Optional[Section]:
         """Get a section using its path (e.g., 'Chapter 1/Section 1.1')"""
         if not path:
@@ -130,6 +225,16 @@ class Biography:
             return None
         
         return _search(self.root)
+    
+    def get_sections(self) -> Dict[str, Dict]:
+        """Get a dictionary of all sections with their titles only"""
+        def _build_section_dict(section: Section) -> Dict:
+            return {
+                "title": section.title,
+                "subsections": {k: _build_section_dict(v) for k, v in section.subsections.items()}
+            }
+        
+        return _build_section_dict(self.root)
 
     def add_section(self, path: str, content: str = "") -> Section:
         """Add a new section at the specified path, creating parent sections if they don't exist."""
@@ -155,38 +260,67 @@ class Biography:
         # Create and add the new section
         new_section = Section(title, content, current)
         current.subsections[path_parts[-1]] = new_section
+        
+        # Sort the subsections after adding the new one
+        current.subsections = self._sort_sections(current.subsections)
         return new_section
 
-    def get_sections(self) -> Dict[str, Dict]:
-        """Get a dictionary of all sections with their titles only"""
-        def _build_section_dict(section: Section) -> Dict:
-            return {
-                "title": section.title,
-                "subsections": {k: _build_section_dict(v) for k, v in section.subsections.items()}
-            }
+    def update_section(self, path: str = None, title: str = None, content: str = None, new_title: str = None) -> Optional[Section]:
+        """Update the content and optionally the title of a section by path or title.
         
-        return _build_section_dict(self.root)
-
-    def save(self) -> None:
-        """Save the biography to a JSON file using user_id."""
-        os.makedirs(self.base_path, exist_ok=True)
+        Args:
+            path: Path to the section. If None, will try to find section by title
+            title: Title of the section to update. Only used if path is None
+            content: New content for the section. If None, content remains unchanged
+            new_title: New title for the section. If None, title remains unchanged
             
-        with open(f'{self.file_name}.json', 'w', encoding='utf-8') as f:
-            json.dump(self.root.to_dict(), f, indent=4, ensure_ascii=False)
-
-    def update_section(self, path: str, content: str) -> Optional[Section]:
-        """Update the content of a section at the specified path.
-        Returns the updated section if found, None otherwise."""
-        if not path:
-            raise ValueError("Path cannot be empty - must provide a section path")
+        Returns:
+            Updated section if found, None otherwise
+            
+        Raises:
+            ValueError: If neither path nor title is provided, or if path format is invalid
+        """
+        if path is None and title is None:
+            raise ValueError("Must provide either path or title to update a section")
         
-        if not self.is_valid_path_format(path):
-            raise ValueError(f"Invalid path format: {path}. Path must follow the required format rules.")
+        # Handle special case for root section
+        if path is not None and path == "":
+            if content is not None:
+                self.root.content = content
+                self.root.last_edit = datetime.now().isoformat()
+            if new_title:
+                self.root.title = new_title
+            return self.root
         
-        section = self.get_section_by_path(path)
+        # Get section by path or title
+        section = None
+        if path is not None:
+            if not self.is_valid_path_format(path):
+                raise ValueError(f"Invalid path format: {path}. Path must follow the required format rules.")
+            section = self.get_section_by_path(path)
+        else:
+            section = self.get_section_by_title(title)
+        
         if section:
-            section.content = content
-            section.last_edit = datetime.now().isoformat()
+            if content is not None:
+                section.content = content
+                section.last_edit = datetime.now().isoformat()
+            
+            # Handle title update if provided
+            if new_title and new_title != section.title:
+                parent = self._find_parent(section.title)
+                if parent:
+                    # Update the key in parent's subsections
+                    subsections = parent.subsections
+                    subsections[new_title] = subsections.pop(section.title)
+                    # Update the title
+                    section.title = new_title
+                    # Sort the parent's subsections
+                    parent.subsections = self._sort_sections(parent.subsections)
+                else:
+                    # This is the root section
+                    section.title = new_title
+            
             return section
         return None
 
@@ -263,56 +397,49 @@ class Biography:
 
         return markdown_content
 
-    def is_valid_path_format(self, path: str) -> bool:
-        """
-        Validate if the path follows the required format rules.
-        Returns True if valid, False otherwise.
-        """
-        if not path:
-            return True  # Empty path is valid (root)
-
-        parts = path.split('/')
+    def delete_section(self, path: str = None, title: str = None) -> bool:
+        """Delete a section by its path or title.
         
-        # Check maximum depth
-        if len(parts) > 4:
-            return False
+        Args:
+            path: Path to the section. If None, will try to find section by title
+            title: Title of the section to delete. Only used if path is None
             
-        # Validate first level requires number prefix
-        if not parts[0].split()[0].isdigit():
-            return False
+        Returns:
+            True if section was found and deleted, False otherwise
             
-        # Validate second level requires decimal notation
-        if len(parts) > 1:
-            if not self._is_valid_subsection_number(parts[0], parts[1]):
-                return False
-                
-        # Third and fourth levels should not have numbers
-        if len(parts) > 2:
-            for part in parts[2:]:
-                if part.split()[0].replace('.', '').isdigit():
-                    return False
-                    
-        return True
-
-    def _is_valid_subsection_number(self, parent: str, child: str) -> bool:
+        Raises:
+            ValueError: If neither path nor title is provided, or if path format is invalid
+                       or if attempting to delete root section
         """
-        Validate if subsection number matches parent section number.
-        Example: "1 Early Life" -> oytho is valid
-        """
-        try:
-            parent_num = parent.split()[0]
-            child_num = child.split()[0]
-            if not child_num.count('.') == 1:
-                return False
-            return child_num.startswith(f"{parent_num}.")
-        except (IndexError, ValueError):
+        if path is None and title is None:
+            raise ValueError("Must provide either path or title to delete a section")
+        
+        # Handle root section deletion attempt
+        if path == "":
+            raise ValueError("Cannot delete root section")
+        
+        # Get section by path or title
+        section = None
+        if path is not None:
+            if not self.is_valid_path_format(path):
+                raise ValueError(f"Invalid path format: {path}. Path must follow the required format rules.")
+            section = self.get_section_by_path(path)
+            if section:
+                title = section.title
+        else:
+            section = self.get_section_by_title(title)
+        
+        if not section:
             return False
-
-    def path_exists(self, path: str) -> bool:
-        """
-        Check if a given path exists in the biography.
-        Returns True if the path exists, False otherwise.
-        """
-        if not self.is_valid_path_format(path):
-            return False
-        return self.get_section_by_path(path) is not None
+        
+        # Can't delete root section
+        if section == self.root:
+            raise ValueError("Cannot delete root section")
+        
+        # Find and delete from parent's subsections
+        parent = self._find_parent(section.title)
+        if parent:
+            del parent.subsections[title]
+            return True
+        
+        return False

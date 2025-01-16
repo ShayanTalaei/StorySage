@@ -88,23 +88,22 @@ Important Note About Section Paths:
 <format_notes>
 - Section paths must be specified using forward slashes to indicate hierarchy
 - Each part of the path should be the exact title of a section
-- Maximum 4 levels of hierarchy allowed
+- Maximum 3 levels of hierarchy allowed
 - Numbering conventions:
   * First level sections must start with numbers: "1", "2", "3", etc.
     Examples: "1 Early Life", "2 Education", "3 Career"
   * Second level sections (subsections) use decimal notation matching parent number
     Examples: "1 Early Life/1.1 Childhood", "1 Early Life/1.2 Family Background"
-  * Third and fourth levels do not use numbers
-    Examples: "1 Early Life/1.1 Childhood/Memorable Events"
+  * Third level sections use double decimal notation matching parent number
+    Examples: "1 Early Life/1.1 Childhood/1.1.1 Memories", "1 Early Life/1.1 Childhood/1.1.2 Stories"
 - Examples of valid paths:
   * "1 Early Life"
-  * "2 Career/2.1 Software Projects/First App"
-  * "3 Personal Life/3.2 Hobbies/Gaming/Favorite Games"
+  * "2 Career/2.1 First Job"
+  * "3 Personal Life/3.1 Hobbies/3.1.1 Gaming"
 - Examples of invalid paths:
-  * "Title" (missing first level number and no need to update a title)
-  * "Early Life" (missing first level number)
-  * "1 Early Life/Childhood" (missing second level number)
+  * "1 Early Life/1.1 Childhood/Stories" (missing third level number)
   * "1.1 Childhood" (subsection without parent section)
-  * "1 Early Life/1.1 Childhood/Games/Types/Specific" (exceeds 4 levels)
+  * "1 Early Life/2.1 Childhood" (wrong parent number)
+  * "1 Early Life/1.1 Childhood/1.1.1 Games/Types" (exceeds 3 levels)
 </format_notes>
 """
