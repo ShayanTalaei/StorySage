@@ -1,11 +1,9 @@
 from typing import List
-from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form
+from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 import asyncio
 import uuid
 import time
-import openai
-import os
 
 from api.schemas.chat import (
     MessageRequest, MessageResponse, EndSessionResponse
@@ -211,48 +209,4 @@ async def list_user_messages(
         
     except Exception as e:
         print(f"{RED}Error:\n{e}\n{RESET}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.post("/transcribe")
-async def transcribe_audio(
-    audio: UploadFile = File(..., description="The audio file to transcribe"),
-    current_user: str = Depends(get_current_user)
-):
-    """Transcribe audio file using OpenAI Whisper API"""
-    print("Function called")
-    print(f"Request received for user: {current_user}")
-    
-    try:
-        if not audio:
-            raise HTTPException(status_code=400, detail="No audio file provided")
-            
-        print(f"Received file: {audio.filename}, content_type: {audio.content_type}")
-        # Read the audio file
-        contents = await audio.read()
-        
-        # Save temporarily
-        temp_path = f"temp_{audio.filename}"
-        with open(temp_path, "wb") as f:
-            f.write(contents)
-        
-        try:
-            # Initialize OpenAI client
-            client = openai.OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
-            
-            # Transcribe using OpenAI Whisper
-            with open(temp_path, "rb") as audio_file:
-                transcript = client.audio.transcriptions.create(
-                    model="whisper-1",
-                    file=audio_file
-                )
-            
-            return {"text": transcript.text}
-            
-        finally:
-            # Clean up temp file
-            if os.path.exists(temp_path):
-                os.remove(temp_path)
-                
-    except Exception as e:
-        print(f"{RED}Error in transcription:\n{str(e)}\n{type(e)}\n{RESET}")
         raise HTTPException(status_code=500, detail=str(e))

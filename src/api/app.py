@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import os
 from database.setup_db import SQLALCHEMY_DATABASE_URL
-from api.routers import chat, auth, biography, register
+from api.routers import chat, auth, biography, register, voice
 
 app = FastAPI(title="AI Autobiography API")
 
@@ -31,3 +31,4 @@ app.include_router(chat.router)
 app.include_router(auth.router)
 app.include_router(biography.router)
 app.include_router(register.router)
+app.include_router(voice.router)
