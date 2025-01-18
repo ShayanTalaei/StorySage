@@ -1,6 +1,7 @@
 import asyncio
+import os
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, List, TypedDict
 import signal
 import contextlib
@@ -50,16 +51,22 @@ class InterviewSession:
         self.session_note = SessionNote.get_last_session_note(self.user_id)
         self.memory_bank = MemoryBank.load_from_file(self.user_id)
         self.session_id = self.session_note.increment_session_id()
-        setup_logger(self.user_id, self.session_id, console_output_files=["execution_log"])
-        
-        # Chat history and session state
-        self.chat_history: list[Message] = []
-        self.session_in_progress = True
-        self.session_completed = False
 
+        setup_logger(self.user_id, self.session_id, console_output_files=["execution_log"])
         SessionLogger.log_to_file("execution_log", f"[INIT] Starting interview session for user {self.user_id}")
         SessionLogger.log_to_file("execution_log", f"[INIT] Session ID: {self.session_id}")
         
+        # Chat history
+        self.chat_history: list[Message] = []
+
+        # Session states signals
+        self.session_in_progress = True
+        self.session_completed = False
+        
+        # Last message timestamp tracking
+        self.last_message_time = datetime.now()
+        self.timeout_minutes = int(os.getenv("SESSION_TIMEOUT_MINUTES", 10))
+
         # User in the interview session
         if interaction_mode == 'agent':
             self.user: User = UserAgent(user_id=self.user_id, interview_session=self)
@@ -114,7 +121,7 @@ class InterviewSession:
         # Shutdown signal handler - only for agent mode
         if interaction_mode == 'agent':
             self._setup_signal_handlers()
-    
+
     def set_db_session_id(self, db_session_id: int):
         """Set the database session ID"""
         self.db_session_id = db_session_id
@@ -160,6 +167,10 @@ class InterviewSession:
         
         # Schedule async notification
         asyncio.create_task(self._notify_participants(message))
+        
+        # Update last message time when we receive a message
+        if role == "User":
+            self.last_message_time = datetime.now()
 
     async def run(self):
         SessionLogger.log_to_file("execution_log", f"[RUN] Starting interview session")
@@ -171,9 +182,15 @@ class InterviewSession:
                 SessionLogger.log_to_file("execution_log", f"[RUN] Sending initial notification to interviewer by system")
                 await self.interviewer.on_message(None)
             
-            # Monitor the session for completion
+            # Monitor the session for completion and timeout
             while self.session_in_progress:
                 await asyncio.sleep(0.1)
+                
+                # Check for timeout
+                if datetime.now() - self.last_message_time > timedelta(minutes=self.timeout_minutes):
+                    SessionLogger.log_to_file("execution_log", f"[TIMEOUT] Session timed out after {self.timeout_minutes} minutes of inactivity")
+                    self.session_in_progress = False
+                    break
                 
         except Exception as e:
             SessionLogger.log_to_file("execution_log", f"[RUN] Unexpected error: {str(e)}")
