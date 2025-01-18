@@ -93,11 +93,12 @@ class Interviewer(BaseAgent, Participant):
         questions_and_notes_str = self.interview_session.session_note.get_questions_and_notes_str(hide_answered="qa")
         ## TODO: Add additional notes
         tool_descriptions_str = self.get_tools_description()
+        recent_events = chat_history_str[-self.max_events_len:] if len(chat_history_str) > self.max_events_len else chat_history_str
         
         return format_prompt(main_prompt, {
             "user_portrait": user_portrait_str,
             "last_meeting_summary": last_meeting_summary_str,
-            "chat_history": chat_history_str[-self.max_events_len:],
+            "chat_history": '\n'.join(recent_events),
             "questions_and_notes": questions_and_notes_str,
             "tool_descriptions": tool_descriptions_str
         })
