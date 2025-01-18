@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from datetime import datetime
+from typing import List
 
 class MessageResponse(BaseModel):
     id: str
@@ -16,3 +17,7 @@ class MessageRequest(BaseModel):
 class EndSessionResponse(BaseModel):
     status: str
     message: str
+
+class UserMessagesResponse(BaseModel):
+    messages: List[MessageResponse]
+    has_active_session: bool

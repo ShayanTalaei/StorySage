@@ -6,7 +6,7 @@ import uuid
 import time
 
 from api.schemas.chat import (
-    MessageRequest, MessageResponse, EndSessionResponse
+    MessageRequest, MessageResponse, EndSessionResponse, UserMessagesResponse
 )
 from database.models import DBSession, DBMessage
 from database.database import get_db
@@ -22,6 +22,35 @@ router = APIRouter(
 GREEN = '\033[92m'
 RESET = '\033[0m'
 RED = '\033[91m'
+
+async def check_inactive_sessions():
+    while True:
+        try:
+            # Get inactive users
+            inactive_users = session_manager.check_inactive_sessions()
+            
+            # End sessions for inactive users
+            for user_id in inactive_users:
+                session = session_manager.get_active_session(user_id)
+                if session:
+                    print(f"{RED}Ending inactive session for user: {user_id}{RESET}")
+                    session.session_in_progress = False
+                    
+                    # Wait up to 30 seconds for session to complete its final tasks
+                    cleanup_timeout_seconds = session.timeout_minutes * 60
+                    start_time = time.time()
+                    while not session.session_completed:
+                        await asyncio.sleep(0.1)
+                        if time.time() - start_time > cleanup_timeout_seconds:
+                            print(f"{RED}Timeout waiting for session cleanup for user: {user_id}{RESET}")
+                            break
+                            
+                    session_manager.end_session(user_id)
+                    
+        except Exception as e:
+            print(f"{RED}Error in check_inactive_sessions:\n{e}\n{RESET}")
+            
+        await asyncio.sleep(180)  # Check every 3 minutes
 
 @router.post("/messages", response_model=MessageResponse)
 async def send_message(
@@ -64,8 +93,14 @@ async def send_message(
             
             # Store session in manager after initialization
             session_manager.set_active_session(current_user, session) 
+            
+            # Start the inactive session checker if it's not already running
+            asyncio.create_task(check_inactive_sessions())
         else:
             session_id = session.get_db_session_id()
+        
+        # Update last activity time
+        session_manager.update_last_activity(current_user)
         
         # Store user message
         db_message = DBMessage(
@@ -182,7 +217,7 @@ async def list_session_messages(
         print(f"{RED}Error:\n{e}\n{RESET}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/messages", response_model=List[MessageResponse])
+@router.get("/messages", response_model=UserMessagesResponse)
 async def list_user_messages(
     db: Session = Depends(get_db),
     current_user: str = Depends(get_current_user)
@@ -198,14 +233,31 @@ async def list_user_messages(
         
         # Get all messages from these sessions
         session_ids = [session.id for session in sessions]
-        messages = (
+        db_messages = (
             db.query(DBMessage)
             .filter(DBMessage.session_id.in_(session_ids))
             .order_by(DBMessage.created_at)
             .all()
         )
         
-        return messages
+        # Convert DB messages to MessageResponse objects
+        messages = [
+            MessageResponse(
+                id=msg.id,
+                content=msg.content,
+                role=msg.role,
+                created_at=msg.created_at
+            ) 
+            for msg in db_messages
+        ]
+        
+        # Check if user has an active session
+        has_active_session = session_manager.has_active_session(current_user)
+        
+        return UserMessagesResponse(
+            messages=messages,
+            has_active_session=has_active_session
+        )
         
     except Exception as e:
         print(f"{RED}Error:\n{e}\n{RESET}")
