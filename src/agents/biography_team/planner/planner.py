@@ -1,8 +1,9 @@
-from typing import Dict, List, TYPE_CHECKING
+from typing import Dict, List, TYPE_CHECKING, Optional
 from agents.biography_team.base_biography_agent import BiographyConfig, BiographyTeamAgent
 import json
 import xml.etree.ElementTree as ET
 from agents.biography_team.planner.prompts import PLANNER_SYSTEM_PROMPT
+from biography.biography import Section
 from biography.biography_styles import BIOGRAPHY_STYLE_PLANNER_INSTRUCTIONS
 
 if TYPE_CHECKING:
@@ -10,7 +11,7 @@ if TYPE_CHECKING:
 
 
 class BiographyPlanner(BiographyTeamAgent):
-    def __init__(self, config: BiographyConfig, interview_session: 'InterviewSession'):
+    def __init__(self, config: BiographyConfig, interview_session: Optional['InterviewSession'] = None):
         super().__init__(
             name="BiographyPlanner",
             description="Plans updates to the biography based on new memories",
@@ -69,7 +70,7 @@ class BiographyPlanner(BiographyTeamAgent):
         """
         Get the full content of the biography in a structured format.
         """
-        def format_section(section):
+        def format_section(section: Section):
             content = []
             content.append(f"[{section.title}]")
             if section.content:

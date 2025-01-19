@@ -1,13 +1,15 @@
-from typing import Dict, List, TYPE_CHECKING
+from typing import Dict, List, TYPE_CHECKING, Optional
 import asyncio
 import os
 from dotenv import load_dotenv
+import logging
 
 from agents.biography_team.base_biography_agent import BiographyConfig
 from agents.biography_team.planner.planner import BiographyPlanner
 from agents.biography_team.section_writer.section_writer import SectionWriter
 from agents.biography_team.session_summary_writer.session_summary_writer import SessionSummaryWriter
 from agents.biography_team.models import TodoItem
+from utils.logger import setup_default_logger
 
 if TYPE_CHECKING:
     from interview_session.interview_session import InterviewSession
@@ -15,13 +17,36 @@ if TYPE_CHECKING:
 load_dotenv()
 
 class BiographyOrchestrator:
-    def __init__(self, config: BiographyConfig, interview_session: 'InterviewSession'):
+    def __init__(self, config: BiographyConfig, interview_session: Optional['InterviewSession']):
         self.config = config
         self.todo_items: List[TodoItem] = []
         self.planner = BiographyPlanner(config, interview_session)
         self.section_writer = SectionWriter(config, interview_session)
-        self.session_note_agent = SessionSummaryWriter(config, interview_session)
+        if interview_session:
+            self.session_note_agent = SessionSummaryWriter(config, interview_session)
+        else:
+            # Setup logging for non-session operations
+            setup_default_logger(
+                user_id=config.get("user_id"),
+                log_type="user_edits",
+                log_level=logging.INFO
+            )
         self.max_concurrent_updates = int(os.getenv("MAX_CONCURRENT_UPDATES", 5))
+    
+    async def _process_section_update(self, item: TodoItem) -> None:
+        """Process a single section update."""
+        try:
+            result = await self.section_writer.update_section(item)
+            item.status = "completed" if result.success else "failed"
+        except Exception as e:
+            item.status = "failed"
+            item.error = str(e)
+        
+    def _collect_follow_up_questions(self) -> List[Dict]:
+        questions = []
+        questions.extend(self.planner.follow_up_questions)
+        questions.extend(self.section_writer.follow_up_questions)
+        return questions 
         
     async def update_biography(self, new_memories: List[Dict]):
         # 1. Get plans from planner
@@ -54,17 +79,45 @@ class BiographyOrchestrator:
             follow_up_questions=follow_up_questions
         )
     
-    async def _process_section_update(self, item: TodoItem) -> None:
-        """Process a single section update."""
-        try:
-            result = await self.section_writer.update_section(item)
-            item.status = "completed" if result.success else "failed"
-        except Exception as e:
-            item.status = "failed"
-            item.error = str(e)
+    async def process_user_edits(self, edits: List[Dict]):
+        """Process user-requested edits to the biography."""
+        todo_items: List[TodoItem] = []
         
-    def _collect_follow_up_questions(self) -> List[Dict]:
-        questions = []
-        questions.extend(self.planner.follow_up_questions)
-        questions.extend(self.section_writer.follow_up_questions)
-        return questions 
+        for edit in sorted(edits, key=lambda x: x["timestamp"]):
+            if edit["type"] == "ADD":
+                # Create plan for adding new section
+                plan = {
+                    "action_type": "USER_ADD_SECTION",
+                    "section_path": edit['data']['newPath'],
+                    "relevant_memories": [],
+                    "update_plan": edit['data']['sectionPrompt']
+                }
+                todo_items.append(TodoItem(**plan))
+                
+            elif edit["type"] == "COMMENT":
+                # Create plan for updating existing section
+                plan = {
+                    "action_type": "USER_UPDATE_SECTION",
+                    "section_title": edit['title'],
+                    "relevant_memories": [],
+                    "update_plan": f"Optimize this content based on user feedback: {edit['data']['comment']['comment']}\nCurrent content: {edit['data']['comment']['text']}"
+                }
+                todo_items.append(TodoItem(**plan))
+        
+        # Process items in batches to control concurrency
+        pending_items = [item for item in todo_items if item.status == "pending"]
+        
+        for i in range(0, len(pending_items), self.max_concurrent_updates):
+            batch = pending_items[i:i + self.max_concurrent_updates]
+            update_tasks = []
+            
+            for item in batch:
+                item.status = "in_progress"
+                task = self._process_section_update(item)
+                update_tasks.append(task)
+            
+            # Wait for all tasks in this batch to complete
+            await asyncio.gather(*update_tasks)
+        
+        # Save biography after all updates are complete
+        self.section_writer.save_biography() 

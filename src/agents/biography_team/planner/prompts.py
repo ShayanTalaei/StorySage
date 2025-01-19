@@ -41,6 +41,7 @@ Requirements for Follow-Up Questions:
 - Aim to further explore the user's background
 - Be clear, direct, and concise
 - Focus on one topic per question
+- Avoid intuitive or abstract questions, such as asking about indirect influences (e.g., "How has experience A shaped experience B?")
 
 Style-Specific Instructions:
 <biography_style_instructions>

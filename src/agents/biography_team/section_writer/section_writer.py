@@ -6,7 +6,7 @@ from langchain_core.tools import BaseTool, ToolException
 
 from agents.biography_team.base_biography_agent import BiographyConfig, BiographyTeamAgent
 from agents.biography_team.models import TodoItem
-from agents.biography_team.section_writer.prompts import SECTION_WRITER_PROMPT
+from agents.biography_team.section_writer.prompts import SECTION_WRITER_PROMPT, USER_ADD_SECTION_PROMPT, USER_COMMENT_EDIT_PROMPT
 from biography.biography import Biography
 from biography.biography_styles import BIOGRAPHY_STYLE_WRITER_INSTRUCTIONS
 
@@ -19,7 +19,7 @@ class UpdateResult:
     message: str
 
 class SectionWriter(BiographyTeamAgent):
-    def __init__(self, config: BiographyConfig, interview_session: 'InterviewSession'):
+    def __init__(self, config: BiographyConfig, interview_session: Optional['InterviewSession'] = None):
         super().__init__(
             name="SectionWriter",
             description="Updates individual biography sections based on plans",
@@ -30,7 +30,9 @@ class SectionWriter(BiographyTeamAgent):
         
         self.tools = {
             "get_section": GetSection(biography=self.biography),
+            "get_section_by_title": GetSectionByTitle(biography=self.biography),
             "update_section": UpdateSection(biography=self.biography),
+            "update_section_by_title": UpdateSectionByTitle(biography=self.biography),
             "add_section": AddSection(biography=self.biography),
             "add_follow_up_question": AddFollowUpQuestion(section_writer=self)
         }
@@ -43,7 +45,6 @@ class SectionWriter(BiographyTeamAgent):
         self.add_event(sender=self.name, tag="llm_response", content=response)
         
         try:
-            # Handle tool calls
             self.handle_tool_calls(response)
             
             result_message = "Section updated successfully"
@@ -58,50 +59,66 @@ class SectionWriter(BiographyTeamAgent):
 
     def _create_section_write_prompt(self, todo_item: TodoItem) -> str:
         """Create a prompt for the section writer to update a biography section."""
-        current_content = self.tools["get_section"]._run(todo_item.section_path) or "Section does not exist yet."
-                
-        return SECTION_WRITER_PROMPT.format(
-            section_path=todo_item.section_path,
-            update_plan=todo_item.update_plan,
-            current_content=current_content,
-            relevant_memories='\n'.join([
-                f"- {memory_text}"
-                for memory_text in todo_item.relevant_memories
-            ]),
-            style_instructions=BIOGRAPHY_STYLE_WRITER_INSTRUCTIONS.get(
-                self.config.get("biography_style", "chronological")
-            ),
-            tool_descriptions=self.get_tools_description()
-        )
+        # Add a new section based on user feedback
+        if todo_item.action_type == "USER_ADD_SECTION":
+            return USER_ADD_SECTION_PROMPT.format(
+                section_path=todo_item.section_path,
+                update_plan=todo_item.update_plan,
+                style_instructions=BIOGRAPHY_STYLE_WRITER_INSTRUCTIONS.get(
+                    self.config.get("biography_style", "chronological")
+                ),
+                tool_descriptions=self.get_tools_description(selected_tools=["add_section"])
+            )
+        # Update a section based on user feedback
+        elif todo_item.action_type == "USER_UPDATE_SECTION":
+            current_content = self.tools["get_section_by_title"]._run(todo_item.section_title) or "Section does not exist yet."
+            return USER_COMMENT_EDIT_PROMPT.format(
+                section_title=todo_item.section_title,
+                current_content=current_content,
+                update_plan=todo_item.update_plan,
+                style_instructions=BIOGRAPHY_STYLE_WRITER_INSTRUCTIONS.get(
+                    self.config.get("biography_style", "chronological")
+                ),
+                tool_descriptions=self.get_tools_description(selected_tools=["update_section_by_title"])
+            )
+        # Update a section based on newly collected memory
+        else:
+            section_identifier = todo_item.section_path or todo_item.section_title
+            current_content = self.tools["get_section"]._run(section_identifier) or "Section does not exist yet."
+            return SECTION_WRITER_PROMPT.format(
+                section_path=section_identifier,
+                update_plan=todo_item.update_plan,
+                current_content=current_content,
+                relevant_memories='\n'.join([
+                    f"- {memory_text}"
+                    for memory_text in todo_item.relevant_memories
+                ]),
+                style_instructions=BIOGRAPHY_STYLE_WRITER_INSTRUCTIONS.get(
+                    self.config.get("biography_style", "chronological")
+                ),
+                tool_descriptions=self.get_tools_description()
+            )
 
-    def save_biography(self) -> str:
+    def save_biography(self, save_markdown: bool = False) -> str:
         """Save the current state of the biography to file."""
         try:
             self.biography.save()
-            self.biography.export_to_markdown()
+            if save_markdown:
+                self.biography.export_to_markdown()
             return "Successfully saved biography to file"
         except Exception as e:
             error_msg = f"Error saving biography: {str(e)}"
             self.add_event(sender=self.name, tag="error", content=error_msg)
             return error_msg
 
-class UpdateSectionInput(BaseModel):
-    path: str = Field(description="Path to the section to update")
-    content: str = Field(description="New content for the section")
-
-class AddSectionInput(BaseModel):
-    path: str = Field(description="Full path to the new section (e.g., '1 Early Life/1.1 Childhood')")
-    content: str = Field(description="Content of the new section")
-
-class AddFollowUpQuestionInput(BaseModel):
-    content: str = Field(description="The question to ask")
-    context: str = Field(description="Context explaining why this question is important")
+class GetSectionInput(BaseModel):
+    path: str = Field(description="Path to the section to retrieve")
 
 class GetSection(BaseTool):
     """Tool for retrieving section content."""
     name: str = "get_section"
     description: str = "Retrieve content of a biography section by its path"
-    # args_schema: Type[BaseModel] = GetSectionInput # TODO: Allow agent to use this tool
+    args_schema: Type[BaseModel] = GetSectionInput
     biography: Biography
 
     def _run(self, path: str, run_manager: Optional[CallbackManagerForToolRun] = None) -> str:
@@ -109,6 +126,26 @@ class GetSection(BaseTool):
         if not section:
             return ""
         return section.content
+
+class GetSectionByTitleInput(BaseModel):
+    title: str = Field(description="Title of the section to retrieve")
+
+class GetSectionByTitle(BaseTool):
+    """Tool for retrieving section content by title."""
+    name: str = "get_section_by_title"
+    description: str = "Retrieve content of a biography section by its title"
+    args_schema: Type[BaseModel] = GetSectionByTitleInput
+    biography: Biography
+
+    def _run(self, title: str, run_manager: Optional[CallbackManagerForToolRun] = None) -> str:
+        section = self.biography.get_section_by_title(title)
+        if not section:
+            return ""
+        return section.content
+
+class UpdateSectionInput(BaseModel):
+    path: str = Field(description="Path to the section to update")
+    content: str = Field(description="New content for the section")
 
 class UpdateSection(BaseTool):
     """Tool for updating existing sections."""
@@ -123,6 +160,27 @@ class UpdateSection(BaseTool):
             raise ToolException(f"Section at path '{path}' not found")
         return f"Successfully updated section at path '{path}'"
 
+class UpdateSectionByTitleInput(BaseModel):
+    title: str = Field(description="Title of the section to update")
+    content: str = Field(description="New content for the section")
+
+class UpdateSectionByTitle(BaseTool):
+    """Tool for updating existing sections by title."""
+    name: str = "update_section_by_title"
+    description: str = "Update content of an existing section using its title"
+    args_schema: Type[BaseModel] = UpdateSectionByTitleInput
+    biography: Biography
+
+    def _run(self, title: str, content: str, run_manager: Optional[CallbackManagerForToolRun] = None) -> str:
+        section = self.biography.update_section(title=title, content=content)
+        if not section:
+            raise ToolException(f"Section with title '{title}' not found")
+        return f"Successfully updated section with title '{title}'"
+
+class AddSectionInput(BaseModel):
+    path: str = Field(description="Full path to the new section (e.g., '1 Early Life/1.1 Childhood')")
+    content: str = Field(description="Content of the new section")
+
 class AddSection(BaseTool):
     """Tool for adding new sections."""
     name: str = "add_section"
@@ -136,6 +194,10 @@ class AddSection(BaseTool):
             return f"Successfully added section at path '{path}'"
         except Exception as e:
             raise ToolException(f"Error adding section: {e}")
+
+class AddFollowUpQuestionInput(BaseModel):
+    content: str = Field(description="The question to ask")
+    context: str = Field(description="Context explaining why this question is important")
 
 class AddFollowUpQuestion(BaseTool):
     """Tool for adding follow-up questions."""
