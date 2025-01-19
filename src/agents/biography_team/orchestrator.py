@@ -100,7 +100,7 @@ class BiographyOrchestrator:
                     "action_type": "USER_UPDATE_SECTION",
                     "section_title": edit['title'],
                     "relevant_memories": [],
-                    "update_plan": f"Optimize this content based on user feedback: {edit['data']['comment']['comment']}\nCurrent content: {edit['data']['comment']['text']}"
+                    "update_plan": f"Optimize this content based on user feedback:<user_feedback>{edit['data']['comment']['comment']}</user_feedback>\nTarget content to be written: <target_content>{edit['data']['comment']['text']}</target_content>"
                 }
                 todo_items.append(TodoItem(**plan))
         
