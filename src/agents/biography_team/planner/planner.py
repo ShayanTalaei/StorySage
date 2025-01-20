@@ -114,7 +114,14 @@ class BiographyPlanner(BiographyTeamAgent):
 
 class AddPlanInput(BaseModel):
     action_type: str = Field(description="Type of action (create/update)")
-    section_path: str = Field(description="Full path to the section")
+    section_path: Optional[str] = Field(
+        default=None,
+        description="Optional: Full path to the section"
+    )
+    section_title: Optional[str] = Field(
+        default=None,
+        description="Optional: Title of the section to update"
+    )
     relevant_memories: Optional[str] = Field(
         default=None, 
         description="Optional: List of memories in bullet points format, e.g. '- Memory 1\n- Memory 2'"
@@ -131,8 +138,9 @@ class AddPlan(BaseTool):
     def _run(
         self,
         action_type: str,
-        section_path: str,
         update_plan: str,
+        section_path: Optional[str] = None,
+        section_title: Optional[str] = None,
         relevant_memories: Optional[str] = None,
         run_manager: Optional[CallbackManagerForToolRun] = None,
     ) -> str:
@@ -140,6 +148,7 @@ class AddPlan(BaseTool):
             self.planner.plans.append({
                 "action_type": action_type,
                 "section_path": section_path,
+                "section_title": section_title,
                 "relevant_memories": relevant_memories.strip() if relevant_memories else None,
                 "update_plan": update_plan
             })

@@ -70,7 +70,7 @@ class BiographyOrchestrator:
             await asyncio.gather(*update_tasks)
         
         # Save biography after all updates are complete
-        self.section_writer.save_biography(with_follow_up_questions=True)
+        self.section_writer.save_biography(save_markdown=True)
         
         # 3. Update session notes
         follow_up_questions = self._collect_follow_up_questions()
@@ -87,6 +87,8 @@ class BiographyOrchestrator:
             # Get detailed plan from planner
             plan = await self.planner.create_user_edit_plan(edit)
             if plan:
+                plan["section_title"] = edit["title"] if edit["type"] != "ADD" else None
+                plan["section_path"] = edit["data"]["newPath"] if edit["type"] == "ADD" else None
                 todo_items.append(TodoItem(**plan))
         
         # Process items in batches to control concurrency

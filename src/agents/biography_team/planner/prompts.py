@@ -157,7 +157,7 @@ USER_EDIT_INSTRUCTIONS = """\
 1. Create a clear, actionable, concise plan that:
    * Implements the user's request faithfully
    * Integrates smoothly with existing content
-   * Is very concise and to the point
+   * Is very concise and to the point - limit it to 1-3 bullet points
 
 2. Handle user's prompt appropriately:
    * Use the prompt as-is when clear and specific
@@ -248,7 +248,7 @@ USER_COMMENT_OUTPUT_FORMAT = """\
 Provide your response using tool calls.
 
 Important:
-- Use the provided action_type ("user_update") and section_path - do not modify these
+- Use the provided action_type ("user_update") and section_title - do not modify these
 - Provide a clear, detailed update plan
 
 Provide your response using tool calls:
