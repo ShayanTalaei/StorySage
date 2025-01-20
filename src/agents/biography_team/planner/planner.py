@@ -1,7 +1,11 @@
-from typing import Dict, List, TYPE_CHECKING, Optional
-from agents.biography_team.base_biography_agent import BiographyConfig, BiographyTeamAgent
 import json
-import xml.etree.ElementTree as ET
+from typing import Dict, List, TYPE_CHECKING, Optional, Type
+from pydantic import BaseModel, Field
+from langchain_core.callbacks.manager import CallbackManagerForToolRun
+from langchain_core.tools import BaseTool, ToolException
+
+from agents.biography_team.base_biography_agent import BiographyConfig, BiographyTeamAgent
+from agents.biography_team.models import TodoItem
 from agents.biography_team.planner.prompts import PLANNER_SYSTEM_PROMPT
 from biography.biography import Section
 from biography.biography_styles import BIOGRAPHY_STYLE_PLANNER_INSTRUCTIONS
@@ -19,6 +23,13 @@ class BiographyPlanner(BiographyTeamAgent):
             interview_session=interview_session
         )
         self.follow_up_questions = []
+        self.plans: List[TodoItem] = []
+        
+        # Initialize tools
+        self.tools = {
+            "add_plan": AddPlan(planner=self),
+            "add_follow_up_question": AddFollowUpQuestion(planner=self)
+        }
 
     async def create_update_plans(self, new_memories: List[Dict]) -> List[Dict]:
         """
@@ -29,25 +40,15 @@ class BiographyPlanner(BiographyTeamAgent):
         response = self.call_engine(prompt)
         self.add_event(sender=self.name, tag="llm_response", content=response)
 
-        plans = self._parse_plans(response)
+        # Handle tool calls to create plans and questions
+        self.handle_tool_calls(response)
         
-        self.follow_up_questions = self._parse_questions(response)
-
-        return plans
+        return self.plans
 
     def _create_planning_prompt(self, new_memories: List[Dict]) -> str:
         """
         Create a prompt for the planner to analyze new memories and create update plans.
         """        
-        # # Get all relevant memories from memory bank
-        # relevant_memories_dict = {}
-        # for memory in new_memories:
-        #     search_results = self.memory_bank.search_memories(memory['text'], k=3)
-        #     for result in search_results:
-        #         relevant_memories_dict[result['id']] = result
-        # relevant_memories = list(relevant_memories_dict.values())
-        # self.add_event(sender=self.name, tag="memory_search_complete", 
-        #                content=f"{relevant_memories}")
         
         prompt = PLANNER_SYSTEM_PROMPT.format(
             biography_structure=json.dumps(self.get_biography_structure(), indent=2),
@@ -61,7 +62,8 @@ class BiographyPlanner(BiographyTeamAgent):
             ]),
             style_instructions=BIOGRAPHY_STYLE_PLANNER_INSTRUCTIONS.get(
                 self.config.get("biography_style")
-            )
+            ),
+            tool_descriptions=self.get_tools_description()
         )
         
         return prompt
@@ -84,74 +86,63 @@ class BiographyPlanner(BiographyTeamAgent):
             sections.extend(format_section(section))
         return "\n".join(sections)
 
-    def _parse_plans(self, response: str) -> List[Dict]:
-        """
-        Parse the response to extract update plans and follow-up questions.
-        """
-        plans = []
-        try:
-            if "<plans>" in response:
-                start_tag = "<plans>"
-                end_tag = "</plans>"
-                start_pos = response.find(start_tag)
-                end_pos = response.find(end_tag) + len(end_tag)
-                plans_text = response[start_pos:end_pos]
-                root = ET.fromstring(plans_text)
-                for plan in root.findall("plan"):
-                    action_type = plan.find("action_type").text.strip()
-                    section_path = plan.find("section_path").text.strip()
-                    
-                    plans.append({
-                        "action_type": action_type,
-                        "section_path": section_path,
-                        "relevant_memories": self._parse_relevant_memories(plan),
-                        "update_plan": plan.find("update_plan").text.strip()
-                    })
-        except Exception as e:
-            self.add_event(sender=self.name, tag="error", 
-                          content=f"Error parsing plans: {str(e)}\nResponse: {response}")
-            raise e
-        return plans
+class AddPlanInput(BaseModel):
+    action_type: str = Field(description="Type of action (create/update)")
+    section_path: str = Field(description="Full path to the section")
+    relevant_memories: str = Field(description="List of memories in bullet points format, e.g. '- Memory 1\n- Memory 2'")
+    update_plan: str = Field(description="Detailed plan for updating/creating the section")
 
-    def _parse_questions(self, response: str) -> List[Dict]:
-        """
-        Parse the response to extract follow-up questions.
-        """
-        questions = []
-        try:
-            if "<follow_up_questions>" in response:
-                start_tag = "<follow_up_questions>"
-                end_tag = "</follow_up_questions>"
-                start_pos = response.find(start_tag)
-                end_pos = response.find(end_tag) + len(end_tag)
-                questions_text = response[start_pos:end_pos]
-                root = ET.fromstring(questions_text)
-                for question in root.findall("question"):
-                    content_elem = question.find("content")
-                    context_elem = question.find("context")
-                    if content_elem is not None and content_elem.text:
-                        questions.append({
-                            "content": content_elem.text.strip(),
-                            "context": context_elem.text.strip() if context_elem is not None else ""
-                        })
-        except Exception as e:
-            self.add_event(sender=self.name, tag="error", 
-                          content=f"Error parsing questions: {str(e)}\nResponse: {response}")
-            raise e
-        return questions
+class AddPlan(BaseTool):
+    """Tool for adding a biography update plan."""
+    name: str = "add_plan"
+    description: str = "Add a plan for updating or creating a biography section"
+    args_schema: Type[BaseModel] = AddPlanInput
+    planner: BiographyPlanner = Field(...)
 
-    def _parse_relevant_memories(self, plan: ET.Element) -> List[str]:
-        """
-        Parse the relevant memories from a plan element.
-        """
-        memories = []
+    def _run(
+        self,
+        action_type: str,
+        section_path: str,
+        relevant_memories: str,
+        update_plan: str,
+        run_manager: Optional[CallbackManagerForToolRun] = None,
+    ) -> str:
         try:
-            memories_elem = plan.find("relevant_memories")
-            if memories_elem is not None:
-                for memory in memories_elem.findall("memory"):
-                    memories.append(memory.text.strip())
+            self.planner.plans.append({
+                "action_type": action_type,
+                "section_path": section_path,
+                "relevant_memories": relevant_memories.strip(),
+                "update_plan": update_plan
+            })
+            return f"Successfully added plan for {section_path}"
         except Exception as e:
-            self.add_event(sender=self.name, tag="error", 
-                          content=f"Error parsing relevant memories: {str(e)}")
-            raise e
-        return memories
+            raise ToolException(f"Error adding plan: {str(e)}")
+
+class AddFollowUpQuestionInput(BaseModel):
+    content: str = Field(description="The question to ask")
+    context: str = Field(description="Context explaining why this question is important")
+
+class AddFollowUpQuestion(BaseTool):
+    """Tool for adding follow-up questions."""
+    name: str = "add_follow_up_question"
+    description: str = (
+        "Add a follow-up question that needs to be asked to gather more information for the biography. "
+        "Include both the question and context explaining why this information is needed."
+    )
+    args_schema: Type[BaseModel] = AddFollowUpQuestionInput
+    planner: BiographyPlanner = Field(...)
+
+    def _run(
+        self,
+        content: str,
+        context: str,
+        run_manager: Optional[CallbackManagerForToolRun] = None,
+    ) -> str:
+        try:
+            self.planner.follow_up_questions.append({
+                "content": content.strip(),
+                "context": context.strip()
+            })
+            return f"Successfully added follow-up question: {content}"
+        except Exception as e:
+            raise ToolException(f"Error adding follow-up question: {str(e)}")

@@ -107,10 +107,7 @@ class SectionWriter(BiographyTeamAgent):
                 section_path=section_identifier,
                 update_plan=todo_item.update_plan,
                 current_content=current_content,
-                relevant_memories='\n'.join([
-                    f"- {memory_text}"
-                    for memory_text in todo_item.relevant_memories
-                ]),
+                relevant_memories=todo_item.relevant_memories,
                 style_instructions=BIOGRAPHY_STYLE_WRITER_INSTRUCTIONS.get(
                     self.config.get("biography_style", "chronological")
                 ),

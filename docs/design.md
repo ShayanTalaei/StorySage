@@ -201,6 +201,11 @@ Output:
 - Plans to write the biography for multiple sections
 - Follow up questions used to collect more information from the user
 
+Tools:
+
+- `add_plan`: Add a plan to write the biography for a given section
+- `add_follow_up_question`: Add a follow-up question to the section
+
 ##### 2. Section Writer
 
 The writer executes the plan - writing the biography for a given section
