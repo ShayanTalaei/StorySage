@@ -70,7 +70,7 @@ class SectionWriter(BiographyTeamAgent):
     def _create_section_write_prompt(self, todo_item: TodoItem) -> str:
         """Create a prompt for the section writer to update a biography section."""
         # Add a new section based on user feedback
-        if todo_item.action_type == "USER_ADD_SECTION":
+        if todo_item.action_type == "user_add":
             events_str = self.get_event_stream_str(
                 filter=[{"sender": self.name, "tag": "recall_response"}]
             )
@@ -84,7 +84,7 @@ class SectionWriter(BiographyTeamAgent):
                 tool_descriptions=self.get_tools_description(["recall", "add_section"])
             )
         # Update a section based on user feedback
-        elif todo_item.action_type == "USER_UPDATE_SECTION":
+        elif todo_item.action_type == "user_update":
             events_str = self.get_event_stream_str(
                 filter=[{"sender": self.name, "tag": "recall_response"}]
             )

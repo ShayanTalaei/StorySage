@@ -50,7 +50,7 @@ class BiographyOrchestrator:
         
     async def update_biography(self, new_memories: List[Dict]):
         # 1. Get plans from planner
-        plans = await self.planner.create_update_plans(new_memories)
+        plans = await self.planner.create_adding_new_memory_plans(new_memories)
         self.todo_items.extend([TodoItem(**plan) for plan in plans])
         
         # 2. Execute section updates in parallel
@@ -70,7 +70,7 @@ class BiographyOrchestrator:
             await asyncio.gather(*update_tasks)
         
         # Save biography after all updates are complete
-        self.section_writer.save_biography()
+        self.section_writer.save_biography(with_follow_up_questions=True)
         
         # 3. Update session notes
         follow_up_questions = self._collect_follow_up_questions()
@@ -83,25 +83,10 @@ class BiographyOrchestrator:
         """Process user-requested edits to the biography."""
         todo_items: List[TodoItem] = []
         
-        for edit in sorted(edits, key=lambda x: x["timestamp"]):
-            if edit["type"] == "ADD":
-                # Create plan for adding new section
-                plan = {
-                    "action_type": "USER_ADD_SECTION",
-                    "section_path": edit['data']['newPath'],
-                    "relevant_memories": [],
-                    "update_plan": edit['data']['sectionPrompt']
-                }
-                todo_items.append(TodoItem(**plan))
-                
-            elif edit["type"] == "COMMENT":
-                # Create plan for updating existing section
-                plan = {
-                    "action_type": "USER_UPDATE_SECTION",
-                    "section_title": edit['title'],
-                    "relevant_memories": [],
-                    "update_plan": f"Optimize this content based on user feedback:<user_feedback>{edit['data']['comment']['comment']}</user_feedback>\nTarget content to be written: <target_content>{edit['data']['comment']['text']}</target_content>"
-                }
+        for edit in edits:
+            # Get detailed plan from planner
+            plan = await self.planner.create_user_edit_plan(edit)
+            if plan:
                 todo_items.append(TodoItem(**plan))
         
         # Process items in batches to control concurrency

@@ -4,9 +4,9 @@ from typing import List, Optional
 @dataclass
 class TodoItem:
     update_plan: str
-    relevant_memories: str
     status: str = "pending"
-    action_type: str = "update"  # "update" or "create"
+    action_type: str = "update"  # "update", "create", "user_add", "user_update"
+    relevant_memories: Optional[str] = None
     section_path: Optional[str] = None  # Path-based section identifier
     section_title: Optional[str] = None  # Title-based section identifier
     error: Optional[str] = None  # For storing error messages if status is "failed"
