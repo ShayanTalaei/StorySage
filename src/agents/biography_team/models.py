@@ -1,10 +1,17 @@
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 
 @dataclass
 class TodoItem:
-    section_path: str
     update_plan: str
-    relevant_memories: List[str]  # List of memory texts
-    action_type: str = "update"  # "update" or "create"
     status: str = "pending"
+    action_type: str = "update"  # "update", "create", "user_add", "user_update"
+    relevant_memories: Optional[str] = None
+    section_path: Optional[str] = None  # Path-based section identifier
+    section_title: Optional[str] = None  # Title-based section identifier
+    error: Optional[str] = None  # For storing error messages if status is "failed"
+
+    def __post_init__(self):
+        # Ensure at least one section identifier is provided
+        if not self.section_path and not self.section_title:
+            raise ValueError("Either section_path or section_title must be provided")
