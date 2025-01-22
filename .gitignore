@@ -18,3 +18,7 @@ data/interview_app.db
 !.elasticbeanstalk/*.global.yml
 environment.yml
 package-lock.json
+# SSL certificates
+*.pem
+*.key
+*.crt
