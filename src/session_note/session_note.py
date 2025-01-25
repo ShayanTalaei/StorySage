@@ -376,6 +376,14 @@ class SessionNote:
             return ""
         return "\n".join(self.additional_notes)
 
+    def clear_questions(self):
+        """Clears all questions from the session note, resetting it to an empty state."""
+        # Clear all topics and questions
+        self.topics = {}
+        
+        # Clear additional notes
+        self.additional_notes = []
+
 
 
 
