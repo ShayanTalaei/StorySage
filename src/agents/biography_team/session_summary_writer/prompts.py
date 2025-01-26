@@ -63,7 +63,7 @@ Use tool calls to update the session notes:
     </update_user_portrait>
 </tool_calls>
 </output_format>
-"""
+""" 
 
 INTERVIEW_QUESTIONS_PROMPT = """\
 <questions_manager_persona>
