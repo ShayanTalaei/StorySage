@@ -50,16 +50,24 @@ class SessionSummaryWriter(BiographyTeamAgent):
         self.handle_tool_calls(response)
     
     async def _manage_interview_questions(self, follow_up_questions: List[Dict]):
-        """Manage interview questions based on existing information.
+        """Rebuild interview questions list with only essential questions.
+        
+        Process:
+        1. Clear all existing questions
+        2. Perform memory searches if needed
+        3. Add only important unanswered questions and worthy follow-ups
         
         Will iterate up to max_consideration_iterations times:
         - Each iteration either does memory search or takes actions
         - Breaks when actions are taken or max iterations reached
         """
-        iterations = 0
+        # Store old questions and notes and clear them
+        old_questions_and_notes = self.session_note.get_questions_and_notes_str()
+        self.session_note.clear_questions()
         
+        iterations = 0
         while iterations < self.max_consideration_iterations:
-            prompt = self._get_questions_prompt(follow_up_questions)
+            prompt = self._get_questions_prompt(follow_up_questions, old_questions_and_notes)
             self.add_event(sender=self.name, tag="questions_prompt", content=prompt)
             
             tool_calls = self.call_engine(prompt)
@@ -67,7 +75,7 @@ class SessionSummaryWriter(BiographyTeamAgent):
             
             try:
                 # Check if this is a recall or action response
-                is_recall = "<recall>" in tool_calls and not any(tag in tool_calls for tag in ["<delete_interview_question>", "<add_interview_question>"])
+                is_recall = "<recall>" in tool_calls and not "<add_interview_question>" in tool_calls
                 
                 tool_response = self.handle_tool_calls(tool_calls)
                 
@@ -84,12 +92,12 @@ class SessionSummaryWriter(BiographyTeamAgent):
                     self.add_event(
                         sender=self.name,
                         tag="question_actions",
-                        content="Successfully updated interview questions"
+                        content="Successfully rebuilt interview questions list"
                     )
                     break
                     
             except Exception as e:
-                error_msg = f"Error managing interview questions: {str(e)}\nResponse: {tool_calls}"
+                error_msg = f"Error rebuilding interview questions: {str(e)}\nResponse: {tool_calls}"
                 self.add_event(sender=self.name, tag="error", content=error_msg)
                 raise
         
@@ -108,8 +116,8 @@ class SessionSummaryWriter(BiographyTeamAgent):
             tool_descriptions=self.get_tools_description(summary_tool_names)
         )
     
-    def _get_questions_prompt(self, follow_up_questions: List[Dict]) -> str:
-        question_tool_names = ["add_interview_question", "delete_interview_question", "recall"]
+    def _get_questions_prompt(self, follow_up_questions: List[Dict], old_questions_and_notes: str) -> str:
+        question_tool_names = ["add_interview_question", "recall"]
         events = self.get_event_stream_str(
             filter=[
                 {"sender": self.name, "tag": "recall_response"}
@@ -118,7 +126,7 @@ class SessionSummaryWriter(BiographyTeamAgent):
         )
         
         return INTERVIEW_QUESTIONS_PROMPT.format(
-            questions_and_notes=self.session_note.get_questions_and_notes_str(),
+            questions_and_notes=old_questions_and_notes,
             follow_up_questions="\n\n".join([
                 "<question>\n"
                 f"<content>{q['content']}</content>\n"

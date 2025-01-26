@@ -270,4 +270,40 @@ def test_delete_interview_question_parent_not_found(sample_session_note):
     )
     
     with pytest.raises(ValueError, match="Parent question with id 999 not found"):
-        sample_session_note.delete_interview_question("999.1") 
+        sample_session_note.delete_interview_question("999.1")
+
+def test_clear_data(sample_session_note):
+    """Test clearing all data from a session note"""
+    # Verify initial state has data
+    assert sample_session_note.user_portrait["Name"] == "John Doe"
+    assert sample_session_note.last_meeting_summary == "First meeting with John"
+    assert len(sample_session_note.topics) > 0
+    
+    # Clear the data
+    sample_session_note.clear_questions()
+    
+    # Verify other fields are cleared
+    assert sample_session_note.topics == {}
+    assert sample_session_note.additional_notes == []
+    
+    # Test adding new questions after clearing
+    sample_session_note.add_interview_question(
+        "New Topic",
+        "First question after clearing?",
+        question_id="1"
+    )
+    sample_session_note.add_interview_question(
+        "New Topic",
+        "Sub-question after clearing?",
+        question_id="1.1"
+    )
+    
+    # Verify questions were added successfully
+    assert "New Topic" in sample_session_note.topics
+    assert len(sample_session_note.topics["New Topic"]) == 1
+    
+    question = sample_session_note.get_question("1")
+    assert question.question == "First question after clearing?"
+    
+    sub_question = sample_session_note.get_question("1.1")
+    assert sub_question.question == "Sub-question after clearing?" 
