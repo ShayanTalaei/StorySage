@@ -67,8 +67,8 @@ class AddInterviewQuestionInput(BaseModel):
     topic: str = Field(description="The topic category for the question (e.g., 'Career', 'Education')")
     question: str = Field(description="The actual question text")
     question_id: str = Field(description="The ID for the question (e.g., '1', '1.1', '2.3')")
-    parent_id: str = Field(description="The ID of the parent question (e.g., '1', '2', etc.). Still include it but leave it empty if it is a top-level question.")
-    parent_text: str = Field(description="The text of the parent question. Still include it but leave it empty if it is a top-level question.")
+    # parent_id: str = Field(description="The ID of the parent question (e.g., '1', '2', etc.). Still include it but leave it empty if it is a top-level question.")
+    # parent_text: str = Field(description="The text of the parent question. Still include it but leave it empty if it is a top-level question.")
 
 class AddInterviewQuestion(BaseTool):
     """Tool for adding new interview questions."""
@@ -82,8 +82,8 @@ class AddInterviewQuestion(BaseTool):
     def _run(
         self,
         topic: str,
-        parent_id: str,
-        parent_text: str,
+        # parent_id: str,
+        # parent_text: str,
         question_id: str,
         question: str,
         run_manager: Optional[CallbackManagerForToolRun] = None,
@@ -96,7 +96,7 @@ class AddInterviewQuestion(BaseTool):
                 question_id=str(question_id)
             )
             
-            return f"Added parent question {question_id} as follow-up to question {parent_id}"
+            return f"Added parent question {question_id} as follow-up."
         except Exception as e:
             raise ToolException(f"Error adding interview question: {str(e)}")
 
