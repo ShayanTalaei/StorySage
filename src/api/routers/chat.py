@@ -1,3 +1,4 @@
+import os
 from typing import List
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
@@ -27,7 +28,8 @@ async def check_inactive_sessions():
     while True:
         try:
             # Get inactive users
-            inactive_users = session_manager.check_inactive_sessions()
+            timeout_minutes = int(os.getenv("SESSION_TIMEOUT_MINUTES", 10))
+            inactive_users = session_manager.check_inactive_sessions(timeout_minutes)
             
             # End sessions for inactive users
             for user_id in inactive_users:
@@ -37,7 +39,7 @@ async def check_inactive_sessions():
                     session.session_in_progress = False
                     
                     # Wait up to 30 seconds for session to complete its final tasks
-                    cleanup_timeout_seconds = session.timeout_minutes * 60
+                    cleanup_timeout_seconds = 30
                     start_time = time.time()
                     while not session.session_completed:
                         await asyncio.sleep(0.1)
