@@ -288,44 +288,49 @@ PROPOSE_FOLLOWUPS_INSTRUCTIONS = """
    - The recent conversation and user's answers
    - Memory recall results in the event stream
    - Existing questions and notes
+   - Previous questions asked in the conversation
+   - Questions already stored in session notes
 
-2. Propose follow-ups that:
-   ⭐ MOST IMPORTANT: Identify and explore both:
-   a) Main Experience Details:
-   - Emotional impact in that moment
-   - Internal thoughts and reactions
-   - Personal significance at that time
-   - Vivid sensory memories and details
+2. Propose 1-2 questions that explore the CURRENT context:
+   ⭐ MOST IMPORTANT: For each experience/topic discussed, propose:
+   a) A fact-gathering question to understand the experience better:
+   - Basic details that are still missing
+   - Clarifying questions about what happened
+   - Questions about the setting or people involved
+   - Must not duplicate information already asked about or shared
+   Examples:
+   - "What was your daily routine like at that school?"
+   - "How often would you all get together?"
+   - "What was that neighborhood like back then?"
    
-   b) Rich Tangential Elements:
-   - Relationships mentioned (friends, family, mentors)
-   - Regular activities or routines referenced
-   - Places that were important
-   - Interests or hobbies mentioned in passing
-   - Groups or communities they were part of
+   b) A deeper question about the same experience:
+   - Emotional resonance of specific moments
+   - Personal significance at that time
+   - Vivid memories or standout moments
+   - Must explore new aspects not covered in previous questions
+   Examples:
+   - "What moments from those gatherings stand out most in your memory?"
+   - "How did you feel during those first few weeks at the school?"
+   - "What made that particular spot so special to you then?"
 
-3. Avoid questions that:
-   - Stay surface-level ("What happened next?")
-   - Extrapolate to broader life philosophies
-   - Connect to future implications
-   - Lead to yes/no answers
-   - Lose connection to the original context
+3. Avoid:
+   - Questions about different experiences/topics
+   - Future implications
+   - Abstract philosophizing
+   - Yes/no answers
+   - Multiple questions at once
+   - Questions that repeat information already discussed
+   - Questions similar to ones already in session notes
+   - Questions the interviewer has already asked
 
 ## Question Format:
 1. Direct Address:
    - Always use "you/your" to address the user directly
-   - Examples:
-     ✓ "What was your friendship like with those basketball friends?"
-     ✓ "How did those after-school games become part of your routine?"
-     ✓ "What do you remember about that neighborhood where you played?"
-     ✗ "Did you play other sports?"
-     ✗ "How did sports shape your character?"
+   - Stay focused on the specific experience being discussed
 
-2. Parent-Child Question Structure:
+2. Parent-Child Structure:
    - ID Format: Must start with parent's ID (e.g., if parent is "6", use "6.1", "6.2")
-   - Keep sequential within each parent (6.1, 6.2, 6.3, etc.)
    - Maximum of two follow-up questions
-   - Each sub-question should explore either a deeper aspect of the main experience or a rich tangential element
 </instructions>
 """
 
@@ -338,10 +343,14 @@ For each follow-up question you want to add:
         <parent_id>ID of the parent question</parent_id>
         <parent_text>Full text of the parent question</parent_text>
         <question_id>ID in proper parent-child format</question_id>
-        <question>Your narrative-focused follow-up question</question>
+        <question>[FACT-GATHERING] or [DEEPER] Your question here</question>
     </add_interview_question>
     ...
 </tool_calls>
+
+Examples:
+- <question>[FACT-GATHERING] How often did you visit that neighborhood park?</question>
+- <question>[DEEPER] What feelings come back to you when you think about those summer evenings at the park?</question>
 </output_format>
 """
 
