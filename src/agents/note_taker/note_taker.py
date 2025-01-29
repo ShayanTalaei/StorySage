@@ -16,6 +16,7 @@ from agents.prompt_utils import format_prompt
 from interview_session.session_models import Participant, Message
 from memory_bank.memory_bank_vector_db import MemoryBank
 from session_note.session_note import SessionNote
+from utils.logger import SessionLogger
 
 if TYPE_CHECKING:
     from interview_session.interview_session import InterviewSession
@@ -40,7 +41,8 @@ class NoteTaker(BaseAgent, Participant):
         self.max_consideration_iterations = int(os.getenv("MAX_CONSIDERATION_ITERATIONS", 3))
 
         self.new_memories = []  # Track new memories added in current session
-        self._message_lock = asyncio.Lock()
+        self._notes_lock = asyncio.Lock()  # Lock for write_session_notes
+        self._memory_lock = asyncio.Lock()  # Lock for update_memory_bank
         
         self.tools = {
             "update_memory_bank": UpdateMemoryBank(
@@ -54,15 +56,26 @@ class NoteTaker(BaseAgent, Participant):
         }
         
     async def on_message(self, message: Message):
-        async with self._message_lock: # Wait until the previous message is processed
-            self.add_event(sender=message.role, tag="message", content=message.content)
-            if message.role == "User":
-                # Run both updates concurrently
-                await asyncio.gather(
-                    self.write_session_notes(),
-                    self.update_memory_bank()
-                )
-    
+        # Add event without lock since it's thread-safe
+        self.add_event(sender=message.role, tag="message", content=message.content)
+        
+        if message.role == "User":
+            # Run both updates concurrently, each with their own lock
+            await asyncio.gather(
+                self._locked_write_session_notes(),
+                self._locked_update_memory_bank()
+            )
+
+    async def _locked_write_session_notes(self) -> None:
+        """Wrapper to handle write_session_notes with lock"""
+        async with self._notes_lock:
+            await self.write_session_notes()
+
+    async def _locked_update_memory_bank(self) -> None:
+        """Wrapper to handle update_memory_bank with lock"""
+        async with self._memory_lock:
+            await self.update_memory_bank()
+
     async def write_session_notes(self) -> None:
         """Process user's response by updating session notes and considering follow-up questions."""
         # First update the direct response in session notes
@@ -106,6 +119,8 @@ class NoteTaker(BaseAgent, Participant):
         response = await self.call_engine_async(prompt)
         self.add_event(sender=self.name, tag="propose_followups_response", content=response)
         self.handle_tool_calls(response)
+        SessionLogger.log_to_file("chat_history", f"[PROPOSE_FOLLOWUPS]\n{response}")
+        SessionLogger.log_to_file("chat_history", f"{self.interview_session.session_note.visualize_topics()}")
 
     async def update_memory_bank(self) -> None:
         """Process the latest conversation and update the memory bank if needed."""

@@ -5,6 +5,8 @@ from typing import Dict, Any, List
 from api.core.auth import get_current_user
 from api.schemas.biography import BiographyEdit
 from biography.biography import Biography
+from agents.biography_team.orchestrator import BiographyOrchestrator
+from agents.biography_team.base_biography_agent import BiographyConfig
 
 router = APIRouter(
     tags=["biography"],
@@ -72,8 +74,18 @@ async def edit_biography(
     # Load the latest biography
     bio = Biography.load_from_file(current_user)
     
-    # Process each edit in order
-    for edit in sorted(edits, key=lambda x: x.timestamp):
+    # Separate AI-powered edits from basic edits
+    ai_edits: List[BiographyEdit] = []
+    basic_edits: List[BiographyEdit] = []
+    
+    for edit in edits:
+        if edit.type in ["ADD", "COMMENT"]:
+            ai_edits.append(edit)
+        else:
+            basic_edits.append(edit)
+    
+    # Process basic edits first
+    for edit in sorted(basic_edits, key=lambda x: x.timestamp):
         try:
             if edit.type == "RENAME":
                 if not edit.data or not edit.data.newTitle:
@@ -88,8 +100,6 @@ async def edit_biography(
                 if not edit.data or not edit.data.newContent:
                     raise ValueError("New content is required for CONTENT_CHANGE operation")
                 bio.update_section(title=edit.title, content=edit.data.newContent)
-
-            # TODO: Implement COMMENT & ADD operation
                 
         except Exception as e:
             raise HTTPException(
@@ -97,8 +107,27 @@ async def edit_biography(
                 detail=f"Error processing edit {edit.type} for section '{edit.title}': {str(e)}"
             )
     
-    # Save the updated biography
-    bio.save()
+    # Save changes from basic edits
+    if basic_edits:
+        bio.save()
+    
+    # Process AI-powered edits if any exist
+    if ai_edits:
+        # Create orchestrator instance for AI-powered edits
+        config = BiographyConfig(user_id=current_user)
+        orchestrator = BiographyOrchestrator(config=config, interview_session=None)
+        
+        # Convert edits to dict format expected by orchestrator
+        edit_dicts = [edit.dict() for edit in ai_edits]
+        
+        # Process edits through the orchestrator
+        try:
+            await orchestrator.process_user_edits(edit_dicts)
+        except Exception as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Error processing AI edits: {str(e)}"
+            )
     
     # Return the latest saved biography
     latest_bio = get_latest_biography(current_user)
@@ -109,5 +138,3 @@ async def edit_biography(
         )
     
     return latest_bio
-
-

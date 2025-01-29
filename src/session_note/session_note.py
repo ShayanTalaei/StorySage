@@ -376,6 +376,59 @@ class SessionNote:
             return ""
         return "\n".join(self.additional_notes)
 
+    def clear_questions(self):
+        """Clears all questions from the session note, resetting it to an empty state."""
+        # Clear all topics and questions
+        self.topics = {}
+        
+        # Clear additional notes
+        self.additional_notes = []
+
+    def visualize_topics(self) -> str:
+        """Returns a tree visualization of topics and questions.
+        
+        Example output:
+        Topics
+        ├── General
+        │   └── How old are you?
+        ├── Professional
+        │   ├── How did you choose your career path?
+        │   └── What specific rare plant species did you cultivate?
+        │       └── Did you face any challenges?
+        └── Personal
+            └── Where did you grow up?
+        """
+        if not self.topics:
+            return "No topics"
+        
+        lines = ["Topics"]
+        topics = list(self.topics.items())
+        
+        def add_question(question: InterviewQuestion, prefix: str, is_last: bool) -> None:
+            # Add the current question
+            connector = "└── " if is_last else "├── "
+            lines.append(f"{prefix}{connector}{question.question}")
+            
+            # Handle sub-questions
+            if question.sub_questions:
+                new_prefix = prefix + ("    " if is_last else "│   ")
+                sub_questions = question.sub_questions
+                for i, sub_q in enumerate(sub_questions):
+                    add_question(sub_q, new_prefix, i == len(sub_questions) - 1)
+        
+        # Process each topic
+        for topic_idx, (topic, questions) in enumerate(topics):
+            # Add topic
+            topic_prefix = "└── " if topic_idx == len(topics) - 1 else "├── "
+            lines.append(f"{topic_prefix}{topic}")
+            
+            # Process questions under this topic
+            question_prefix = "    " if topic_idx == len(topics) - 1 else "│   "
+            for q_idx, question in enumerate(questions):
+                add_question(question, question_prefix, q_idx == len(questions) - 1)
+        
+        return "\n".join(lines)
+
 
 
 

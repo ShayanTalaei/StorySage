@@ -201,6 +201,11 @@ Output:
 - Plans to write the biography for multiple sections
 - Follow up questions used to collect more information from the user
 
+Tools:
+
+- `add_plan`: Add a plan to write the biography for a given section
+- `add_follow_up_question`: Add a follow-up question to the section
+
 ##### 2. Section Writer
 
 The writer executes the plan - writing the biography for a given section
@@ -217,10 +222,11 @@ Output:
 
 Tools:
 
-- `get_section`: Get the existing content of specified section (TODO: not used yet)
+- `get_section`: Get the existing content of specified section
 - `update_section`: Update the section with the new content
 - `add_section`: Create a new section with initial content
 - `add_follow_up_question`: Add a follow-up question to the section
+- `recall`: Recall memories to write sections based on user feedback prompts
 
 ##### 3. Session Summary Writer
 
