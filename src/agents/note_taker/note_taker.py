@@ -54,6 +54,16 @@ class NoteTaker(BaseAgent, Participant):
             "recall": Recall(memory_bank=self.interview_session.memory_bank),
             "decide_followups": DecideFollowups()
         }
+    
+    async def _locked_write_session_notes(self) -> None:
+        """Wrapper to handle write_session_notes with lock"""
+        async with self._notes_lock:
+            await self.write_session_notes()
+
+    async def _locked_update_memory_bank(self) -> None:
+        """Wrapper to handle update_memory_bank with lock"""
+        async with self._memory_lock:
+            await self.update_memory_bank()
         
     async def on_message(self, message: Message):
         # Add event without lock since it's thread-safe
@@ -65,16 +75,6 @@ class NoteTaker(BaseAgent, Participant):
                 self._locked_write_session_notes(),
                 self._locked_update_memory_bank()
             )
-
-    async def _locked_write_session_notes(self) -> None:
-        """Wrapper to handle write_session_notes with lock"""
-        async with self._notes_lock:
-            await self.write_session_notes()
-
-    async def _locked_update_memory_bank(self) -> None:
-        """Wrapper to handle update_memory_bank with lock"""
-        async with self._memory_lock:
-            await self.update_memory_bank()
 
     async def write_session_notes(self) -> None:
         """Process user's response by updating session notes and considering follow-up questions."""
