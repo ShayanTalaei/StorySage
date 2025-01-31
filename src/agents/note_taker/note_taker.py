@@ -89,6 +89,7 @@ class NoteTaker(BaseAgent, Participant):
         iterations = 0
 
         while iterations < self.max_consideration_iterations:
+            ## Decide if we need to propose follow-ups + propose follow-ups if needed
             prompt = self._get_formatted_prompt("consider_followups")
             self.add_event(sender=self.name, tag="consider_followups_prompt", content=prompt)
             tool_call = await self.call_engine_async(prompt)
@@ -255,6 +256,7 @@ class AddInterviewQuestion(BaseTool):
         run_manager: Optional[CallbackManagerForToolRun] = None,
     ) -> str:
         try:
+            ## TODO: pruning (add timestamp)
             self.session_note.add_interview_question(
                 topic=topic,
                 question=question,
