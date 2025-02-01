@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, TypedDict
 import signal
 import contextlib
-
+import concurrent.futures
 from dotenv import load_dotenv
 
 from interview_session.session_models import Message, Participant
@@ -147,11 +147,14 @@ class InterviewSession:
         subscribers = self.subscriptions.get(message.role, [])
         SessionLogger.log_to_file("execution_log", f"[NOTIFY] Notifying {len(subscribers)} subscribers for message from {message.role}")
         
-        notification_tasks = [
-            subscriber.on_message(message) 
-            for subscriber in subscribers
-        ]
-        await asyncio.gather(*notification_tasks)
+        # Use thread pool for parallel execution of notifications
+        with concurrent.futures.ThreadPoolExecutor() as pool:
+            notification_tasks = [
+                pool.submit(lambda s=subscriber: asyncio.run(s.on_message(message)))
+                for subscriber in subscribers
+            ]
+            # Wait for all notifications to complete
+            concurrent.futures.wait(notification_tasks)
         SessionLogger.log_to_file("execution_log", f"[NOTIFY] Completed notifying all subscribers")
 
     def add_message_to_chat_history(self, role: str, content: str):

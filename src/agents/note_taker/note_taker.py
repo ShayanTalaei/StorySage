@@ -3,7 +3,8 @@ from typing import Dict, Type, Optional, List, TYPE_CHECKING, TypedDict
 import os
 from dotenv import load_dotenv
 import asyncio
-
+from datetime import datetime
+import concurrent.futures
 # Third-party imports
 from langchain_core.callbacks.manager import CallbackManagerForToolRun
 from langchain_core.tools import BaseTool, ToolException
@@ -57,22 +58,35 @@ class NoteTaker(BaseAgent, Participant):
         
     async def on_message(self, message: Message):
         # Add event without lock since it's thread-safe
+        print(f"[{datetime.now()}] {message.role}: {message.content}")
         self.add_event(sender=message.role, tag="message", content=message.content)
         
         if message.role == "User":
-            # Run both updates concurrently, each with their own lock
-            await asyncio.gather(
-                self._locked_write_session_notes(),
-                self._locked_update_memory_bank()
-            )
+            # Create background task instead of awaiting
+            asyncio.create_task(self._process_user_message())
+
+    async def _process_user_message(self):
+        # Run both updates concurrently, each with their own lock
+        print(f"[{datetime.now()}] {self.name}: Processing user message")
+        # Create thread pool for parallel execution
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            loop = asyncio.get_event_loop()
+            tasks = [
+                loop.run_in_executor(executor, lambda: asyncio.run(self._locked_write_session_notes())),
+                loop.run_in_executor(executor, lambda: asyncio.run(self._locked_update_memory_bank()))
+            ]
+            await asyncio.gather(*tasks)
+        
 
     async def _locked_write_session_notes(self) -> None:
         """Wrapper to handle write_session_notes with lock"""
+        print(f"[{datetime.now()}] {self.name}: Writing session notes")
         async with self._notes_lock:
             await self.write_session_notes()
 
     async def _locked_update_memory_bank(self) -> None:
         """Wrapper to handle update_memory_bank with lock"""
+        print(f"[{datetime.now()}] {self.name}: Updating memory bank")
         async with self._memory_lock:
             await self.update_memory_bank()
 
