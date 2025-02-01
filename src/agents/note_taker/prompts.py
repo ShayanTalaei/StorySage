@@ -314,7 +314,7 @@ PROPOSE_FOLLOWUPS_INSTRUCTIONS = """
    - "What unexpected friendships formed during that time?"
    - "How was your experience different from others around you?"
 
-3. OPTIONALLY Add a Tangential Question When:
+3. Add a Tangential Question When:
    - User shows particular enthusiasm about a related topic
    - A significant theme emerges naturally in their response
    - They mention something meaningful but don't elaborate

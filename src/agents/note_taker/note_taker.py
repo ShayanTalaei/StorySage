@@ -56,6 +56,7 @@ class NoteTaker(BaseAgent, Participant):
         }
         
     async def on_message(self, message: Message):
+        '''This function is called when the user or interviewer sends a message and updates the shared chat history of the interview session.'''
         # Add event without lock since it's thread-safe
         self.add_event(sender=message.role, tag="message", content=message.content)
         
@@ -92,18 +93,25 @@ class NoteTaker(BaseAgent, Participant):
             ## Decide if we need to propose follow-ups + propose follow-ups if needed
             prompt = self._get_formatted_prompt("consider_followups")
             self.add_event(sender=self.name, tag="consider_followups_prompt", content=prompt)
+
+            # Call the LLM engine with the prompt to determine whether a follow-up should be proposed
             tool_call = await self.call_engine_async(prompt)
             self.add_event(sender=self.name, tag="consider_followups_response", content=tool_call)
+            
+            # Handle tool calls in the response
             tool_responses = self.handle_tool_calls(tool_call)
 
             if "decide_followups" in tool_call:
                 if "yes" in tool_responses:
+                    # Propose follow-up question and leave the loop
                     self.add_event(sender=self.name, tag="decide_propose_followups", content=tool_responses)
                     await self.propose_followups()
                 break
             elif "recall" in tool_call:
+                # Get recall response and confidence level
                 self.add_event(sender=self.name, tag="recall_response", content=tool_responses)
-            
+
+            # Consider proposing follow-ups again
             iterations += 1
         
         if iterations >= self.max_consideration_iterations:
@@ -114,7 +122,7 @@ class NoteTaker(BaseAgent, Participant):
             )
 
     async def propose_followups(self) -> None:
-        """Propose follow-up questions based on the user's recent answers."""
+        """Propose follow-up questions based on the user's recent answers. Draws from the prompts in note_taker/prompts.py"""
         prompt = self._get_formatted_prompt("propose_followups")
         self.add_event(sender=self.name, tag="propose_followups_prompt", content=prompt)
         response = await self.call_engine_async(prompt)
@@ -140,6 +148,11 @@ class NoteTaker(BaseAgent, Participant):
         self.handle_tool_calls(response)
     
     def _get_formatted_prompt(self, prompt_type: str) -> str:
+        '''Gets the formatted prompt for the NoteTaker agent.
+        
+        Args:
+            prompt_type: The type of prompt to get.
+        '''
         prompt = get_prompt(prompt_type)
         if prompt_type in ["consider_followups", "propose_followups"]:
             events = self.get_event_stream_str(filter=[
@@ -262,6 +275,7 @@ class AddInterviewQuestion(BaseTool):
                 question=question,
                 question_id=str(question_id)
             )
+            self.session_note.save() ## TODO: might be redundant
             return f"Successfully added question {question_id} as follow-up to question {parent_id}"
         except Exception as e:
             raise ToolException(f"Error adding interview question: {str(e)}")
