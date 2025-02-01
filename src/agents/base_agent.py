@@ -20,8 +20,10 @@ RED = '\033[91m'
 RESET = '\033[0m'
 
 class BaseAgent:
-    
+    """Base class for all agents. All agents inherits from this class."""
+
     class Event(BaseModel):
+        """Event class for all events. All events inherits from this class."""
         sender: str
         tag: str
         content: str
@@ -32,15 +34,19 @@ class BaseAgent:
         self.description = description
         self.config = config
         
+        # Initialize the LLM engine
         self.engine = get_engine(model_name="gpt-4o",
                                  temperature=0.0)
         self.tools = {}
+
+        # Each agent has an event stream. This contains all the events that have been sent to and by the agent.
         self.event_stream: list[BaseAgent.Event] = []
         
     def workout(self):
         pass
 
     def call_engine(self, prompt: str):
+        '''Calls the LLM engine with the given prompt.'''
         for attempt in range(10):
             try:
                 output = invoke_engine(self.engine, prompt)
@@ -50,7 +56,7 @@ class BaseAgent:
         raise e
     
     async def call_engine_async(self, prompt: str) -> str:
-        """Asynchronously call the LLM engine with the given prompt."""
+        '''Asynchronously call the LLM engine with the given prompt.'''
         # Run call_engine in a thread pool since it's a blocking operation
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(
@@ -59,13 +65,26 @@ class BaseAgent:
         )
         
     def add_event(self, sender: str, tag: str, content: str):
+        '''Adds an event to the event stream. 
+        Args:
+            sender: The sender of the event (interviewer, user, system)
+            tag: The tag of the event (interviewer_response, user_response, system_response, etc.)
+            content: The content of the event.
+        '''
         self.event_stream.append(BaseAgent.Event(sender=sender, 
                                                  tag=tag,
                                                  content=content, 
                                                  timestamp=datetime.now()))
+        # Log the event to the interviewer event stream file
         SessionLogger.log_to_file(f"{self.name}_event_stream", f"({self.name}) Sender: {sender}, Tag: {tag}\nContent: {content}")
         
     def get_event_stream_str(self, filter: List[Dict[str, str]] = None, as_list: bool = False):
+        '''Gets the event stream that passes the filter. Important for ensuring that the event stream only contains events that are relevant to the agent.
+        
+        Args:
+            filter: A list of dictionaries with sender and tag keys to filter the events.
+            as_list: Whether to return the events as a list of strings.
+        '''
         events = []
         for event in self.event_stream:
             if self._passes_filter(event, filter):
@@ -77,6 +96,12 @@ class BaseAgent:
         return "\n".join(events)
     
     def _passes_filter(self, event: Event, filter: List[Dict[str, str]]):
+        '''Helper function to check if an event passes the filter.
+        
+        Args:
+            event: The event to check.
+            filter: A list of dictionaries with sender and tag keys to filter the events.
+        '''
         if filter:
             for filter_item in filter:
                 if not filter_item.get("sender", None) or event.sender == filter_item["sender"]:
@@ -86,30 +111,43 @@ class BaseAgent:
         return True
     
     def get_tools_description(self, selected_tools: List[str] = None):
+        '''Gets the tools description as a string.
+        
+        Args:
+            selected_tools: A list of tool names to include a description for.
+        '''
         if selected_tools:
             return "\n".join([format_tool_as_xml_v2(tool) for tool in self.tools.values() if tool.name in selected_tools])
         else:
             return "\n".join([format_tool_as_xml_v2(tool) for tool in self.tools.values()])
     
     def handle_tool_calls(self, response: str):
-        # Extract tool calls section
+        '''Handles tool calls in the response. The response is the thinking output from the LLM.
+           It will parse the tool calls and call the tools, returning the result of all tool calls in a list.
+        
+        Args:
+            response: The response from the LLM.
+        '''
         result = None
         if "<tool_calls>" in response:
             # Split the response to get the tool_calls section
             tool_calls_start = response.find("<tool_calls>")
             tool_calls_end = response.find("</tool_calls>")
             if tool_calls_start != -1 and tool_calls_end != -1:
+                # Gets the actual tools being called (i.e. <recall>...</recall>)
                 tool_calls_xml = response[tool_calls_start:tool_calls_end + len("</tool_calls>")]
                 
                 parsed_calls = parse_tool_calls(tool_calls_xml)
                 for call in parsed_calls:
                     try:
+                        # Gets the tool name and arguments
                         tool_name = call['tool_name']
                         arguments = call['arguments']
                         tool = self.tools[tool_name]
+                        #Runs the tool
                         result = tool._run(**arguments)
                         
-                        # Add the tool result to chat history
+                        # Add tool result to event stream with system sender and tool_name tag
                         self.add_event(sender="system", tag=tool_name, content=result)
                     except Exception as e:
                         self.add_event(sender="system", tag="error", content=f"Error calling tool {tool_name}: {e}")

@@ -37,6 +37,7 @@ class InterviewerConfig(TypedDict, total=False):
     tts: TTSConfig
 
 class Interviewer(BaseAgent, Participant):
+    '''Inherits from BaseAgent and Participant. Participant is a class that all agents in the interview session inherit from.'''
     def __init__(self, config: InterviewerConfig, interview_session: 'InterviewSession'):
         BaseAgent.__init__(self, name="Interviewer", 
                          description="The agent that interviews the user, asking questions about the user's life.",
@@ -50,6 +51,7 @@ class Interviewer(BaseAgent, Participant):
         tts_config = config.get("tts", {})
         self.base_path = f"data/{self.user_id}/"
         
+        # Initialize tools
         self.tools = {
             "recall": Recall(memory_bank=self.interview_session.memory_bank),
             "respond_to_user": RespondToUser(
@@ -66,28 +68,37 @@ class Interviewer(BaseAgent, Participant):
         print(f"[{datetime.now()}] {message.role}: {message.content} from the interviewer")
         if message:
             self.add_event(sender=message.role, tag="message", content=message.content)
+
+        # This boolean is set to False when the interviewer is done responding (it has used respond_to_user tool)
         self.turn_to_respond = True
         while self.turn_to_respond:
+            # Get updated prompt with current chat history, session note, etc. This may change periodically (e.g. when the interviewer receives a system message that triggers a recall)
             prompt = self.get_prompt()
+            # Logs the prompt to the event stream
             self.add_event(sender=self.name, tag="prompt", content=prompt)
+            # Call the LLM engine with the updated prompt, This is the prompt the interviewer gives to the LLM to formulate it's response (includes thinking and tool calls)
             response = self.call_engine(prompt)
-            self.add_event(sender=self.name, tag="llm_response", content=response)
+            # Prints the green text in the console
             print(f"{GREEN}Interviewer:\n{response}{RESET}")
-        
-            # Add interviewer's response to both chat histories
+            # Logs the interviewer's (LLM) response to the event stream
             self.add_event(sender=self.name, tag="interviewer_response", content=response)
-            
+            # Handle tool calls in the response
             self.handle_tool_calls(response)
     
     def get_prompt(self):
+        '''Gets the prompt for the interviewer. The logic for this is in the get_prompt function in interviewer/prompts.py'''
         main_prompt = get_prompt()
-        
+        # Get user portrait and last meeting summary from session note
         user_portrait_str = self.interview_session.session_note.get_user_portrait_str()
         last_meeting_summary_str = self.interview_session.session_note.get_last_meeting_summary_str()
+        # Get chat history from event stream where these are the senders
+        # Upon using a tool, the tool name is added to the event stream with the tag as the tool name
+        # This is important for letting the agent know the system response if a tool is called.
         chat_history_str = self.get_event_stream_str(
             [
                 {"sender": "Interviewer", "tag": "interviewer_response"},
-                {"sender": "User", "tag": "message"}
+                {"sender": "User", "tag": "message"},
+                {"sender": "system", "tag": "recall"},
             ],
             as_list=True
         )
@@ -212,6 +223,7 @@ class EndConversation(BaseTool):
         self.interviewer.add_event(sender=self.interviewer.name, tag="goodbye", content=goodbye)
         interview_session.add_message_to_chat_history(role=self.interviewer.title, content=goodbye)
         
+        # Sets boolean to False so loop in handle_tool_calls will break
         self.interviewer.turn_to_respond = False
         time.sleep(1)
         interview_session.session_in_progress = False
