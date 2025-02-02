@@ -3,7 +3,8 @@ from typing import Dict, Type, Optional, List, TYPE_CHECKING, TypedDict
 import os
 from dotenv import load_dotenv
 import asyncio
-
+from datetime import datetime
+import concurrent.futures
 # Third-party imports
 from langchain_core.callbacks.manager import CallbackManagerForToolRun
 from langchain_core.tools import BaseTool, ToolException
@@ -55,26 +56,40 @@ class NoteTaker(BaseAgent, Participant):
             "decide_followups": DecideFollowups()
         }
     
+    async def on_message(self, message: Message):
+        '''This function is called when the user or interviewer sends a message and updates the shared chat history of the interview session.'''
+        # Add event without lock since it's thread-safe
+        print(f"[{datetime.now()}] {message.role}: {message.content}")
+        self.add_event(sender=message.role, tag="message", content=message.content)
+        
+        if message.role == "User":
+            # Create background task instead of awaiting
+            asyncio.create_task(self._process_user_message())
+
+    async def _process_user_message(self):
+        # Run both updates concurrently, each with their own lock
+        print(f"[{datetime.now()}] {self.name}: Processing user message")
+        # Create thread pool for parallel execution
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            loop = asyncio.get_event_loop()
+            tasks = [
+                loop.run_in_executor(executor, lambda: asyncio.run(self._locked_write_session_notes())),
+                loop.run_in_executor(executor, lambda: asyncio.run(self._locked_update_memory_bank()))
+            ]
+            await asyncio.gather(*tasks)
+        
+
     async def _locked_write_session_notes(self) -> None:
         """Wrapper to handle write_session_notes with lock"""
+        print(f"[{datetime.now()}] {self.name}: Writing session notes")
         async with self._notes_lock:
             await self.write_session_notes()
 
     async def _locked_update_memory_bank(self) -> None:
         """Wrapper to handle update_memory_bank with lock"""
+        print(f"[{datetime.now()}] {self.name}: Updating memory bank")
         async with self._memory_lock:
             await self.update_memory_bank()
-        
-    async def on_message(self, message: Message):
-        # Add event without lock since it's thread-safe
-        self.add_event(sender=message.role, tag="message", content=message.content)
-        
-        if message.role == "User":
-            # Run both updates concurrently, each with their own lock
-            await asyncio.gather(
-                self._locked_write_session_notes(),
-                self._locked_update_memory_bank()
-            )
 
     async def write_session_notes(self) -> None:
         """Process user's response by updating session notes and considering follow-up questions."""
@@ -89,20 +104,28 @@ class NoteTaker(BaseAgent, Participant):
         iterations = 0
 
         while iterations < self.max_consideration_iterations:
+            ## Decide if we need to propose follow-ups + propose follow-ups if needed
             prompt = self._get_formatted_prompt("consider_followups")
             self.add_event(sender=self.name, tag="consider_followups_prompt", content=prompt)
+
+            # Call the LLM engine with the prompt to determine whether a follow-up should be proposed
             tool_call = await self.call_engine_async(prompt)
             self.add_event(sender=self.name, tag="consider_followups_response", content=tool_call)
+            
+            # Handle tool calls in the response
             tool_responses = self.handle_tool_calls(tool_call)
 
             if "decide_followups" in tool_call:
                 if "yes" in tool_responses:
+                    # Propose follow-up question and leave the loop
                     self.add_event(sender=self.name, tag="decide_propose_followups", content=tool_responses)
                     await self.propose_followups()
                 break
             elif "recall" in tool_call:
+                # Get recall response and confidence level
                 self.add_event(sender=self.name, tag="recall_response", content=tool_responses)
-            
+
+            # Consider proposing follow-ups again
             iterations += 1
         
         if iterations >= self.max_consideration_iterations:
@@ -113,7 +136,7 @@ class NoteTaker(BaseAgent, Participant):
             )
 
     async def propose_followups(self) -> None:
-        """Propose follow-up questions based on the user's recent answers."""
+        """Propose follow-up questions based on the user's recent answers. Draws from the prompts in note_taker/prompts.py"""
         prompt = self._get_formatted_prompt("propose_followups")
         self.add_event(sender=self.name, tag="propose_followups_prompt", content=prompt)
         response = await self.call_engine_async(prompt)
@@ -139,6 +162,11 @@ class NoteTaker(BaseAgent, Participant):
         self.handle_tool_calls(response)
     
     def _get_formatted_prompt(self, prompt_type: str) -> str:
+        '''Gets the formatted prompt for the NoteTaker agent.
+        
+        Args:
+            prompt_type: The type of prompt to get.
+        '''
         prompt = get_prompt(prompt_type)
         if prompt_type in ["consider_followups", "propose_followups"]:
             events = self.get_event_stream_str(filter=[
@@ -255,11 +283,13 @@ class AddInterviewQuestion(BaseTool):
         run_manager: Optional[CallbackManagerForToolRun] = None,
     ) -> str:
         try:
+            ## TODO: pruning (add timestamp)
             self.session_note.add_interview_question(
                 topic=topic,
                 question=question,
                 question_id=str(question_id)
             )
+            self.session_note.save() ## TODO: might be redundant
             return f"Successfully added question {question_id} as follow-up to question {parent_id}"
         except Exception as e:
             raise ToolException(f"Error adding interview question: {str(e)}")

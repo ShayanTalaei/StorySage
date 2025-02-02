@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, TypedDict
 import signal
 import contextlib
-
+import concurrent.futures
 from dotenv import load_dotenv
 
 from interview_session.session_models import Message, Participant
@@ -48,10 +48,13 @@ class InterviewSession:
 
         # Session setup
         self.user_id = user_config.get("user_id", "default_user")
+
+        # Grabs last session note. This is updated to reflect the new questions for this session.
         self.session_note = SessionNote.get_last_session_note(self.user_id)
         self.memory_bank = MemoryBank.load_from_file(self.user_id)
         self.session_id = self.session_note.increment_session_id()
 
+        # Logs to execution_log
         setup_logger(self.user_id, self.session_id, console_output_files=["execution_log"])
         SessionLogger.log_to_file("execution_log", f"[INIT] Starting interview session for user {self.user_id}")
         SessionLogger.log_to_file("execution_log", f"[INIT] Session ID: {self.session_id}")
@@ -105,7 +108,8 @@ class InterviewSession:
         
         SessionLogger.log_to_file("execution_log", f"[INIT] Agents initialized: Interviewer, Note Taker, Biography Orchestrator")
         
-        # Subscriptions - only set up if we have a user instance
+        # Interviewer subscribes to NoteTaker. That is, Notetaker's on_message function is called when Interviewer updates shared chat history.
+        # User subscribes to Interviewer and NoteTaker. That is, Interviewer or NoteTaker's on_message function is called when User updates shared chat history.
         self.subscriptions: Dict[str, List[Participant]] = {
             "Interviewer": [self.note_taker],
             "User": [self.interviewer, self.note_taker]
@@ -126,17 +130,22 @@ class InterviewSession:
 
     async def _notify_participants(self, message: Message):
         """Notify subscribers asynchronously"""
+        # Gets subscribers for the user that sent the message.
         subscribers = self.subscriptions.get(message.role, [])
         SessionLogger.log_to_file("execution_log", f"[NOTIFY] Notifying {len(subscribers)} subscribers for message from {message.role}")
         
-        notification_tasks = [
-            subscriber.on_message(message) 
-            for subscriber in subscribers
-        ]
-        await asyncio.gather(*notification_tasks)
+        # Use thread pool for parallel execution of notifications
+        with concurrent.futures.ThreadPoolExecutor() as pool:
+            notification_tasks = [
+                pool.submit(lambda s=subscriber: asyncio.run(s.on_message(message)))
+                for subscriber in subscribers
+            ]
+            # Wait for all notifications to complete
+            concurrent.futures.wait(notification_tasks)
         SessionLogger.log_to_file("execution_log", f"[NOTIFY] Completed notifying all subscribers")
 
     def add_message_to_chat_history(self, role: str, content: str):
+        """Add a message to the chat history"""
         message = Message(
             id=str(uuid.uuid4()),
             role=role, 
