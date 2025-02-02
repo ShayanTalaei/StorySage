@@ -96,54 +96,26 @@ class NoteTaker(BaseAgent, Participant):
         # First update the direct response in session notes
         await self.update_session_note()
         
-        # Then consider if we need follow-up questions
-        await self.consider_followups()
+        # Then consider and propose follow-up questions if appropriate
+        await self.consider_and_propose_followups()
 
-    async def consider_followups(self) -> None:
-        """Determine if follow-up questions should be proposed based on the conversation context."""
-        iterations = 0
+    async def consider_and_propose_followups(self) -> None:
+        """Determine if follow-up questions should be proposed and propose them if appropriate."""
+        # Get prompt for considering and proposing followups
+        prompt = self._get_formatted_prompt("consider_and_propose_followups")
+        self.add_event(sender=self.name, tag="consider_and_propose_followups_prompt", content=prompt)
 
-        while iterations < self.max_consideration_iterations:
-            ## Decide if we need to propose follow-ups + propose follow-ups if needed
-            prompt = self._get_formatted_prompt("consider_followups")
-            self.add_event(sender=self.name, tag="consider_followups_prompt", content=prompt)
-
-            # Call the LLM engine with the prompt to determine whether a follow-up should be proposed
-            tool_call = await self.call_engine_async(prompt)
-            self.add_event(sender=self.name, tag="consider_followups_response", content=tool_call)
-            
-            # Handle tool calls in the response
-            tool_responses = self.handle_tool_calls(tool_call)
-
-            if "decide_followups" in tool_call:
-                if "yes" in tool_responses:
-                    # Propose follow-up question and leave the loop
-                    self.add_event(sender=self.name, tag="decide_propose_followups", content=tool_responses)
-                    await self.propose_followups()
-                break
-            elif "recall" in tool_call:
-                # Get recall response and confidence level
-                self.add_event(sender=self.name, tag="recall_response", content=tool_responses)
-
-            # Consider proposing follow-ups again
-            iterations += 1
-        
-        if iterations >= self.max_consideration_iterations:
-            self.add_event(
-                sender="system",
-                tag="error",
-                content=f"Exceeded maximum number of consideration iterations ({self.max_consideration_iterations})"
-            )
-
-    async def propose_followups(self) -> None:
-        """Propose follow-up questions based on the user's recent answers. Draws from the prompts in note_taker/prompts.py"""
-        prompt = self._get_formatted_prompt("propose_followups")
-        self.add_event(sender=self.name, tag="propose_followups_prompt", content=prompt)
+        # Call the LLM engine to analyze and potentially propose followups
         response = await self.call_engine_async(prompt)
-        self.add_event(sender=self.name, tag="propose_followups_response", content=response)
-        self.handle_tool_calls(response)
-        SessionLogger.log_to_file("chat_history", f"[PROPOSE_FOLLOWUPS]\n{response}")
-        SessionLogger.log_to_file("chat_history", f"{self.interview_session.session_note.visualize_topics()}")
+        self.add_event(sender=self.name, tag="consider_and_propose_followups_response", content=response)
+        
+        # Handle tool calls in the response
+        tool_responses = self.handle_tool_calls(response)
+
+        # If questions were proposed, log them
+        if "add_interview_question" in tool_responses:
+            SessionLogger.log_to_file("chat_history", f"[PROPOSE_FOLLOWUPS]\n{response}")
+            SessionLogger.log_to_file("chat_history", f"{self.interview_session.session_note.visualize_topics()}")
 
     async def update_memory_bank(self) -> None:
         """Process the latest conversation and update the memory bank if needed."""
@@ -168,20 +140,25 @@ class NoteTaker(BaseAgent, Participant):
             prompt_type: The type of prompt to get.
         '''
         prompt = get_prompt(prompt_type)
-        if prompt_type in ["consider_followups", "propose_followups"]:
-            events = self.get_event_stream_str(filter=[
-                {"tag": "message"},
-                {"tag": "decide_propose_followups"},
-                {"sender": self.name, "tag": "recall_response"},
-            ], as_list=True)
+        if prompt_type == "consider_and_propose_followups":
+            # Get all message events
+            events = self.get_event_stream_str(filter=[{"tag": "message"}], as_list=True)
             
-            recent_events = events[-self.max_events_len:] if len(events) > self.max_events_len else events
+            # Split into current Q&A and previous events
+            current_qa = events[-2:] if len(events) >= 2 else []
+            previous_events = events[:-2] if len(events) >= 2 else events
+            
+            # # Get recall responses
+            # recall_events = self.get_event_stream_str(filter=[
+            #     {"sender": self.name, "tag": "recall_response"},
+            # ], as_list=True)
             
             return format_prompt(prompt, {
-                "event_stream": "\n".join(recent_events),
+                "previous_events": "\n".join(previous_events),
+                "current_qa": "\n".join(current_qa),
                 "questions_and_notes": self.interview_session.session_note.get_questions_and_notes_str(),
                 "tool_descriptions": self.get_tools_description(
-                    selected_tools=["recall", "decide_followups"] if prompt_type == "consider_followups" else ["add_interview_question"]
+                    selected_tools=["recall", "add_interview_question"]
                 )
             })
         elif prompt_type == "update_memory_bank":
