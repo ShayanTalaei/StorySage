@@ -37,13 +37,18 @@ class NoteTaker(BaseAgent, Participant):
         )
         Participant.__init__(self, title="NoteTaker", interview_session=interview_session)
         
+        # Config variables
         self.user_id = config.get("user_id")
         self.max_events_len = int(os.getenv("MAX_EVENTS_LEN", 40))
         self.max_consideration_iterations = int(os.getenv("MAX_CONSIDERATION_ITERATIONS", 3))
 
-        self.new_memories = []  # Track new memories added in current session
-        self._notes_lock = asyncio.Lock()  # Lock for write_session_notes
+        # New memories added in current session
+        self.new_memories = []  
+
+        # Locks and processing flags
+        self._notes_lock = asyncio.Lock()   # Lock for write_session_notes
         self._memory_lock = asyncio.Lock()  # Lock for update_memory_bank
+        self.processing_in_progress = False # Signal to indicate if processing is in progress
         
         self.tools = {
             "update_memory_bank": UpdateMemoryBank(
@@ -55,39 +60,38 @@ class NoteTaker(BaseAgent, Participant):
             "recall": Recall(memory_bank=self.interview_session.memory_bank),
             "decide_followups": DecideFollowups()
         }
-    
+            
     async def on_message(self, message: Message):
-        '''This function is called when the user or interviewer sends a message and updates the shared chat history of the interview session.'''
-        # Add event without lock since it's thread-safe
-        print(f"[{datetime.now()}] {message.role}: {message.content}")
+        '''Handle incoming messages'''
+        if not self.interview_session.session_in_progress:
+            return  # Ignore messages after session ended
+        
         self.add_event(sender=message.role, tag="message", content=message.content)
         
-        if message.role == "User":
-            # Create background task instead of awaiting
+        if message.role == "User" and self.interview_session.session_in_progress:
             asyncio.create_task(self._process_user_message())
 
     async def _process_user_message(self):
-        # Run both updates concurrently, each with their own lock
-        print(f"[{datetime.now()}] {self.name}: Processing user message")
-        # Create thread pool for parallel execution
-        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-            loop = asyncio.get_event_loop()
-            tasks = [
-                loop.run_in_executor(executor, lambda: asyncio.run(self._locked_write_session_notes())),
-                loop.run_in_executor(executor, lambda: asyncio.run(self._locked_update_memory_bank()))
-            ]
-            await asyncio.gather(*tasks)
-        
+        self.processing_in_progress = True
+        try:
+            # Run both updates concurrently, each with their own lock
+            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+                loop = asyncio.get_event_loop()
+                tasks = [
+                    loop.run_in_executor(executor, lambda: asyncio.run(self._locked_write_session_notes())),
+                    loop.run_in_executor(executor, lambda: asyncio.run(self._locked_update_memory_bank()))
+                ]
+                await asyncio.gather(*tasks)
+        finally:
+            self.processing_in_progress = False
 
     async def _locked_write_session_notes(self) -> None:
         """Wrapper to handle write_session_notes with lock"""
-        print(f"[{datetime.now()}] {self.name}: Writing session notes")
         async with self._notes_lock:
             await self.write_session_notes()
 
     async def _locked_update_memory_bank(self) -> None:
         """Wrapper to handle update_memory_bank with lock"""
-        print(f"[{datetime.now()}] {self.name}: Updating memory bank")
         async with self._memory_lock:
             await self.update_memory_bank()
 

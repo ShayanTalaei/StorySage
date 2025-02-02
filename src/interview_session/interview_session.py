@@ -146,6 +146,9 @@ class InterviewSession:
 
     def add_message_to_chat_history(self, role: str, content: str):
         """Add a message to the chat history"""
+        if not self.session_in_progress:
+            return  # Block new messages after session ended
+        
         message = Message(
             id=str(uuid.uuid4()),
             role=role, 
@@ -156,8 +159,9 @@ class InterviewSession:
         SessionLogger.log_to_file("chat_history", f"{message.role}: {message.content}")
         SessionLogger.log_to_file("execution_log", f"[CHAT_HISTORY] {message.role}'s message has been added to chat history.")
         
-        # Schedule async notification
-        asyncio.create_task(self._notify_participants(message))
+        # Only notify if session is still active
+        if self.session_in_progress:  
+            asyncio.create_task(self._notify_participants(message))
         
         # Update last message time when we receive a message
         if role == "User":
@@ -175,7 +179,7 @@ class InterviewSession:
                 await self.interviewer.on_message(None)
             
             # Monitor the session for completion and timeout
-            while self.session_in_progress:
+            while self.session_in_progress or self.note_taker.processing_in_progress:
                 await asyncio.sleep(0.1)
                 
                 # Check for timeout

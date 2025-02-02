@@ -46,6 +46,7 @@ class Interviewer(BaseAgent, Participant):
         
         self.user_id = config.get("user_id")
         self.max_events_len = int(os.getenv("MAX_EVENTS_LEN", 40))
+        self.max_consideration_iterations = int(os.getenv("MAX_CONSIDERATION_ITERATIONS", 3))
         
         # Initialize TTS configuration
         tts_config = config.get("tts", {})
@@ -65,13 +66,15 @@ class Interviewer(BaseAgent, Participant):
         self.turn_to_respond = False
 
     async def on_message(self, message: Message):
-        print(f"[{datetime.now()}] {message.role}: {message.content} from the interviewer")
+        
         if message:
             self.add_event(sender=message.role, tag="message", content=message.content)
 
         # This boolean is set to False when the interviewer is done responding (it has used respond_to_user tool)
         self.turn_to_respond = True
-        while self.turn_to_respond:
+        iterations = 0
+
+        while self.turn_to_respond and iterations < self.max_consideration_iterations:
             # Get updated prompt with current chat history, session note, etc. This may change periodically (e.g. when the interviewer receives a system message that triggers a recall)
             prompt = self.get_prompt()
             # Logs the prompt to the event stream
@@ -84,7 +87,17 @@ class Interviewer(BaseAgent, Participant):
             self.add_event(sender=self.name, tag="interviewer_response", content=response)
             # Handle tool calls in the response
             self.handle_tool_calls(response)
-    
+            
+            # Increment iteration count
+            iterations += 1
+
+            if iterations >= self.max_consideration_iterations:
+                self.add_event(
+                    sender="system",
+                    tag="error",
+                    content=f"Exceeded maximum number of consideration iterations ({self.max_consideration_iterations})"
+                )
+
     def get_prompt(self):
         '''Gets the prompt for the interviewer. The logic for this is in the get_prompt function in interviewer/prompts.py'''
         main_prompt = get_prompt()
@@ -226,5 +239,5 @@ class EndConversation(BaseTool):
         # Sets boolean to False so loop in handle_tool_calls will break
         self.interviewer.turn_to_respond = False
         time.sleep(1)
-        interview_session.session_in_progress = False
+        interview_session.end_session()
         return "Conversation ended successfully."

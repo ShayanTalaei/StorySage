@@ -34,7 +34,7 @@ async def check_inactive_sessions():
                 session = session_manager.get_active_session(user_id)
                 if session:
                     print(f"{RED}Ending inactive session for user: {user_id}{RESET}")
-                    session.session_in_progress = False
+                    session.end_session()
                     
                     # Wait up to 30 seconds for session to complete its final tasks
                     cleanup_timeout_seconds = session.timeout_minutes * 60
@@ -157,6 +157,10 @@ async def prepare_end_session(
         
         # Get the active session
         session = session_manager.get_active_session(current_user)
+
+        # Wait for note taker to finish processing
+        while session.note_taker.processing_in_progress:
+            await asyncio.sleep(0.1)
         
         # Start biography update in background (without topics)
         asyncio.create_task(session.biography_orchestrator.update_biography())
