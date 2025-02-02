@@ -78,11 +78,14 @@ class SessionLogger:
                 print(f"{color}{message}{reset}")
         
         # Get or create lock for this file
-        with cls._locks_lock:
-            file_lock = cls._file_locks.get(log_file)
-            if file_lock is None:
-                file_lock = threading.Lock()
-                cls._file_locks[log_file] = file_lock
+        if log_file not in cls._file_locks:
+            with cls._locks_lock:
+                file_lock = cls._file_locks.get(log_file)
+                if file_lock is None:
+                    file_lock = threading.Lock()
+                    cls._file_locks[log_file] = file_lock
+        else:
+            file_lock = cls._file_locks[log_file]
         
         # Use the lock when writing to file
         with file_lock:
