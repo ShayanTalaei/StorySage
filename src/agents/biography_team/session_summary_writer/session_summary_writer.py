@@ -1,7 +1,12 @@
-from typing import Dict, List, TYPE_CHECKING
+from typing import Dict, List, TYPE_CHECKING, Optional
+import asyncio
 from agents.biography_team.base_biography_agent import BiographyConfig, BiographyTeamAgent
 
-from agents.biography_team.session_summary_writer.prompts import SESSION_SUMMARY_PROMPT, INTERVIEW_QUESTIONS_PROMPT
+from agents.biography_team.session_summary_writer.prompts import (
+    SESSION_SUMMARY_PROMPT, 
+    INTERVIEW_QUESTIONS_PROMPT,
+    TOPIC_EXTRACTION_PROMPT
+)
 from agents.biography_team.session_summary_writer.tools import UpdateLastMeetingSummary, UpdateUserPortrait, AddInterviewQuestion, DeleteInterviewQuestion, Recall
 
 
@@ -18,6 +23,10 @@ class SessionSummaryWriter(BiographyTeamAgent):
         )
         self.session_note = self.interview_session.session_note
         self.max_consideration_iterations = 3
+
+        # Event for selected topics (used to wait for topics to be set)
+        self._selected_topics_event = asyncio.Event()
+        self._selected_topics = None
         
         # Initialize all tools
         self.tools = {
@@ -31,13 +40,53 @@ class SessionSummaryWriter(BiographyTeamAgent):
             "recall": Recall(memory_bank=self.interview_session.memory_bank)
         }
         
+    async def wait_for_selected_topics(self) -> List[str]:
+        """Wait for selected topics to be set"""
+        await self._selected_topics_event.wait()
+        return self._selected_topics
+
+    def set_selected_topics(self, topics: List[str]):
+        """Set selected topics and trigger the event"""
+        self._selected_topics = topics
+        self._selected_topics_event.set()
+
+    async def extract_session_topics(self) -> List[str]:
+        """Extract main topics covered in the session from memories."""
+        new_memories = self.interview_session.get_session_memories()
+        
+        # Format memories for prompt
+        memories_text = "\n".join([
+            f"Memory {i+1}:\n"
+            f"Title: {memory['title']}\n"
+            f"Content: {memory['text']}\n"
+            for i, memory in enumerate(new_memories)
+        ])
+        
+        # Create prompt
+        prompt = TOPIC_EXTRACTION_PROMPT.format(memories_text=memories_text)
+        self.add_event(sender=self.name, tag="topic_extraction_prompt", content=prompt)
+        
+        # Get response from LLM
+        response = self.call_engine(prompt)
+        self.add_event(sender=self.name, tag="topic_extraction_response", content=response)
+        
+        # Parse topics from response (one per line)
+        topics = [
+            topic.strip() 
+            for topic in response.split('\n') 
+            if topic.strip()
+        ]
+        
+        return topics
+
     async def update_session_note(self, new_memories: List[Dict], follow_up_questions: List[Dict]):
         """Update session notes with new memories and follow-up questions."""
-        # First update summaries and user portrait
+        # First update summaries and user portrait (can be done immediately)
         await self._update_session_summary(new_memories)
         
-        # Then manage interview questions
-        await self._manage_interview_questions(follow_up_questions)
+        # Wait for selected topics before managing interview questions
+        selected_topics = await self.wait_for_selected_topics()
+        await self._manage_interview_questions(follow_up_questions, selected_topics)
     
     async def _update_session_summary(self, new_memories: List[Dict]):
         """Update session summary and user portrait."""
@@ -49,7 +98,7 @@ class SessionSummaryWriter(BiographyTeamAgent):
         
         self.handle_tool_calls(response)
     
-    async def _manage_interview_questions(self, follow_up_questions: List[Dict]):
+    async def _manage_interview_questions(self, follow_up_questions: List[Dict], selected_topics: Optional[List[str]] = None):
         """Rebuild interview questions list with only essential questions.
         
         Process:
@@ -67,7 +116,7 @@ class SessionSummaryWriter(BiographyTeamAgent):
         
         iterations = 0
         while iterations < self.max_consideration_iterations:
-            prompt = self._get_questions_prompt(follow_up_questions, old_questions_and_notes)
+            prompt = self._get_questions_prompt(follow_up_questions, old_questions_and_notes, selected_topics)
             self.add_event(sender=self.name, tag="questions_prompt", content=prompt)
             
             tool_calls = self.call_engine(prompt)
@@ -116,7 +165,7 @@ class SessionSummaryWriter(BiographyTeamAgent):
             tool_descriptions=self.get_tools_description(summary_tool_names)
         )
     
-    def _get_questions_prompt(self, follow_up_questions: List[Dict], old_questions_and_notes: str) -> str:
+    def _get_questions_prompt(self, follow_up_questions: List[Dict], old_questions_and_notes: str, selected_topics: Optional[List[str]] = None) -> str:
         question_tool_names = ["add_interview_question", "recall"]
         events = self.get_event_stream_str(
             filter=[
@@ -127,6 +176,7 @@ class SessionSummaryWriter(BiographyTeamAgent):
         
         return INTERVIEW_QUESTIONS_PROMPT.format(
             questions_and_notes=old_questions_and_notes,
+            selected_topics="\n".join(selected_topics) if selected_topics else "",
             follow_up_questions="\n\n".join([
                 "<question>\n"
                 f"<content>{q['content']}</content>\n"

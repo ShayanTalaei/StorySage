@@ -63,8 +63,10 @@ class InterviewSession:
         self.chat_history: list[Message] = []
 
         # Session states signals
+        self.interaction_mode = interaction_mode
         self.session_in_progress = True
         self.session_completed = False
+        self._biography_updated = False
         
         # Last message timestamp tracking
         self.last_message_time = datetime.now()
@@ -125,26 +127,6 @@ class InterviewSession:
         # Shutdown signal handler - only for agent mode
         if interaction_mode == 'agent':
             self._setup_signal_handlers()
-
-    def set_db_session_id(self, db_session_id: int):
-        """Set the database session ID"""
-        self.db_session_id = db_session_id
-    
-    def get_db_session_id(self) -> int:
-        """Get the database session ID"""
-        return self.db_session_id
-    
-    def _setup_signal_handlers(self):
-        """Setup signal handlers for graceful shutdown"""
-        loop = asyncio.get_event_loop()
-        for sig in (signal.SIGINT, signal.SIGTERM):
-            loop.add_signal_handler(sig, self._signal_handler)
-        SessionLogger.log_to_file("execution_log", f"[INIT] Signal handlers configured")
-    
-    def _signal_handler(self):
-        """Handle shutdown signals"""
-        SessionLogger.log_to_file("execution_log", f"[SIGNAL] Shutdown signal received")
-        self.session_in_progress = False
 
     async def _notify_participants(self, message: Message):
         """Notify subscribers asynchronously"""
@@ -208,28 +190,49 @@ class InterviewSession:
         
         finally:
             try:
-                # Update biography and save session note
-                with contextlib.suppress(KeyboardInterrupt):
-                    await self._update_biography()
+                # Only update biography if not in API mode and not already updated (API mode handles this separately)
+                if self.interaction_mode != 'api' and not self._biography_updated:
+                    with contextlib.suppress(KeyboardInterrupt):
+                        SessionLogger.log_to_file("execution_log", f"[BIOGRAPHY] Starting biography update automatically in interview session")
+                        await self.biography_orchestrator.update_biography()
+                        self._biography_updated = True
             except Exception as e:
                 SessionLogger.log_to_file("execution_log", f"[RUN] Error during biography update: {str(e)}")
             finally:
                 self.session_note.save()
                 self.session_completed = True
                 SessionLogger.log_to_file("execution_log", f"[RUN] Interview session completed")
+
+    def set_db_session_id(self, db_session_id: int):
+        """Set the database session ID"""
+        self.db_session_id = db_session_id
     
-    async def _update_biography(self):
-        """Update biography using the biography team."""
-        SessionLogger.log_to_file("execution_log", f"[BIOGRAPHY] Starting biography update")
-        
-        # Get all memories added during this session
-        new_memories = self.note_taker.get_session_memories()
-        
-        SessionLogger.log_to_file("execution_log", f"[BIOGRAPHY] Found {len(new_memories)} new memories to process")
-        
-        try:
-            await self.biography_orchestrator.update_biography(new_memories)
-            SessionLogger.log_to_file("execution_log", f"[BIOGRAPHY] Successfully updated biography")
-        except Exception as e:
-            SessionLogger.log_to_file("execution_log", f"[BIOGRAPHY] Error updating biography: {e}", log_level="error")
-            raise e
+    def get_db_session_id(self) -> int:
+        """Get the database session ID"""
+        return self.db_session_id
+    
+    def _setup_signal_handlers(self):
+        """Setup signal handlers for graceful shutdown"""
+        loop = asyncio.get_event_loop()
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            loop.add_signal_handler(sig, self._signal_handler)
+        SessionLogger.log_to_file("execution_log", f"[INIT] Signal handlers configured")
+    
+    def _signal_handler(self):
+        """Handle shutdown signals"""
+        SessionLogger.log_to_file("execution_log", f"[SIGNAL] Shutdown signal received")
+        self.session_in_progress = False
+    
+    def get_session_memories(self):
+        """Get all memories added during this session"""
+        memories = self.note_taker.get_session_memories()
+        SessionLogger.log_to_file("execution_log", f"[BIOGRAPHY] Found {len(memories)} memories")
+        return memories
+
+    def mark_biography_updated(self):
+        """Mark that the biography has been updated externally (used by API mode)"""
+        self._biography_updated = True
+
+    def end_session(self):
+        """End the session without triggering biography update"""
+        self.session_in_progress = False

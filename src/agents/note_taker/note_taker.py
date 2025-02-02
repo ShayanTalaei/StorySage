@@ -55,7 +55,7 @@ class NoteTaker(BaseAgent, Participant):
             "recall": Recall(memory_bank=self.interview_session.memory_bank),
             "decide_followups": DecideFollowups()
         }
-        
+    
     async def on_message(self, message: Message):
         '''This function is called when the user or interviewer sends a message and updates the shared chat history of the interview session.'''
         # Add event without lock since it's thread-safe

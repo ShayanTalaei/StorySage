@@ -1,4 +1,3 @@
-import os
 from typing import List
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
@@ -7,7 +6,7 @@ import uuid
 import time
 
 from api.schemas.chat import (
-    MessageRequest, MessageResponse, EndSessionResponse, UserMessagesResponse
+    MessageRequest, MessageResponse, EndSessionResponse, UserMessagesResponse, TopicsResponse, TopicsFeedbackRequest
 )
 from database.models import DBSession, DBMessage
 from database.database import get_db
@@ -28,8 +27,7 @@ async def check_inactive_sessions():
     while True:
         try:
             # Get inactive users
-            timeout_minutes = int(os.getenv("SESSION_TIMEOUT_MINUTES", 10))
-            inactive_users = session_manager.check_inactive_sessions(timeout_minutes)
+            inactive_users = session_manager.check_inactive_sessions()
             
             # End sessions for inactive users
             for user_id in inactive_users:
@@ -39,7 +37,7 @@ async def check_inactive_sessions():
                     session.session_in_progress = False
                     
                     # Wait up to 30 seconds for session to complete its final tasks
-                    cleanup_timeout_seconds = 30
+                    cleanup_timeout_seconds = session.timeout_minutes * 60
                     start_time = time.time()
                     while not session.session_completed:
                         await asyncio.sleep(0.1)
@@ -145,11 +143,11 @@ async def send_message(
         print(f"{RED}Error:\n{e}\n{RESET}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/sessions/end", response_model=EndSessionResponse)
-async def end_session(
+@router.post("/sessions/prepare-end", response_model=TopicsResponse)
+async def prepare_end_session(
     current_user: str = Depends(get_current_user)
 ):
-    """End the active session"""
+    """First stage of ending session - get topics covered"""
     try:
         if not session_manager.has_active_session(current_user):
             raise HTTPException(
@@ -160,13 +158,47 @@ async def end_session(
         # Get the active session
         session = session_manager.get_active_session(current_user)
         
-        # Set session_in_progress to False to trigger completion
-        session.session_in_progress = False
+        # Start biography update in background (without topics)
+        asyncio.create_task(session.biography_orchestrator.update_biography())
+        session.mark_biography_updated()
         
-        # Wait for the session to complete its final tasks
+        # Get topics from new memories
+        topics = await session.biography_orchestrator.get_session_topics()
+        
+        return TopicsResponse(
+            topics=topics,
+            status="success"
+        )
+        
+    except Exception as e:
+        print(f"{RED}Error:\n{e}\n{RESET}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/sessions/end", response_model=EndSessionResponse)
+async def end_session(
+    feedback: TopicsFeedbackRequest,
+    current_user: str = Depends(get_current_user)
+):
+    """End the active session with user's topic feedback"""
+    try:
+        if not session_manager.has_active_session(current_user):
+            raise HTTPException(
+                status_code=404,
+                detail="No active session found"
+            )
+        
+        # Get the active session
+        session = session_manager.get_active_session(current_user)
+        
+        # Set selected topics to unblock session note update
+        await session.biography_orchestrator.set_selected_topics(feedback.selected_topics)
+        
+        # End session without triggering another biography update
+        session.end_session()
+        
+        # Wait for completion
         timeout = 120
         start_time = time.time()
-        
         while not session.session_completed:
             await asyncio.sleep(0.1)
             if time.time() - start_time > timeout:

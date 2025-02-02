@@ -21,3 +21,10 @@ class EndSessionResponse(BaseModel):
 class UserMessagesResponse(BaseModel):
     messages: List[MessageResponse]
     has_active_session: bool
+
+class TopicsResponse(BaseModel):
+    topics: List[str]
+    status: str
+
+class TopicsFeedbackRequest(BaseModel):
+    selected_topics: List[str]
