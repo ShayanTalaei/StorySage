@@ -67,7 +67,7 @@ class SessionSummaryWriter(BiographyTeamAgent):
         self.add_event(sender=self.name, tag="topic_extraction_prompt", content=prompt)
         
         # Get response from LLM
-        response = self.call_engine(prompt)
+        response = await self.call_engine_async(prompt)
         self.add_event(sender=self.name, tag="topic_extraction_response", content=response)
         
         # Parse topics from response (one per line)
@@ -93,7 +93,7 @@ class SessionSummaryWriter(BiographyTeamAgent):
         prompt = self._get_summary_prompt(new_memories)
         self.add_event(sender=self.name, tag="summary_prompt", content=prompt)
         
-        response = self.call_engine(prompt)
+        response = await self.call_engine_async(prompt)
         self.add_event(sender=self.name, tag="summary_response", content=response)
         
         self.handle_tool_calls(response)
@@ -119,7 +119,7 @@ class SessionSummaryWriter(BiographyTeamAgent):
             prompt = self._get_questions_prompt(follow_up_questions, old_questions_and_notes, selected_topics)
             self.add_event(sender=self.name, tag="questions_prompt", content=prompt)
             
-            tool_calls = self.call_engine(prompt)
+            tool_calls = await self.call_engine_async(prompt)
             self.add_event(sender=self.name, tag="questions_response", content=tool_calls)
             
             try:

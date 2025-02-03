@@ -26,7 +26,7 @@ class SessionManager:
         """End active session for a user"""
         if user_id in self._active_sessions:
             session = self._active_sessions[user_id]
-            session.session_in_progress = False
+            session.end_session()
             del self._active_sessions[user_id]
             del self.last_activity[user_id]
     

@@ -1,3 +1,4 @@
+import asyncio
 import os
 import time
 from typing import Dict, Type, Optional, Any, TYPE_CHECKING, TypedDict
@@ -46,6 +47,7 @@ class Interviewer(BaseAgent, Participant):
         
         self.user_id = config.get("user_id")
         self.max_events_len = int(os.getenv("MAX_EVENTS_LEN", 40))
+        self.max_consideration_iterations = int(os.getenv("MAX_CONSIDERATION_ITERATIONS", 3))
         
         # Initialize TTS configuration
         tts_config = config.get("tts", {})
@@ -65,26 +67,39 @@ class Interviewer(BaseAgent, Participant):
         self.turn_to_respond = False
 
     async def on_message(self, message: Message):
-        print(f"[{datetime.now()}] {message.role}: {message.content} from the interviewer")
+        
         if message:
+            print(f"{datetime.now()} ✅ Interviewer received message from {message.role}")
             self.add_event(sender=message.role, tag="message", content=message.content)
 
         # This boolean is set to False when the interviewer is done responding (it has used respond_to_user tool)
         self.turn_to_respond = True
-        while self.turn_to_respond:
+        iterations = 0
+
+        while self.turn_to_respond and iterations < self.max_consideration_iterations:
             # Get updated prompt with current chat history, session note, etc. This may change periodically (e.g. when the interviewer receives a system message that triggers a recall)
             prompt = self.get_prompt()
             # Logs the prompt to the event stream
             self.add_event(sender=self.name, tag="prompt", content=prompt)
             # Call the LLM engine with the updated prompt, This is the prompt the interviewer gives to the LLM to formulate it's response (includes thinking and tool calls)
-            response = self.call_engine(prompt)
+            response = await self.call_engine_async(prompt)
             # Prints the green text in the console
             print(f"{GREEN}Interviewer:\n{response}{RESET}")
             # Logs the interviewer's (LLM) response to the event stream
             self.add_event(sender=self.name, tag="interviewer_response", content=response)
             # Handle tool calls in the response
-            self.handle_tool_calls(response)
-    
+            await self.handle_tool_calls_async(response)
+            
+            # Increment iteration count
+            iterations += 1
+
+            if iterations >= self.max_consideration_iterations:
+                self.add_event(
+                    sender="system",
+                    tag="error",
+                    content=f"Exceeded maximum number of consideration iterations ({self.max_consideration_iterations})"
+                )
+
     def get_prompt(self):
         '''Gets the prompt for the interviewer. The logic for this is in the get_prompt function in interviewer/prompts.py'''
         main_prompt = get_prompt()
@@ -174,7 +189,7 @@ class RespondToUser(BaseTool):
             )
             self.audio_player: AudioPlayerBase = create_audio_player()
 
-    def _run(
+    async def _run(
         self,
         response: str,
         run_manager: Optional[CallbackManagerForToolRun] = None,
@@ -182,17 +197,16 @@ class RespondToUser(BaseTool):
         interview_session = self.interviewer.interview_session
         interview_session.add_message_to_chat_history(role=self.interviewer.title, content=response)
         
-        # Generate speech if TTS is enabled
         if self.tts_engine:
             try:
-                audio_path = self.tts_engine.text_to_speech(
+                audio_path = await asyncio.to_thread(
+                    self.tts_engine.text_to_speech,
                     response,
-                    output_path=f"{self.base_path}/audio_outputs/response_{int(time.time())}.mp3"
+                    f"{self.base_path}/audio_outputs/response_{int(time.time())}.mp3"
                 )
                 print(f"{GREEN}Audio saved to: {audio_path}{RESET}")
                 
-                # Play the audio
-                self.audio_player.play(audio_path)
+                await asyncio.to_thread(self.audio_player.play, audio_path)
                 
             except Exception as e:
                 print(f"{RED}Failed to generate/play speech: {e}{RESET}")
@@ -226,5 +240,5 @@ class EndConversation(BaseTool):
         # Sets boolean to False so loop in handle_tool_calls will break
         self.interviewer.turn_to_respond = False
         time.sleep(1)
-        interview_session.session_in_progress = False
+        interview_session.end_session()
         return "Conversation ended successfully."

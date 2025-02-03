@@ -5,7 +5,6 @@ from datetime import datetime, timedelta
 from typing import Dict, List, TypedDict
 import signal
 import contextlib
-import concurrent.futures
 from dotenv import load_dotenv
 
 from interview_session.session_models import Message, Participant
@@ -134,18 +133,19 @@ class InterviewSession:
         subscribers = self.subscriptions.get(message.role, [])
         SessionLogger.log_to_file("execution_log", f"[NOTIFY] Notifying {len(subscribers)} subscribers for message from {message.role}")
         
-        # Use thread pool for parallel execution of notifications
-        with concurrent.futures.ThreadPoolExecutor() as pool:
-            notification_tasks = [
-                pool.submit(lambda s=subscriber: asyncio.run(s.on_message(message)))
-                for subscriber in subscribers
-            ]
-            # Wait for all notifications to complete
-            concurrent.futures.wait(notification_tasks)
-        SessionLogger.log_to_file("execution_log", f"[NOTIFY] Completed notifying all subscribers")
+        # Create independent tasks for each subscriber
+        tasks = []
+        for sub in subscribers:
+            task = asyncio.create_task(sub.on_message(message))
+            tasks.append(task)        
+        # Allow tasks to run concurrently without waiting for each other
+        await asyncio.sleep(0)  # Explicitly yield control
 
     def add_message_to_chat_history(self, role: str, content: str):
         """Add a message to the chat history"""
+        if not self.session_in_progress:
+            return  # Block new messages after session ended
+        
         message = Message(
             id=str(uuid.uuid4()),
             role=role, 
@@ -156,8 +156,9 @@ class InterviewSession:
         SessionLogger.log_to_file("chat_history", f"{message.role}: {message.content}")
         SessionLogger.log_to_file("execution_log", f"[CHAT_HISTORY] {message.role}'s message has been added to chat history.")
         
-        # Schedule async notification
-        asyncio.create_task(self._notify_participants(message))
+        # Only notify if session is still active
+        if self.session_in_progress:  
+            asyncio.create_task(self._notify_participants(message))
         
         # Update last message time when we receive a message
         if role == "User":
@@ -175,7 +176,7 @@ class InterviewSession:
                 await self.interviewer.on_message(None)
             
             # Monitor the session for completion and timeout
-            while self.session_in_progress:
+            while self.session_in_progress or self.note_taker.processing_in_progress:
                 await asyncio.sleep(0.1)
                 
                 # Check for timeout
@@ -194,7 +195,7 @@ class InterviewSession:
                 if self.interaction_mode != 'api' and not self._biography_updated:
                     with contextlib.suppress(KeyboardInterrupt):
                         SessionLogger.log_to_file("execution_log", f"[BIOGRAPHY] Starting biography update automatically in interview session")
-                        await self.biography_orchestrator.update_biography()
+                        await self.biography_orchestrator.update_biography([])
                         self._biography_updated = True
             except Exception as e:
                 SessionLogger.log_to_file("execution_log", f"[RUN] Error during biography update: {str(e)}")

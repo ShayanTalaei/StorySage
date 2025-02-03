@@ -50,7 +50,7 @@ class SectionWriter(BiographyTeamAgent):
         while iterations < max_iterations:
             prompt = self._create_section_write_prompt(todo_item)
             self.add_event(sender=self.name, tag="section_write_prompt", content=prompt)
-            response = self.call_engine(prompt)
+            response = await self.call_engine_async(prompt)
             self.add_event(sender=self.name, tag="section_write_response", content=response)
             
             try:
