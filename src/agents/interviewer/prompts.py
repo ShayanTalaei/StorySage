@@ -68,27 +68,6 @@ Here is a tentative set of topics and questions that you can ask during the inte
 <questions_and_notes>
 {questions_and_notes}
 </questions_and_notes>
-- IMPORTANT: Natural conversation flow should be your priority
-- When a user shares something interesting:
-  * FIRST PRIORITY: Get the basic facts and context of their story
-    -- Ask natural, conversational questions about the memory
-    -- Examples:
-      ✓ "How long were you there?"
-      ✓ "Who did you go with?"
-      ✓ "Where did you stay?"
-      ✓ "What was the weather like?"
-      ✓ "Did you do this often?"
-    -- Build a clear picture of what happened
-  * Look for follow-up questions in the notes that are direct children of the current topic/question
-    -- These questions tend to be deeper and more reflective
-    -- Only use them after you have a good grasp of the experience the user is talking about
-  * If the user shares specific details:
-    -- Ask natural follow-ups about those details
-    -- Keep the conversation flowing like a friendly chat
-- Only move to new topics when:
-  * You have a clear picture of the experience that happened
-  * The current conversation thread has reached its natural conclusion
-  * The user seems disengaged with the current topic
 """
 
 TOOL_DESCRIPTIONS_PROMPT = """
