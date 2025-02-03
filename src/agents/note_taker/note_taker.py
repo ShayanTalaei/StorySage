@@ -4,7 +4,6 @@ import os
 from dotenv import load_dotenv
 import asyncio
 from datetime import datetime
-import concurrent.futures
 # Third-party imports
 from langchain_core.callbacks.manager import CallbackManagerForToolRun
 from langchain_core.tools import BaseTool, ToolException
@@ -66,6 +65,7 @@ class NoteTaker(BaseAgent, Participant):
         if not self.interview_session.session_in_progress:
             return  # Ignore messages after session ended
         
+        print(f"{datetime.now()} ✅ Note taker received message from {message.role}")
         self.add_event(sender=message.role, tag="message", content=message.content)
         
         if message.role == "User" and self.interview_session.session_in_progress:
@@ -75,13 +75,10 @@ class NoteTaker(BaseAgent, Participant):
         self.processing_in_progress = True
         try:
             # Run both updates concurrently, each with their own lock
-            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-                loop = asyncio.get_event_loop()
-                tasks = [
-                    loop.run_in_executor(executor, lambda: asyncio.run(self._locked_write_session_notes())),
-                    loop.run_in_executor(executor, lambda: asyncio.run(self._locked_update_memory_bank()))
-                ]
-                await asyncio.gather(*tasks)
+            await asyncio.gather(
+                self._locked_write_session_notes(),
+                self._locked_update_memory_bank()
+            )
         finally:
             self.processing_in_progress = False
 

@@ -45,7 +45,7 @@ class BaseAgent:
     def workout(self):
         pass
 
-    def call_engine(self, prompt: str):
+    def _call_engine(self, prompt: str):
         '''Calls the LLM engine with the given prompt.'''
         for attempt in range(10):
             try:
@@ -61,7 +61,7 @@ class BaseAgent:
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(
             None,
-            partial(self.call_engine, prompt)
+            partial(self._call_engine, prompt)
         )
         
     def add_event(self, sender: str, tag: str, content: str):
@@ -122,34 +122,55 @@ class BaseAgent:
             return "\n".join([format_tool_as_xml_v2(tool) for tool in self.tools.values()])
     
     def handle_tool_calls(self, response: str):
-        '''Handles tool calls in the response. The response is the thinking output from the LLM.
-           It will parse the tool calls and call the tools, returning the result of all tool calls in a list.
-        
-        Args:
-            response: The response from the LLM.
-        '''
+        """Synchronous tool handling for non-I/O bound operations"""
         result = None
         if "<tool_calls>" in response:
-            # Split the response to get the tool_calls section
             tool_calls_start = response.find("<tool_calls>")
             tool_calls_end = response.find("</tool_calls>")
             if tool_calls_start != -1 and tool_calls_end != -1:
-                # Gets the actual tools being called (i.e. <recall>...</recall>)
                 tool_calls_xml = response[tool_calls_start:tool_calls_end + len("</tool_calls>")]
                 
                 parsed_calls = parse_tool_calls(tool_calls_xml)
                 for call in parsed_calls:
                     try:
-                        # Gets the tool name and arguments
                         tool_name = call['tool_name']
                         arguments = call['arguments']
                         tool = self.tools[tool_name]
-                        #Runs the tool
-                        result = tool._run(**arguments)
                         
-                        # Add tool result to event stream with system sender and tool_name tag
+                        # Only handle sync tools here
+                        if not asyncio.iscoroutinefunction(tool._run):
+                            result = tool._run(**arguments)
+                            self.add_event(sender="system", tag=tool_name, content=result)
+                        else:
+                            raise ValueError(f"Tool {tool_name} is async and should use handle_tool_calls_async")
+                    except Exception as e:
+                        self.add_event(sender="system", tag="error", content=f"Error calling tool {tool_name}: {e}")
+                        SessionLogger.log_to_file("execution_log", f"({self.name}) Error calling tool {tool_name}: {e}", log_level="error")
+        return result
+
+    async def handle_tool_calls_async(self, response: str):
+        """Asynchronous tool handling for I/O bound operations"""
+        result = None
+        if "<tool_calls>" in response:
+            tool_calls_start = response.find("<tool_calls>")
+            tool_calls_end = response.find("</tool_calls>")
+            if tool_calls_start != -1 and tool_calls_end != -1:
+                tool_calls_xml = response[tool_calls_start:tool_calls_end + len("</tool_calls>")]
+                
+                parsed_calls = parse_tool_calls(tool_calls_xml)
+                for call in parsed_calls:
+                    try:
+                        tool_name = call['tool_name']
+                        arguments = call['arguments']
+                        tool = self.tools[tool_name]
+                        
+                        # Handle both sync and async tools
+                        if asyncio.iscoroutinefunction(tool._run):
+                            result = await tool._run(**arguments)
+                        else:
+                            result = tool._run(**arguments)
                         self.add_event(sender="system", tag=tool_name, content=result)
                     except Exception as e:
                         self.add_event(sender="system", tag="error", content=f"Error calling tool {tool_name}: {e}")
                         SessionLogger.log_to_file("execution_log", f"({self.name}) Error calling tool {tool_name}: {e}", log_level="error")
-            return result
+        return result

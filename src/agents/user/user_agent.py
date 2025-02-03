@@ -27,7 +27,7 @@ class UserAgent(BaseAgent, User):
         # Generate response using LLM
         prompt = self.get_prompt()
         self.add_event(sender=self.name, tag="prompt", content=prompt)
-        full_response = self.call_engine(prompt)
+        full_response = await self.call_engine_async(prompt)
         self.add_event(sender=self.name, tag="llm_response", content=full_response)
         
         # Extract just the <response> content to send to chat history

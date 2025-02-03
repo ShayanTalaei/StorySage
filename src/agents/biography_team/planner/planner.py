@@ -69,7 +69,7 @@ class BiographyPlanner(BiographyTeamAgent):
             tool_descriptions=self.get_tools_description()
         )
         self.add_event(sender=self.name, tag="prompt", content=prompt)
-        response = self.call_engine(prompt)
+        response = await self.call_engine_async(prompt)
         self.add_event(sender=self.name, tag="llm_response", content=response)
 
         self.handle_tool_calls(response)
@@ -103,7 +103,7 @@ class BiographyPlanner(BiographyTeamAgent):
             )
 
         self.add_event(sender=self.name, tag="user_edit_prompt", content=prompt)
-        response = self.call_engine(prompt)
+        response = await self.call_engine_async(prompt)
         self.add_event(sender=self.name, tag="user_edit_response", content=response)
 
         # Handle tool calls to create plan
