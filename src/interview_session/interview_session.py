@@ -200,7 +200,6 @@ class InterviewSession:
             except Exception as e:
                 SessionLogger.log_to_file("execution_log", f"[RUN] Error during biography update: {str(e)}")
             finally:
-                self.session_note.save()
                 self.session_completed = True
                 SessionLogger.log_to_file("execution_log", f"[RUN] Interview session completed")
 

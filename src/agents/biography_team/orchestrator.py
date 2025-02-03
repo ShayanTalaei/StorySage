@@ -123,6 +123,9 @@ class BiographyOrchestrator:
         # Wait for session note task to complete
         await session_note_task
 
+        # Save session note after all updates are complete
+        self.interview_session.session_note.save()
+
     async def process_user_edits(self, edits: List[Dict]):
         """Process user-requested edits to the biography."""
         todo_items: List[TodoItem] = []
