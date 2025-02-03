@@ -102,20 +102,36 @@ class NoteTaker(BaseAgent, Participant):
     async def consider_and_propose_followups(self) -> None:
         """Determine if follow-up questions should be proposed and propose them if appropriate."""
         # Get prompt for considering and proposing followups
-        prompt = self._get_formatted_prompt("consider_and_propose_followups")
-        self.add_event(sender=self.name, tag="consider_and_propose_followups_prompt", content=prompt)
 
-        # Call the LLM engine to analyze and potentially propose followups
-        response = await self.call_engine_async(prompt)
-        self.add_event(sender=self.name, tag="consider_and_propose_followups_response", content=response)
+        iterations = 0
+        while iterations < self.max_consideration_iterations:
+            ## Decide if we need to propose follow-ups + propose follow-ups if needed
+            prompt = self._get_formatted_prompt("consider_and_propose_followups")
+            self.add_event(sender=self.name, tag="consider_and_propose_followups_prompt", content=prompt)
+
+            tool_call = await self.call_engine_async(prompt)
+            self.add_event(sender=self.name, tag="consider_and_propose_followups_response", content=tool_call)
+
+            tool_responses = self.handle_tool_calls(tool_call)
+
+            if "add_interview_question" in tool_call:
+                SessionLogger.log_to_file("chat_history", f"[PROPOSE_FOLLOWUPS]\n{tool_call}")
+                SessionLogger.log_to_file("chat_history", f"{self.interview_session.session_note.visualize_topics()}")
+                break
+            elif "recall" in tool_call:
+                # Get recall response and confidence level
+                self.add_event(sender=self.name, tag="recall_response", content=tool_responses)
+            else:
+                break
+            iterations += 1
         
-        # Handle tool calls in the response
-        tool_responses = self.handle_tool_calls(response)
+        if iterations >= self.max_consideration_iterations:
+            self.add_event(
+                sender="system",
+                tag="error",
+                content=f"Exceeded maximum number of consideration iterations ({self.max_consideration_iterations})"
+            )
 
-        # If questions were proposed, log them
-        if "add_interview_question" in tool_responses:
-            SessionLogger.log_to_file("chat_history", f"[PROPOSE_FOLLOWUPS]\n{response}")
-            SessionLogger.log_to_file("chat_history", f"{self.interview_session.session_note.visualize_topics()}")
 
     async def update_memory_bank(self) -> None:
         """Process the latest conversation and update the memory bank if needed."""
@@ -142,20 +158,15 @@ class NoteTaker(BaseAgent, Participant):
         prompt = get_prompt(prompt_type)
         if prompt_type == "consider_and_propose_followups":
             # Get all message events
-            events = self.get_event_stream_str(filter=[{"tag": "message"}], as_list=True)
+            events = self.get_event_stream_str(filter=[
+                {"tag": "message"},
+                {"sender": self.name, "tag": "recall_response"},
+            ], as_list=True)
             
-            # Split into current Q&A and previous events
-            current_qa = events[-2:] if len(events) >= 2 else []
-            previous_events = events[:-2] if len(events) >= 2 else events
-            
-            # # Get recall responses
-            # recall_events = self.get_event_stream_str(filter=[
-            #     {"sender": self.name, "tag": "recall_response"},
-            # ], as_list=True)
+            recent_events = events[-self.max_events_len:] if len(events) > self.max_events_len else events
             
             return format_prompt(prompt, {
-                "previous_events": "\n".join(previous_events),
-                "current_qa": "\n".join(current_qa),
+                "event_stream": "\n".join(recent_events),
                 "questions_and_notes": self.interview_session.session_note.get_questions_and_notes_str(),
                 "tool_descriptions": self.get_tools_description(
                     selected_tools=["recall", "add_interview_question"]
