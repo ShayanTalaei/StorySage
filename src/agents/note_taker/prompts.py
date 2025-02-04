@@ -396,8 +396,8 @@ Choose ONE of these actions:
 1. Make recall tool calls to gather more information:
 <tool_calls>
     <recall>
-        <query>...</query>
         <reasoning>...</reasoning>
+        <query>...</query>
     </recall>
 </tool_calls>
 

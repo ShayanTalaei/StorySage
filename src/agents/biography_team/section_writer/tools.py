@@ -104,9 +104,8 @@ class AddSection(BaseTool):
 
 
 class RecallInput(BaseModel):
-    query: str = Field(description="Search query to find relevant memories")
     reasoning: str = Field(description="Explain how this information helps the section")
-
+    query: str = Field(description="Search query to find relevant memories")
 
 class Recall(BaseTool):
     """Tool for searching relevant memories."""

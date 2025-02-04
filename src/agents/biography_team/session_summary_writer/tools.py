@@ -133,14 +133,14 @@ class DeleteInterviewQuestion(BaseTool):
             raise ToolException(f"Error deleting interview question: {str(e)}")
 
 class RecallInput(BaseModel):
-    query: str = Field(
-        description="The search query to find relevant information. Make it broad enough to cover related topics."
-    )
     reasoning: str = Field(
         description="Explain:\n"
         "1. What information you're looking for\n"
         "2. How this search will help evaluate multiple related questions\n"
         "3. What decisions this search will inform"
+    )
+    query: str = Field(
+        description="The search query to find relevant information. Make it broad enough to cover related topics."
     )
 
 class Recall(BaseTool):

@@ -305,11 +305,11 @@ class UpdateSessionNote(BaseTool):
         return f"Successfully added the note for `{target_question}`."
 
 class RecallInput(BaseModel):
-    query: str = Field(description="The query to search for in the memory bank")
     reasoning: str = Field(description="Explain: "
                           "0. The current confidence level (1-10) "
                           "1. Why you need this specific information "
                           "2. How the results will help determine follow-up questions")
+    query: str = Field(description="The query to search for in the memory bank")
 
 class Recall(BaseTool):
     """Tool for recalling memories."""

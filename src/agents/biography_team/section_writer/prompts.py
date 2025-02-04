@@ -140,8 +140,8 @@ Choose one of the following:
 1. To gather information:
 <tool_calls>
     <recall>
-        <query>...</query>
         <reasoning>...</reasoning>
+        <query>...</query>
     </recall>
 </tool_calls>
 
