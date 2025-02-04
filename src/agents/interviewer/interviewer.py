@@ -131,6 +131,7 @@ class Interviewer(BaseAgent, Participant):
         })
         
 class RecallInput(BaseModel):
+    reasoning: str = Field(description="Explain how this information will help you answer the user's question.")
     query: str = Field(description=("The query to search for in the memory bank. "
                                    "This should be a short phrase or sentence that captures the essence of the information you want to recall." 
                                    "For example, you can ask about a specific event, a person, a feeling, etc. "

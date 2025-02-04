@@ -183,8 +183,8 @@ Check the event stream for recent memory searches:
 <output_format_option_1>
 <tool_calls>
     <recall>
-        <query>...</query>
         <reasoning>...</reasoning>
+        <query>...</query>
     </recall>
 </tool_calls>
 </output_format_option_1>

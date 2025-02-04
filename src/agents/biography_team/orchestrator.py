@@ -124,6 +124,7 @@ class BiographyOrchestrator:
         await session_note_task
 
         # Save session note after all updates are complete
+        self.interview_session.session_note.increment_session_id()
         self.interview_session.session_note.save()
 
     async def process_user_edits(self, edits: List[Dict]):
