@@ -12,6 +12,7 @@ from agents.interviewer.interviewer import Interviewer, InterviewerConfig, TTSCo
 from agents.note_taker.note_taker import NoteTaker, NoteTakerConfig
 from agents.user.user_agent import UserAgent
 from session_note.session_note import SessionNote
+from utils.feedback import save_feedback_to_csv
 from utils.logger import SessionLogger, setup_logger
 from user.user import User
 from agents.biography_team.orchestrator import BiographyOrchestrator
@@ -141,21 +142,27 @@ class InterviewSession:
         # Allow tasks to run concurrently without waiting for each other
         await asyncio.sleep(0)  # Explicitly yield control
 
-    def add_message_to_chat_history(self, role: str, content: str):
+    def add_message_to_chat_history(self, role: str, content: str, message_type: str = "conversation"):
         """Add a message to the chat history"""
+        # Block new messages after session ended
         if not self.session_in_progress:
-            return  # Block new messages after session ended
+            return
         
         message = Message(
             id=str(uuid.uuid4()),
+            type=message_type,
             role=role, 
             content=content, 
-            timestamp=datetime.now()
+            timestamp=datetime.now(),
         )
-        self.chat_history.append(message)
-        SessionLogger.log_to_file("chat_history", f"{message.role}: {message.content}")
-        SessionLogger.log_to_file("execution_log", f"[CHAT_HISTORY] {message.role}'s message has been added to chat history.")
+
+        # Save feedback to into a separate file
+        if message_type == "feedback":
+            save_feedback_to_csv(self.chat_history[-1], message, self.user_id, self.session_id)
         
+        # Add message to chat history
+        self.chat_history.append(message)
+
         # Only notify if session is still active
         if self.session_in_progress:  
             asyncio.create_task(self._notify_participants(message))
@@ -163,6 +170,9 @@ class InterviewSession:
         # Update last message time when we receive a message
         if role == "User":
             self.last_message_time = datetime.now()
+        
+        SessionLogger.log_to_file("chat_history", f"{message.role}: {message.content}")
+        SessionLogger.log_to_file("execution_log", f"[CHAT_HISTORY] {message.role}'s message has been added to chat history.")    
 
     async def run(self):
         """Run the interview session"""
@@ -172,7 +182,6 @@ class InterviewSession:
         try:
             # Only have interviewer initiate the conversation if not in API mode
             if self.user is not None:
-                SessionLogger.log_to_file("execution_log", f"[RUN] Sending initial notification to interviewer by system")
                 await self.interviewer.on_message(None)
             
             # Monitor the session for completion and timeout
@@ -200,6 +209,8 @@ class InterviewSession:
             except Exception as e:
                 SessionLogger.log_to_file("execution_log", f"[RUN] Error during biography update: {str(e)}")
             finally:
+                self.memory_bank.save_to_file(self.user_id)
+                SessionLogger.log_to_file("execution_log", f"[FILE] Memory bank saved to file")
                 self.session_completed = True
                 SessionLogger.log_to_file("execution_log", f"[RUN] Interview session completed")
 

@@ -133,7 +133,6 @@ class NoteTaker(BaseAgent, Participant):
                 content=f"Exceeded maximum number of consideration iterations ({self.max_consideration_iterations})"
             )
 
-
     async def update_memory_bank(self) -> None:
         """Process the latest conversation and update the memory bank if needed."""
         prompt = self._get_formatted_prompt("update_memory_bank")
@@ -141,7 +140,6 @@ class NoteTaker(BaseAgent, Participant):
         response = await self.call_engine_async(prompt)
         self.add_event(sender=self.name, tag="update_memory_bank_response", content=response)
         self.handle_tool_calls(response)
-        self.interview_session.memory_bank.save_to_file(self.user_id)
 
     async def update_session_note(self) -> None:
         prompt = self._get_formatted_prompt("update_session_note")
@@ -196,7 +194,7 @@ class NoteTaker(BaseAgent, Participant):
                 "questions_and_notes": self.interview_session.session_note.get_questions_and_notes_str(hide_answered="qa"),
                 "tool_descriptions": self.get_tools_description(selected_tools=["update_session_note"])
             })
-            
+    
     def add_new_memory(self, memory: Dict):
         """Track newly added memory"""
         self.new_memories.append(memory)
