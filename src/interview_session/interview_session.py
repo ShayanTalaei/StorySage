@@ -52,7 +52,7 @@ class InterviewSession:
         # Grabs last session note. This is updated to reflect the new questions for this session.
         self.session_note = SessionNote.get_last_session_note(self.user_id)
         self.memory_bank = MemoryBank.load_from_file(self.user_id)
-        self.session_id = self.session_note.increment_session_id()
+        self.session_id = self.session_note.session_id + 1
 
         # Logs to execution_log
         setup_logger(self.user_id, self.session_id, console_output_files=["execution_log"])

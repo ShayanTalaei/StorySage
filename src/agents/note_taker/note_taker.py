@@ -276,7 +276,7 @@ class AddInterviewQuestion(BaseTool):
                 question=question,
                 question_id=str(question_id)
             )
-            self.session_note.save() ## TODO: might be redundant
+            self.session_note.save()
             return f"Successfully added question {question_id} as follow-up to question {parent_id}"
         except Exception as e:
             raise ToolException(f"Error adding interview question: {str(e)}")
