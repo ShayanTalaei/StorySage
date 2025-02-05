@@ -28,7 +28,7 @@ class DBMessage(Base):
     id = Column(String, primary_key=True)
     session_id = Column(String, ForeignKey("sessions.id"), nullable=False)
     content = Column(String, nullable=False)
-    role = Column(String, nullable=False)  # "User" or "Interviewer"
+    role = Column(String, nullable=False)  # "User", "Interviewer", "Feedback"
     created_at = Column(DateTime, default=datetime.utcnow)
     
     session = relationship("DBSession", back_populates="messages") 
