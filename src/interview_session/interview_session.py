@@ -7,7 +7,7 @@ import signal
 import contextlib
 from dotenv import load_dotenv
 
-from interview_session.session_models import Message, Participant
+from interview_session.session_models import Message, MessageType, Participant
 from agents.interviewer.interviewer import Interviewer, InterviewerConfig, TTSConfig
 from agents.note_taker.note_taker import NoteTaker, NoteTakerConfig
 from agents.user.user_agent import UserAgent
@@ -142,11 +142,17 @@ class InterviewSession:
         # Allow tasks to run concurrently without waiting for each other
         await asyncio.sleep(0)  # Explicitly yield control
 
-    def add_message_to_chat_history(self, role: str, content: str, message_type: str = "conversation"):
+    def add_message_to_chat_history(self, role: str, content: str = "", message_type: str = "conversation"):
         """Add a message to the chat history"""
         # Block new messages after session ended
         if not self.session_in_progress:
             return
+
+        # Set fixed content for skip and like messages
+        if message_type == MessageType.SKIP:
+            content = "Skip the question"
+        elif message_type == MessageType.LIKE:
+            content = "Like the question"
         
         message = Message(
             id=str(uuid.uuid4()),
@@ -157,15 +163,16 @@ class InterviewSession:
         )
 
         # Save feedback to into a separate file
-        if message_type == "feedback":
+        if message_type != MessageType.CONVERSATION:
             save_feedback_to_csv(self.chat_history[-1], message, self.user_id, self.session_id)
         
-        # Add message to chat history
-        self.chat_history.append(message)
+        if message_type != MessageType.LIKE:
+            # Add message to chat history
+            self.chat_history.append(message)
 
-        # Only notify if session is still active
-        if self.session_in_progress:  
-            asyncio.create_task(self._notify_participants(message))
+            # Notify if session is still active
+            if self.session_in_progress:  
+                asyncio.create_task(self._notify_participants(message))
         
         # Update last message time when we receive a message
         if role == "User":

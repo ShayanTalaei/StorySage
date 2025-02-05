@@ -8,7 +8,9 @@ if TYPE_CHECKING:
 
 class MessageType(str, Enum):
     CONVERSATION = "conversation"
-    FEEDBACK = "feedback"
+    FEEDBACK = "feedback" # for detailed feedback
+    LIKE = "like"         # for like action
+    SKIP = "skip"         # for skip action
 
 class Message(BaseModel):
     id: str
