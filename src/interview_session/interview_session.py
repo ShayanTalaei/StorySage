@@ -142,7 +142,7 @@ class InterviewSession:
         # Allow tasks to run concurrently without waiting for each other
         await asyncio.sleep(0)  # Explicitly yield control
 
-    def add_message_to_chat_history(self, role: str, content: str = "", message_type: str = "conversation"):
+    def add_message_to_chat_history(self, role: str, content: str = "", message_type: str = MessageType.CONVERSATION):
         """Add a message to the chat history"""
         # Block new messages after session ended
         if not self.session_in_progress:
@@ -166,11 +166,9 @@ class InterviewSession:
         if message_type != MessageType.CONVERSATION:
             save_feedback_to_csv(self.chat_history[-1], message, self.user_id, self.session_id)
         
-        if message_type != MessageType.LIKE:
-            # Add message to chat history
+        # Notify participants if message is a skip or conversation
+        if message_type == MessageType.SKIP or message_type == MessageType.CONVERSATION:
             self.chat_history.append(message)
-
-            # Notify if session is still active
             if self.session_in_progress:  
                 asyncio.create_task(self._notify_participants(message))
         
