@@ -13,6 +13,7 @@ from database.database import get_db
 from interview_session.interview_session import InterviewSession
 from api.core.auth import get_current_user
 from api.core.session_manager import session_manager
+from interview_session.session_models import MessageType
 
 router = APIRouter(
     tags=["chat"]
@@ -139,6 +140,113 @@ async def send_message(
     except Exception as e:
         db.rollback()
         if session:  # Clean up session on error
+            session_manager.end_session(current_user)
+        print(f"{RED}Error:\n{e}\n{RESET}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/skip", response_model=MessageResponse)
+async def skip_message(
+    db: Session = Depends(get_db),
+    current_user: str = Depends(get_current_user)
+):
+    """Send a skip signal to the active session"""
+    try:
+        session = session_manager.get_active_session(current_user)
+        if not session:
+            raise HTTPException(
+                status_code=404,
+                detail="No active session found"
+            )
+
+        session_id = session.get_db_session_id()
+        
+        # Update last activity time
+        session_manager.update_last_activity(current_user)
+        
+        # Add skip signal to interview session
+        session.add_message_to_chat_history("User", message_type=MessageType.SKIP)
+
+        # Store skip action in database
+        user_skip_message = DBMessage(
+            id=str(uuid.uuid4()),
+            session_id=session_id,
+            content="[Skip]",
+            role="Feedback"
+        )
+        db.add(user_skip_message)
+        db.commit()
+        
+        # Get response
+        response = await session.api_participant.wait_for_response()
+        if not response:
+            raise HTTPException(status_code=408, detail="Timeout waiting for interviewer response")
+        
+        # Store interviewer response
+        response_id = str(uuid.uuid4())
+        db_response = DBMessage(
+            id=response_id,
+            session_id=session_id,
+            content=response.content,
+            role="Interviewer"
+        )
+        db.add(db_response)
+        db.commit()
+        
+        return MessageResponse(
+            id=response_id,
+            content=response.content,
+            role=response.role,
+            created_at=db_response.created_at
+        )
+    except Exception as e:
+        db.rollback()
+        if session:
+            session_manager.end_session(current_user)
+        print(f"{RED}Error:\n{e}\n{RESET}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/like", response_model=MessageResponse)
+async def like_message(
+    db: Session = Depends(get_db),
+    current_user: str = Depends(get_current_user)
+):
+    """Send a like signal to the active session"""
+    try:
+        session = session_manager.get_active_session(current_user)
+        if not session:
+            raise HTTPException(
+                status_code=404,
+                detail="No active session found"
+            )
+
+        session_id = session.get_db_session_id()
+        
+        # Update last activity time
+        session_manager.update_last_activity(current_user)
+        
+        # Add like signal to interview session
+        session.add_message_to_chat_history("User", message_type=MessageType.LIKE)
+        
+        # Store like action in database
+        response_id = str(uuid.uuid4())
+        db_response = DBMessage(
+            id=response_id,
+            session_id=session_id,
+            content="[Like]",
+            role="Feedback"
+        )
+        db.add(db_response)
+        db.commit()
+        
+        return MessageResponse(
+            id=response_id,
+            content="[Like]",
+            role="User",
+            created_at=db_response.created_at
+        )
+    except Exception as e:
+        db.rollback()
+        if session:
             session_manager.end_session(current_user)
         print(f"{RED}Error:\n{e}\n{RESET}")
         raise HTTPException(status_code=500, detail=str(e))
