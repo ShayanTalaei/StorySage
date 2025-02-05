@@ -5,6 +5,7 @@ import re
 from agents.base_agent import BaseAgent
 from user.user import User
 from interview_session.session_models import Message
+from interview_session.session_models import MessageType
 dotenv.load_dotenv(override=True)
 
 class UserAgent(BaseAgent, User):
@@ -32,12 +33,20 @@ class UserAgent(BaseAgent, User):
         
         # First, determine if user wants to respond
         prompt = self.get_prompt(prompt_type="decide_to_respond")
-        self.add_event(sender=self.name, tag="decide_prompt", content=prompt)
+        self.add_event(sender=self.name, tag="decide_to_respond_prompt", content=prompt)
+
         decide_response = await self.call_engine_async(prompt)
-        self.add_event(sender=self.name, tag="decide_response", content=decide_response)
+        self.add_event(sender=self.name, tag="decide_to_respond_response", content=decide_response)
         
         # Extract the decision and reasoning
-        wants_to_respond, wants_to_respond_reasoning = self._extract_decision(decide_response)
+        response_text, decide_to_respond_reasoning = self._extract_response(decide_response)
+        response_text = response_text.strip().lower()
+        
+        if response_text not in ['yes', 'no']:
+            self.logger.warning(f"Invalid response format: {response_text}. Defaulting to yes.")
+            wants_to_respond = True
+        else:
+            wants_to_respond = response_text == 'yes'
         
         if wants_to_respond:
             # Generate detailed response using LLM
@@ -51,13 +60,13 @@ class UserAgent(BaseAgent, User):
             self.add_event(sender=self.name, tag="message", content=response_content)
 
             if response_content:
-                self.interview_session.add_message_to_chat_history(role=self.title, content=response_content, message_type="conversation")
+                self.interview_session.add_message_to_chat_history(role=self.title, content=response_content, message_type=MessageType.CONVERSATION)
         else:
-            # Add generic deflection message to chat history
-            # Change message type so this can be loged
-            deflection_msg = "Let's move on to the next question."
-            self.add_event(sender=self.name, tag="message", content=deflection_msg)
-            self.interview_session.add_message_to_chat_history(role=self.title, content=deflection_msg, message_type="feedback")
+            # We SKIP the response and log a feedback message
+            self.interview_session.add_message_to_chat_history(role=self.title, content=decide_to_respond_reasoning, message_type=MessageType.FEEDBACK)
+            self.interview_session.add_message_to_chat_history(role=self.title, message_type=MessageType.SKIP)
+
+
     def get_prompt(self, prompt_type: str) -> str:
         """Get the formatted prompt for the LLM"""
         from agents.user.prompts import get_prompt
