@@ -8,7 +8,7 @@ def save_feedback_to_csv(interviewer_message: Message, feedback_message: Message
     # Prepare the feedback directory
     feedback_dir = os.path.join(os.getenv("LOGS_DIR", "logs"), user_id, 'feedback')
     os.makedirs(feedback_dir, exist_ok=True)
-    feedback_file = os.path.join(feedback_dir, f'session_{session_id}_feedback.csv')
+    feedback_file = os.path.join(feedback_dir, f'session_{session_id}.csv')
 
     # Create CSV file with headers if it doesn't exist
     if not os.path.exists(feedback_file):

@@ -19,7 +19,7 @@ def get_session_ids(user_id: str) -> list[int]:
     Returns:
         list[int]: List of available session IDs
     """
-    session_dir = Path("logs") / user_id / "session_notes"
+    session_dir = Path(os.getenv("LOGS_DIR", "logs")) / user_id / "session_notes"
     if not session_dir.exists():
         return []
     
@@ -45,7 +45,7 @@ def visualize_session_note(user_id: str, session_id: int) -> None:
         user_id (str): The user ID (e.g., 'maggie')
         session_id (int): The session number
     """
-    file_path = Path("logs") / user_id / "session_notes" / f"session_{session_id}.json"
+    file_path = Path(os.getenv("LOGS_DIR", "logs")) / user_id / "session_notes" / f"session_{session_id}.json"
     
     try:
         # Load the session note
