@@ -67,9 +67,15 @@ Remember: Good biographical writing requires depth. Even if a section seems comp
 <output_format>
 <tool_calls>
     # First, update/create the section:
-    <update_section>  # or <add_section>
+    <add_section>
         <path>...</path>
         <content>...</content>
+    </add_section>
+
+    <update_section>
+        <path>...</path>
+        <content>...</content>
+        <new_title>...</new_title>
     </update_section>
 
     # Then, add multiple follow-up questions:
