@@ -108,8 +108,8 @@ class InterviewSession:
         
         SessionLogger.log_to_file("execution_log", f"[INIT] Agents initialized: Interviewer, Note Taker, Biography Orchestrator")
         
-        # Interviewer subscribes to NoteTaker. That is, Notetaker's on_message function is called when Interviewer updates shared chat history.
-        # User subscribes to Interviewer and NoteTaker. That is, Interviewer or NoteTaker's on_message function is called when User updates shared chat history.
+        # Notetaker subscribes to Interviewer. That is, Notetaker's on_message function is called when Interviewer updates shared chat history.
+        # Interviewer + Notetaker subscribes to User. That is, Interviewer or NoteTaker's on_message function is called when User updates shared chat history.
         self.subscriptions: Dict[str, List[Participant]] = {
             "Interviewer": [self.note_taker],
             "User": [self.interviewer, self.note_taker]
