@@ -45,9 +45,9 @@ class GetSectionByTitle(BaseTool):
 
 
 class UpdateSectionInput(BaseModel):
-    path: str = Field(description="Path to the section to update")
-    content: str = Field(description="New content for the section")
-
+    path: str = Field(description="Original Path to the section to update")
+    content: str = Field(description="Updated content for the section")
+    new_title: Optional[str] = Field(description="Updated title for the section", default=None)
 
 class UpdateSection(BaseTool):
     """Tool for updating existing sections."""
@@ -56,8 +56,8 @@ class UpdateSection(BaseTool):
     args_schema: Type[BaseModel] = UpdateSectionInput
     biography: Biography
 
-    def _run(self, path: str, content: str, run_manager: Optional[CallbackManagerForToolRun] = None) -> str:
-        section = self.biography.update_section(path=path, content=content)
+    def _run(self, path: str, content: str, new_title: Optional[str] = None, run_manager: Optional[CallbackManagerForToolRun] = None) -> str:
+        section = self.biography.update_section(path=path, content=content, new_title=new_title)
         if not section:
             raise ToolException(f"Section at path '{path}' not found")
         return f"Successfully updated section at path '{path}'"

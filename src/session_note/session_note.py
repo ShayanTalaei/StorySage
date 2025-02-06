@@ -68,7 +68,7 @@ class SessionNote:
             "question_strings": {
                 "General": [
                     "What is your name?",
-                    "How old are you?",
+                    # "How old are you?",
                 ],
                 # TODO: Ask these questions when user registers
                 # "Biography Style": [
@@ -83,10 +83,10 @@ class SessionNote:
                     "What do you do for work?",
                     "How did you choose your career path?"
                 ],
-                "Interests": [
-                    "What are your main hobbies or interests?",
-                    "What do you like to do in your free time?"
-                ],
+                # "Interests": [
+                #     "What are your main hobbies or interests?",
+                #     "What do you like to do in your free time?"
+                # ],
                 "Relationships": [
                     "Tell me about your family.",
                     "Who are the most important people in your life?"
@@ -95,10 +95,10 @@ class SessionNote:
                     "What would you say was a defining moment in your life?",
                     "What's one of your most memorable experiences?"
                 ],
-                "Future Goals": [
-                    "What are your hopes and dreams for the future?",
-                    "Where do you see yourself in the next few years?"
-                ]
+                # "Future Goals": [
+                #     "What are your hopes and dreams for the future?",
+                #     "Where do you see yourself in the next few years?"
+                # ]
             }
         }
         session_note = cls(user_id, session_id, data)

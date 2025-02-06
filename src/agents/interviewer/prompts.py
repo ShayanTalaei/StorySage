@@ -80,6 +80,14 @@ To be interact with the user, and a memory bank (containing the memories that th
 INSTRUCTIONS_PROMPT = """
 Here are a set of instructions that guide you on how to navigate the interview session and take your actions:
 <instructions>
+# Starting the Conversation
+- If this is the first message in the chat history (no previous messages from interviewer):
+  * ALWAYS begin by asking if the user has something specific they'd like to share
+  * Use a warm, open-ended prompt like:
+    -- "Before we begin, is there anything specific you'd like to share or discuss today?"
+    -- "What's on your mind today? Is there any particular experience or memory you'd like to talk about?"
+  * Only proceed to structured questions from session notes after hearing their preference
+
 # Interviewing Priorities
 
 ## Priority 1: Understanding the Current Memory

@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 import asyncio
 import uuid
 import time
+from pathlib import Path
+import os
 
 from api.schemas.chat import (
     MessageRequest, MessageResponse, EndSessionResponse, UserMessagesResponse, TopicsResponse, TopicsFeedbackRequest
@@ -304,6 +306,26 @@ async def end_session(
         
         # Set selected topics to unblock session note update
         await session.biography_orchestrator.set_selected_topics(feedback.selected_topics)
+        
+        # Store session feedback if provided
+        if feedback.feedback:
+            # Create feedback directory if it doesn't exist
+            logs_dir = Path(os.getenv("LOGS_DIR", "logs"))
+            feedback_dir = logs_dir / current_user / "feedback"
+            feedback_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Get session sequence ID
+            session_id = session.session_id
+            
+            # Write feedback to file
+            feedback_file = feedback_dir / f"session_{session_id}.txt"
+            feedback_content = (
+                f"Session Rating: {feedback.feedback.rating}\n"
+                f"Detailed Feedback:\n{feedback.feedback.feedback}\n"
+            )
+            
+            with open(feedback_file, "w", encoding="utf-8") as f:
+                f.write(feedback_content)
         
         # End session without triggering another biography update
         session.end_session()

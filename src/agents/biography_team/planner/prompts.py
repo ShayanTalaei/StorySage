@@ -53,22 +53,26 @@ Important Note About Section Paths:
 - Section paths must be specified using forward slashes to indicate hierarchy
 - Each part of the path should be the exact title of a section
 - Maximum 3 levels of hierarchy allowed
+- Section numbers must be sequential and consistent:
+  * You cannot create section "3" if sections "1" and "2" don't exist
+  * You must use the next available number when creating a new top-level section
+  * Example: If only "1 Early Life" exists, the next section must be "2 Something"
 - Numbering conventions:
   * First level sections must start with numbers: "1", "2", "3", etc.
-    Examples: "1 Early Life", "2 Education", "3 Career"
+    Examples: "1 Early Life"
   * Second level sections (subsections) use decimal notation matching parent number
-    Examples: "1 Early Life/1.1 Childhood", "1 Early Life/1.2 Family Background"
+    Examples: "1 Early Life/1.1 Childhood"
   * Third level sections use double decimal notation matching parent number
-    Examples: "1 Early Life/1.1 Childhood/1.1.1 Memories", "1 Early Life/1.1 Childhood/1.1.2 Stories"
+    Examples: "1 Early Life/1.1 Childhood/1.1.1 Memories"
 - Examples of valid paths:
   * "1 Early Life"
-  * "2 Career/2.1 First Job"
-  * "3 Personal Life/3.1 Hobbies/3.1.1 Gaming"
+  * "1 Career/1.1 First Job"
 - Examples of invalid paths:
   * "1 Early Life/1.1 Childhood/Stories" (missing third level number)
   * "1.1 Childhood" (subsection without parent section)
   * "1 Early Life/2.1 Childhood" (wrong parent number)
   * "1 Early Life/1.1 Childhood/1.1.1 Games/Types" (exceeds 3 levels)
+  * "3 Career" (invalid if sections "1" and "2" don't exist)
 </format_notes>
 """
 
@@ -102,7 +106,9 @@ Core Responsibilities:
    * Update existing sections or subsections
    * Create new sections or subsections
 - Create specific plans for each action
-   * Note: only update sections, no need to update titles and other metadata
+   * For content updates: Specify what content to add/modify
+   * For title updates: Use the current section path and specify the new title in the update plan
+     Example plan: "Update title of '1 Early Life' to '1 Childhood and Youth'"
 - Suggest follow-up questions to expand the biography's breadth
 
 Strategic Planning Considerations:
@@ -110,6 +116,7 @@ Strategic Planning Considerations:
 - Whether it reinforces existing themes or introduces new ones
 - Where the information best fits in the biography's structure
 - How to maintain narrative flow and coherence
+- For new sections, ensure sequential numbering (cannot create section 3 if 1 and 2 don't exist)
 
 Requirements for Follow-Up Questions:
 - Aim to further explore the user's background
