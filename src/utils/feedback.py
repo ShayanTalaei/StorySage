@@ -12,16 +12,20 @@ def save_feedback_to_csv(interviewer_message: Message, feedback_message: Message
 
     # Create CSV file with headers if it doesn't exist
     if not os.path.exists(feedback_file):
-        with open(feedback_file, 'w', newline='') as f:
-            writer = csv.writer(f)
+        with open(feedback_file, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f, quoting=csv.QUOTE_ALL, escapechar='\\')
             writer.writerow(['timestamp', 'interviewer_message', 'user_feedback'])
 
+    # Clean and prepare the messages
+    interviewer_content = interviewer_message.content if interviewer_message else ''
+    feedback_content = feedback_message.content if feedback_message else ''
+    
     # Append the feedback
-    with open(feedback_file, 'a', newline='') as f:
-        writer = csv.writer(f)
+    with open(feedback_file, 'a', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f, quoting=csv.QUOTE_ALL, escapechar='\\')
         writer.writerow([
             feedback_message.timestamp.isoformat(),
-            interviewer_message.content if interviewer_message else '',
-            feedback_message.content
+            interviewer_content,
+            feedback_content
         ])
     
