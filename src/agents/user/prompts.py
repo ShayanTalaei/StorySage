@@ -65,35 +65,40 @@ You are playing the role of a real person being interviewed, evaluating the qual
 SCORE_QUESTION_INSTRUCTIONS_PROMPT = """
 <instructions>
 - Rate the interviewer's last question on a 1-5 scale based on your personal perspective:
-  1: Strongly dislike - Question feels jarring or inappropriate
-    * Completely misaligned with your interests and communication style
-    * Ignores or contradicts information you've already shared
-    * Makes you uncomfortable based on your personality
-    * Shows no connection to previous conversation flow
+  1: Strongly dislike - Question feels inappropriate or misaligned
+    * Focuses too much on future plans rather than life experiences
+    * Shows no connection to your biographical narrative
+    * Makes you feel pressured or uncomfortable
+    * Completely mismatches your conversational style
+    * Ignores the natural progression of your life story
 
-  2: Dislike - Question feels off-putting or disconnected
-    * Mostly misaligned with your preferred conversation topics
-    * Only superficially relates to your shared background
-    * Doesn't match your typical interaction patterns
-    * Poor timing or context in conversation flow
+  2: Dislike - Question feels poorly timed or awkward
+    * Jumps ahead without proper context from your past
+    * Only weakly connects to your shared experiences
+    * Emphasizes planning over reflection
+    * Poorly aligns with how you naturally communicate
+    * Disrupts the biographical narrative flow
 
-  3: Neutral - Question is acceptable but unremarkable
-    * Neither particularly engaging nor off-putting
-    * Somewhat relevant to your interests/background
-    * Matches your basic comfort level
-    * Maintains basic conversation flow
+  3: Neutral - Question is acceptably biographical
+    * Balances past experiences with gentle forward context
+    * Has some connection to your life story
+    * Maintains focus on understanding your journey
+    * Somewhat matches your communication preferences
+    * Keeps the biographical narrative moving
 
-  4: Like - Question resonates well
-    * Aligns with your interests and communication style
-    * Builds meaningfully on your shared information
-    * Matches your preferred interaction depth
-    * Maintains natural conversation progression
+  4: Like - Question enriches your life story naturally
+    * Explores meaningful aspects of your experiences
+    * Follows logically from your previous revelations
+    * Prompts authentic self-reflection
+    * Aligns well with your conversational style
+    * Creates engaging biographical progression
 
-  5: Strongly like - Question feels perfectly tailored
-    * Deeply resonates with your personality and interests
-    * Demonstrates clear understanding of your background
-    * Perfectly matches your preferred way of engaging
-    * Creates ideal conversational momentum
+  5: Strongly like - Question perfectly captures your story
+    * Draws out rich details about your life experiences
+    * Builds masterfully on your shared history
+    * Prompts genuine autobiographical insights
+    * Perfectly matches your way of communicating
+    * Creates ideal narrative momentum
 
 - Consider these key factors from your perspective:
   * Your established communication preferences
@@ -199,26 +204,30 @@ RESPOND_INSTRUCTIONS_PROMPT = """
 </instructions>
 # """
 
-
 RESPONSE_OUTPUT_FORMAT_PROMPT = """
 <output_format>
 Your response must include these two things:
-1. A thinking tag that contains the reasoning for your response.
-2. A response_content tag that contains your actual response to the interviewer
+1. A <thinking> opening and </thinking> closing tag that contains the reasoning for your response.
+2. A <response_content> opening and </response_content> closing tag that contains your actual response to the interviewer.
+
+Your response must follow this exact format with both opening and closing tags:
 
 <thinking>
-- Consider the score you gave the question and your detailed reasoning for that score
-- Consider how this aligns with your conversational style and personality 
-- If engaging, consider what aspects of your background are relevant
-- Think about how to respond naturally and conversationally
+Your reasoning here, including:
+- The score you gave and your detailed reasoning
+- How this aligns with your conversational style
+- What aspects of your background are relevant
+- How you plan to respond naturally
 </thinking>
 
-Your response should be either "SKIP" or your actual response to the interviewer, written in first person as if you are speaking.
 <response_content>
-Your actual response to the interviewer. This should either be "SKIP" if you choose not to respond, or your actual conversational response if you do choose to respond.
+Your actual response here - either "SKIP" if choosing not to respond, or your conversational response if engaging.
 </response_content>
+
+Important:
+- You must include both opening and closing tags for <thinking> and <response_content>
+- Put all reasoning inside the thinking tags
+- Put your actual response inside the response_content tags
+- Do not include anything outside of these tags
 </output_format>
-- All your thinking should be in the <thinking> tag
-- Your response should be in the <response_content> tag
-- You shouldn't output anything else outside these tags
 """

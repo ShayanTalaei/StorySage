@@ -1,6 +1,7 @@
 import asyncio
 import os
 import time
+import re
 from typing import Dict, Type, Optional, Any, TYPE_CHECKING, TypedDict
 from dotenv import load_dotenv
 from langchain_core.callbacks.manager import CallbackManagerForToolRun
@@ -85,8 +86,13 @@ class Interviewer(BaseAgent, Participant):
             response = await self.call_engine_async(prompt)
             # Prints the green text in the console
             print(f"{GREEN}Interviewer:\n{response}{RESET}")
-            # Logs the interviewer's (LLM) response to the event stream
-            self.add_event(sender=self.name, tag="interviewer_response", content=response)
+            
+            response_content, question_id, thinking = self._extract_response(response)
+
+            # Format the response with question ID if available
+            formatted_response = f"Question {question_id}:\n\n{response_content}" if question_id else response_content
+
+            self.add_event(sender=self.name, tag="message", content=formatted_response)
             # Handle tool calls in the response
             await self.handle_tool_calls_async(response)
             
@@ -111,7 +117,7 @@ class Interviewer(BaseAgent, Participant):
         # This is important for letting the agent know the system response if a tool is called.
         chat_history_str = self.get_event_stream_str(
             [
-                {"sender": "Interviewer", "tag": "interviewer_response"},
+                {"sender": "Interviewer", "tag": "message"},
                 {"sender": "User", "tag": "message"},
                 {"sender": "system", "tag": "recall"},
             ],
@@ -129,6 +135,18 @@ class Interviewer(BaseAgent, Participant):
             "questions_and_notes": questions_and_notes_str,
             "tool_descriptions": tool_descriptions_str
         })
+    
+    def _extract_response(self, full_response: str) -> tuple[str, str]:
+        """Extract the content between <response_content> and <thinking> tags"""
+        response_match = re.search(r'<response>(.*?)</response>', full_response, re.DOTALL)
+        thinking_match = re.search(r'<thinking>(.*?)</thinking>', full_response, re.DOTALL)
+
+        question_id_match = re.search(r'<current_question_id>(.*?)</current_question_id>', full_response, re.DOTALL)
+        question_id = question_id_match.group(1).strip() if question_id_match else None
+        response = response_match.group(1).strip() if response_match else full_response
+        thinking = thinking_match.group(1).strip() if thinking_match else ""
+        
+        return response, question_id, thinking
         
 class RecallInput(BaseModel):
     reasoning: str = Field(description="Explain how this information will help you answer the user's question.")

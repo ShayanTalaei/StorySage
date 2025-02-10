@@ -90,5 +90,4 @@ class UserAgent(BaseAgent, User):
         
         response = response_match.group(1).strip() if response_match else full_response
         thinking = thinking_match.group(1).strip() if thinking_match else ""
-        
         return response, thinking
