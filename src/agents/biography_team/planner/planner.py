@@ -116,7 +116,7 @@ class AddPlanInput(BaseModel):
     action_type: str = Field(description="Type of action (create/update)")
     section_path: Optional[str] = Field(
         default=None,
-        description="Optional: Full path to the section"
+        description="Optional: Full original path to the section"
     )
     section_title: Optional[str] = Field(
         default=None,

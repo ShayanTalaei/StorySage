@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
 class MessageResponse(BaseModel):
     id: str
@@ -26,5 +26,10 @@ class TopicsResponse(BaseModel):
     topics: List[str]
     status: str
 
+class SessionFeedback(BaseModel):
+    rating: Optional[int] = None
+    feedback: Optional[str] = None
+
 class TopicsFeedbackRequest(BaseModel):
     selected_topics: List[str]
+    feedback: Optional[SessionFeedback] = None
