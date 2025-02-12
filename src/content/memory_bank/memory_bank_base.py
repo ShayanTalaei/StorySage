@@ -35,7 +35,8 @@ class MemoryBankBase(ABC):
         text: str,
         importance_score: int,
         source_interview_response: str,
-        metadata: Optional[Dict] = None
+        metadata: Optional[Dict] = None,
+        question_ids: Optional[List[str]] = None
     ) -> Memory:
         """Add a new memory to the database.
         
@@ -43,8 +44,9 @@ class MemoryBankBase(ABC):
             title: Title of the memory
             text: Content of the memory
             importance_score: Importance score of the memory
-            source_interview_response: Original response from interview that generated this memory
+            source_interview_response: Original response from interview
             metadata: Optional metadata dictionary
+            question_ids: Optional list of question IDs that generated this memory
             
         Returns:
             Memory: The created memory object
@@ -134,4 +136,30 @@ class MemoryBankBase(ABC):
         Args:
             user_id: ID of the user whose data to load
         """
-        pass 
+        pass
+    
+    def get_memory_by_id(self, memory_id: str) -> Optional[Memory]:
+        """Get a memory by its ID."""
+        return next((m for m in self.memories if m.id == memory_id), None)
+
+    def link_question(self, memory_id: str, question_id: str) -> None:
+        """Link a question to a memory.
+        
+        Args:
+            memory_id: ID of the memory
+            question_id: ID of the question to link
+        """
+        memory = self.get_memory_by_id(memory_id)
+        if memory and question_id not in memory.question_ids:
+            memory.question_ids.append(question_id)
+
+    def get_memories_by_question(self, question_id: str) -> List[Memory]:
+        """Get all memories linked to a specific question.
+        
+        Args:
+            question_id: ID of the question
+            
+        Returns:
+            List[Memory]: List of memories linked to the question
+        """
+        return [m for m in self.memories if question_id in m.question_ids] 

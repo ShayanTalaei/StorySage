@@ -41,11 +41,14 @@ class MemoryBankVectorDB(MemoryBankBase):
         text: str,
         importance_score: int,
         source_interview_response: str,
-        metadata: Dict = None
+        metadata: Dict = None,
+        question_ids: List[str] = None
     ) -> Memory:
         """Add a new memory to the vector database."""
         if metadata is None:
             metadata = {}
+        if question_ids is None:
+            question_ids = []
             
         memory_id = self.generate_memory_id()
         combined_text = f"{title}\n{text}"
@@ -59,6 +62,7 @@ class MemoryBankVectorDB(MemoryBankBase):
             importance_score=importance_score,
             timestamp=datetime.now(),
             source_interview_response=source_interview_response,
+            question_ids=question_ids
         )
         
         self.memories.append(memory)

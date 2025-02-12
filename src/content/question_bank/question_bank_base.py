@@ -62,16 +62,6 @@ class QuestionBankBase(ABC):
         """
         pass
     
-    def link_memory(self, question_id: str, memory_id: str) -> None:
-        """Link a memory to a question."""
-        question = self.get_question_by_id(question_id)
-        if question and memory_id not in question.memory_ids:
-            question.memory_ids.append(memory_id)
-    
-    def get_question_by_id(self, question_id: str) -> Optional[Question]:
-        """Get a question by its ID."""
-        return next((q for q in self.questions if q.id == question_id), None)
-    
     def save_to_file(self, user_id: str) -> None:
         """Save the question bank to file."""
         content_data = {
@@ -117,3 +107,17 @@ class QuestionBankBase(ABC):
     def _load_implementation_specific(self, user_id: str) -> None:
         """Load implementation-specific data."""
         pass 
+    
+    def get_question_by_id(self, question_id: str) -> Optional[Question]:
+        """Get a question by its ID."""
+        return next((q for q in self.questions if q.id == question_id), None)
+    
+    def link_memory(self, question_id: str, memory_id: str) -> None:
+        """Link a memory to a question."""
+        question = self.get_question_by_id(question_id)
+        if question and memory_id not in question.memory_ids:
+            question.memory_ids.append(memory_id)
+    
+    def get_questions_by_memory(self, memory_id: str) -> List[Question]:
+        """Get all questions linked to a specific memory."""
+        return [q for q in self.questions if memory_id in q.memory_ids]
