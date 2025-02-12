@@ -1,0 +1,1 @@
+python src/main.py --mode setup_db --reset
