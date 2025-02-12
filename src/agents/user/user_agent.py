@@ -3,7 +3,7 @@ import json
 import dotenv
 import re
 from agents.base_agent import BaseAgent
-from user.user import User
+from interview_session.user.user import User
 from interview_session.session_models import Message
 from interview_session.session_models import MessageType
 dotenv.load_dotenv(override=True)

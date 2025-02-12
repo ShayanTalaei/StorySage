@@ -1,7 +1,7 @@
 import pytest
 import os
 import shutil
-from session_note.interview_question import InterviewQuestion
+from content.session_note.interview_question import InterviewQuestion
 from src.session_note.session_note import SessionNote
 
 USER_ID = "test_user"

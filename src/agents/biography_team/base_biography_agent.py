@@ -1,7 +1,7 @@
 from typing import Dict, TYPE_CHECKING, Optional, TypedDict
 from agents.base_agent import BaseAgent
 from interview_session.session_models import Participant
-from biography.biography import Biography
+from content.biography.biography import Biography
 
 if TYPE_CHECKING:
     from interview_session.interview_session import InterviewSession

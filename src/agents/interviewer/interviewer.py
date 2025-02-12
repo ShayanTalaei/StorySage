@@ -12,7 +12,7 @@ from agents.base_agent import BaseAgent
 from agents.interviewer.prompts import get_prompt
 from agents.prompt_utils import format_prompt
 from interview_session.session_models import Participant, Message
-from memory_bank.memory_bank_base import MemoryBankBase
+from content.memory_bank.memory_bank_base import MemoryBankBase
 from utils.text_to_speech import TextToSpeechBase, create_tts_engine
 from utils.audio_player import create_audio_player, AudioPlayerBase
 

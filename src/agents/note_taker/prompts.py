@@ -125,6 +125,7 @@ If you identify information worth storing, use the following format:
         <source_interview_response>The exact user message containing this information</source_interview_response>
     </update_memory_bank>
     ...
+    ...
 </tool_calls>
 </output_format>
 """

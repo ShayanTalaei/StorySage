@@ -6,7 +6,7 @@ import random
 import string
 from datetime import datetime
 
-from memory_bank.memory import Memory
+from content.memory_bank.memory import Memory
 
 class MemoryBankBase(ABC):
     """Abstract base class for memory bank implementations.

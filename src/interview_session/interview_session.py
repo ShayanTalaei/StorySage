@@ -11,14 +11,14 @@ from interview_session.session_models import Message, MessageType, Participant
 from agents.interviewer.interviewer import Interviewer, InterviewerConfig, TTSConfig
 from agents.note_taker.note_taker import NoteTaker, NoteTakerConfig
 from agents.user.user_agent import UserAgent
-from session_note.session_note import SessionNote
+from content.session_note.session_note import SessionNote
 from utils.feedback import save_feedback_to_csv
 from utils.logger import SessionLogger, setup_logger
-from user.user import User
+from interview_session.user.user import User
 from agents.biography_team.orchestrator import BiographyOrchestrator
 from agents.biography_team.base_biography_agent import BiographyConfig
-from memory_bank.memory_bank_vector_db import MemoryBankVectorDB
-# from memory_bank.memory_bank_graph_rag import MemoryBankGraphRAG  # future implementation
+from content.memory_bank.memory_bank_vector_db import MemoryBankVectorDB
+# from content.memory_bank.memory_bank_graph_rag import MemoryBankGraphRAG  # future implementation
 
 load_dotenv(override=True)
 

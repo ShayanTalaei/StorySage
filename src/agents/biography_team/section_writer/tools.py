@@ -4,9 +4,8 @@ from langchain_core.callbacks.manager import CallbackManagerForToolRun
 from langchain_core.tools import BaseTool, ToolException
 
 
-from biography.biography import Biography
-from memory_bank.memory_bank_base import MemoryBankBase
-
+from content.biography.biography import Biography
+from content.memory_bank.memory_bank_base import MemoryBankBase
 
 class GetSectionInput(BaseModel):
     path: str = Field(description="Path to the section to retrieve")

@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 from agents.biography_team.base_biography_agent import BiographyConfig, BiographyTeamAgent
 from agents.biography_team.models import TodoItem
 from agents.biography_team.section_writer.prompts import SECTION_WRITER_PROMPT, USER_ADD_SECTION_PROMPT, USER_COMMENT_EDIT_PROMPT
-from biography.biography_styles import BIOGRAPHY_STYLE_WRITER_INSTRUCTIONS
+from content.biography.biography_styles import BIOGRAPHY_STYLE_WRITER_INSTRUCTIONS
 from agents.biography_team.section_writer.tools import GetSection, GetSectionByTitle, UpdateSection, UpdateSectionByTitle, AddSection, Recall
 
 if TYPE_CHECKING:

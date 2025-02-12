@@ -11,8 +11,8 @@ import numpy as np
 from openai import OpenAI
 import dotenv
 
-from memory_bank.memory_bank_base import MemoryBankBase
-from memory_bank.memory import Memory
+from content.memory_bank.memory_bank_base import MemoryBankBase
+from content.memory_bank.memory import Memory
 
 # Load environment variables
 dotenv.load_dotenv(override=True)

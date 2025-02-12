@@ -30,18 +30,18 @@ The project is structured as follows:
 ```bash
 # 1. Core Interview Components
 src/
-├── interview_session/  # Manages live interview interactions
-├── agents/            # AI team members (Interviewer, Writer, etc.)
-├── user/              # User interaction handling
+├── agents/             # AI team members (Interviewer, Writer, etc.)
+└── interview_session/  # Manages live interview interactions
+    └── user/           # User interaction handling
 
 # 2. Memory & Content
-├── biography/         # Biography creation & management
-├── memory_bank/      # Long-term memory storage
-├── session_note/     # Interview notes & summaries
+└── content/
+    ├── biography/         # Biography creation & management
+    ├── memory_bank/      # Long-term memory storage
+    └── session_note/     # Interview notes & summaries
 
 # 3. Core Utils
-├── llm/              # AI model interactions
-└── utils/            # Helper functions
+└── utils/            # Helper functions and shared utilities
 
 # 4. Backend Modules
 ├── api/              # HTTP endpoints (when running as HTTP service)

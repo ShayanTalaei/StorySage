@@ -14,8 +14,8 @@ from agents.base_agent import BaseAgent
 from agents.note_taker.prompts import get_prompt
 from agents.prompt_utils import format_prompt
 from interview_session.session_models import Participant, Message
-from memory_bank.memory_bank_base import MemoryBankBase
-from session_note.session_note import SessionNote
+from content.memory_bank.memory_bank_base import MemoryBankBase
+from content.session_note.session_note import SessionNote
 from utils.logger import SessionLogger
 
 if TYPE_CHECKING:

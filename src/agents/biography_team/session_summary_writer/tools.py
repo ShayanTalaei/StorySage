@@ -4,8 +4,8 @@ from typing import Type, Optional
 from langchain_core.callbacks.manager import CallbackManagerForToolRun
 
 
-from memory_bank.memory_bank_base import MemoryBankBase
-from session_note.session_note import SessionNote
+from content.memory_bank.memory_bank_base import MemoryBankBase
+from content.session_note.session_note import SessionNote
 
 class UpdateLastMeetingSummaryInput(BaseModel):
     summary: str = Field(description="The new summary text for the last meeting")
