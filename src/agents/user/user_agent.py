@@ -30,40 +30,37 @@ class UserAgent(BaseAgent, User):
             
         # Add the interviewer's message to our event stream
         self.add_event(sender=message.role, tag="message", content=message.content)
+        # Score the interviewer's question for potential feedback
+        score_prompt = self.get_prompt(prompt_type="score_question")
+        self.add_event(sender=self.name, tag="score_question_prompt", content=score_prompt)
         
-        # First, determine if user wants to respond
-        prompt = self.get_prompt(prompt_type="decide_to_respond")
-        self.add_event(sender=self.name, tag="decide_to_respond_prompt", content=prompt)
+        score_response = await self.call_engine_async(score_prompt)
+        self.add_event(sender=self.name, tag="score_question_response", content=score_response)
+        
+        # # Extract the score and reasoning
+        self.question_score, self.question_score_reasoning = self._extract_response(score_response)
 
-        decide_response = await self.call_engine_async(prompt)
-        self.add_event(sender=self.name, tag="decide_to_respond_response", content=decide_response)
+        prompt = self.get_prompt(prompt_type="respond_to_question")
+        self.add_event(sender=self.name, tag="respond_to_question_prompt", content=prompt)
+
+        response = await self.call_engine_async(prompt)
+        self.add_event(sender=self.name, tag="respond_to_question_response", content=response)
+
+        response_content, response_reasoning = self._extract_response(response)
         
-        # Extract the decision and reasoning
-        response_text, decide_to_respond_reasoning = self._extract_response(decide_response)
-        response_text = response_text.strip().lower()
-        
-        if response_text not in ['yes', 'no']:
-            self.logger.warning(f"Invalid response format: {response_text}. Defaulting to yes.")
-            wants_to_respond = True
-        else:
-            wants_to_respond = response_text == 'yes'
+        wants_to_respond = response_content != "SKIP"
         
         if wants_to_respond:
             # Generate detailed response using LLM
-            response_prompt = self.get_prompt(prompt_type="respond_to_question")
-            self.add_event(sender=self.name, tag="response_prompt", content=response_prompt)
-            full_response = await self.call_engine_async(response_prompt)
-            self.add_event(sender=self.name, tag="llm_response", content=full_response)
             
             # Extract just the <response> content to send to chat history
-            response_content, _ = self._extract_response(full_response)
             self.add_event(sender=self.name, tag="message", content=response_content)
-
-            if response_content:
-                self.interview_session.add_message_to_chat_history(role=self.title, content=response_content, message_type=MessageType.CONVERSATION)
+            self.interview_session.add_message_to_chat_history(role=self.title, content=response_reasoning, message_type=MessageType.FEEDBACK)
+            self.interview_session.add_message_to_chat_history(role=self.title, content=response_content, message_type=MessageType.CONVERSATION)
+       
         else:
             # We SKIP the response and log a feedback message
-            self.interview_session.add_message_to_chat_history(role=self.title, content=decide_to_respond_reasoning, message_type=MessageType.FEEDBACK)
+            self.interview_session.add_message_to_chat_history(role=self.title, content=response_reasoning, message_type=MessageType.FEEDBACK)
             self.interview_session.add_message_to_chat_history(role=self.title, message_type=MessageType.SKIP)
 
 
@@ -71,12 +68,21 @@ class UserAgent(BaseAgent, User):
         """Get the formatted prompt for the LLM"""
         from agents.user.prompts import get_prompt
         
-        return get_prompt(prompt_type).format(
-            profile_background = self.profile_background,
-            conversational_style = self.conversational_style,
-            chat_history = self.get_event_stream_str([{"tag": "message"}])
-        )
-    
+        if prompt_type == "score_question":
+            return get_prompt(prompt_type).format(
+                profile_background = self.profile_background,
+                conversational_style = self.conversational_style,
+                chat_history = self.get_event_stream_str([{"tag": "message"}])
+            )
+        elif prompt_type == "respond_to_question":
+            return get_prompt(prompt_type).format(
+                profile_background = self.profile_background,
+                conversational_style = self.conversational_style,
+                score = self.question_score,
+                score_reasoning = self.question_score_reasoning,
+                chat_history = self.get_event_stream_str([{"tag": "message"}])
+            )
+        
     def _extract_response(self, full_response: str) -> tuple[str, str]:
         """Extract the content between <response_content> and <thinking> tags"""
         response_match = re.search(r'<response_content>(.*?)</response_content>', full_response, re.DOTALL)
@@ -84,5 +90,4 @@ class UserAgent(BaseAgent, User):
         
         response = response_match.group(1).strip() if response_match else full_response
         thinking = thinking_match.group(1).strip() if thinking_match else ""
-        
         return response, thinking
