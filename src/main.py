@@ -7,7 +7,7 @@ import uvicorn
 
 from interview_session.interview_session import InterviewSession
 from database.setup_db import setup_database
-from utils.speech_to_text import PYAUDIO_AVAILABLE
+from utils.speech.speech_to_text import PYAUDIO_AVAILABLE
 
 load_dotenv(override=True)
 

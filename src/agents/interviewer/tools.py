@@ -6,9 +6,9 @@ from langchain_core.tools import BaseTool, ToolException
 from pydantic import BaseModel, Field, SkipValidation
 
 from content.memory_bank.memory_bank_base import MemoryBankBase
-from utils.text_to_speech import TextToSpeechBase, create_tts_engine
-from utils.audio_player import create_audio_player, AudioPlayerBase
-from utils.colors import RED, RESET, GREEN
+from utils.speech.text_to_speech import TextToSpeechBase, create_tts_engine
+from utils.speech.audio_player import create_audio_player, AudioPlayerBase
+from utils.constants.colors import RED, RESET, GREEN
 
 
 class RecallInput(BaseModel):

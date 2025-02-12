@@ -1,10 +1,10 @@
 from typing import TYPE_CHECKING
 from interview_session.session_models import Participant, Message
 from utils.logger import SessionLogger
-from utils.speech_to_text import create_stt_engine
+from utils.speech.speech_to_text import create_stt_engine
 import time
 
-from utils.colors import RESET, ORANGE, BLUE
+from utils.constants.colors import RESET, ORANGE, BLUE
 
 if TYPE_CHECKING:
     from interview_session.interview_session import InterviewSession

@@ -7,7 +7,7 @@ from botocore.exceptions import ClientError
 import uuid
 
 from api.core.auth import get_current_user
-from utils.colors import RESET, RED
+from utils.constants.colors import RESET, RED
 
 router = APIRouter(tags=["voice"])
 

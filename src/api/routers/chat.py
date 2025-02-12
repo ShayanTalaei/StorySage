@@ -16,7 +16,7 @@ from interview_session.interview_session import InterviewSession
 from api.core.auth import get_current_user
 from api.core.session_manager import session_manager
 from interview_session.session_models import MessageType
-from utils.colors import RESET, RED
+from utils.constants.colors import RESET, RED
 
 router = APIRouter(
     tags=["chat"]

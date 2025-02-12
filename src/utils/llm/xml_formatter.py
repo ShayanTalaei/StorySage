@@ -4,7 +4,7 @@ from pydantic import BaseModel
 import xml.etree.ElementTree as ET
 import json
 
-from utils.colors import ORANGE, RESET
+from utils.constants.colors import ORANGE, RESET
 
 def format_tool_as_xml_v2(tool: Type[BaseTool]) -> str:
     """

@@ -1,4 +1,4 @@
-from agents.prompt_utils import format_prompt
+from utils.llm.prompt_utils import format_prompt
 
 def get_prompt():
     return format_prompt(NEXT_ACTION_PROMPT, {

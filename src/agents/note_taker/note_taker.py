@@ -10,7 +10,7 @@ from agents.base_agent import BaseAgent
 from agents.interviewer.interviewer import Recall
 from agents.note_taker.prompts import get_prompt
 from agents.note_taker.tools import AddInterviewQuestion, DecideFollowups, UpdateSessionNote, UpdateMemoryBank
-from agents.prompt_utils import format_prompt
+from utils.llm.prompt_utils import format_prompt
 from interview_session.session_models import Participant, Message
 from utils.logger import SessionLogger
 
