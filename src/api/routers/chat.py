@@ -16,15 +16,12 @@ from interview_session.interview_session import InterviewSession
 from api.core.auth import get_current_user
 from api.core.session_manager import session_manager
 from interview_session.session_models import MessageType
+from utils.colors import RESET, RED
 
 router = APIRouter(
     tags=["chat"]
 )
 
-# Console colors
-GREEN = '\033[92m'
-RESET = '\033[0m'
-RED = '\033[91m'
 
 async def check_inactive_sessions():
     while True:

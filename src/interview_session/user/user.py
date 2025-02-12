@@ -4,13 +4,10 @@ from utils.logger import SessionLogger
 from utils.speech_to_text import create_stt_engine
 import time
 
+from utils.colors import RESET, ORANGE, BLUE
+
 if TYPE_CHECKING:
     from interview_session.interview_session import InterviewSession
-
-GREEN = '\033[92m'
-ORANGE = '\033[93m'
-RESET = '\033[0m'
-BLUE = '\033[94m'
 
 class User(Participant):
     def __init__(self, user_id: str, interview_session: 'InterviewSession', enable_voice_input: bool = False):
