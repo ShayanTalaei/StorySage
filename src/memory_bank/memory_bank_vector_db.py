@@ -9,43 +9,12 @@ from typing import Dict, List
 import faiss
 import numpy as np
 from openai import OpenAI
-from pydantic import BaseModel
 import dotenv
+
+from memory_bank.memory import Memory
 
 # Load environment variables
 dotenv.load_dotenv(override=True)
-
-class Memory(BaseModel):
-    id: str
-    title: str
-    text: str
-    metadata: dict
-    importance_score: int
-    timestamp: datetime
-
-    def to_dict(self) -> dict:
-        """Convert Memory object to dictionary."""
-        return {
-            'id': self.id,
-            'title': self.title,
-            'text': self.text,
-            'metadata': self.metadata,
-            'importance_score': self.importance_score,
-            'timestamp': self.timestamp.isoformat(),
-        }
-
-    @classmethod
-    def from_dict(cls, memory_dict: dict) -> 'Memory':
-        """Create Memory object from dictionary."""
-        return cls(
-            id=memory_dict['id'],
-            title=memory_dict['title'],
-            text=memory_dict['text'],
-            metadata=memory_dict['metadata'],
-            importance_score=memory_dict['importance_score'],
-            timestamp=datetime.fromisoformat(memory_dict['timestamp']),
-        )
-
 
 class MemoryBank:
     def __init__(self, embedding_dimension: int = 1536):
@@ -63,8 +32,16 @@ class MemoryBank:
         )
         return np.array(response.data[0].embedding, dtype=np.float32)
 
-    def add_memory(self, title: str, text: str, importance_score: int, metadata: Dict = None) -> None:
-        """Add a new memory to the database."""
+    def add_memory(self, title: str, text: str, importance_score: int, source_interview_response: str, metadata: Dict = None) -> None:
+        """Add a new memory to the database.
+        
+        Args:
+            title: Title of the memory
+            text: Content of the memory
+            importance_score: Importance score of the memory
+            source_interview_response: Original response from interview that generated this memory
+            metadata: Optional metadata dictionary
+        """
         if metadata is None:
             metadata = {}
             
@@ -79,6 +56,7 @@ class MemoryBank:
             metadata=metadata,
             importance_score=importance_score,
             timestamp=datetime.now(),
+            source_interview_response=source_interview_response,
         )
         
         self.memories.append(memory)

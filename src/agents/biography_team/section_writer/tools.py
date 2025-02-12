@@ -5,7 +5,7 @@ from langchain_core.tools import BaseTool, ToolException
 
 
 from biography.biography import Biography
-from memory_bank.memory_bank_vector_db import MemoryBank
+from memory_bank.memory_bank_base import MemoryBankBase
 
 
 class GetSectionInput(BaseModel):
@@ -112,14 +112,14 @@ class Recall(BaseTool):
     name: str = "recall"
     description: str = "Search for relevant memories before writing/updating sections"
     args_schema: Type[BaseModel] = RecallInput
-    memory_bank: Optional[MemoryBank] = Field(default=None)
+    memory_bank: Optional[MemoryBankBase] = Field(default=None)
     user_id: Optional[str] = Field(default=None)
 
     def _run(self, query: str, reasoning: str, run_manager: Optional[CallbackManagerForToolRun] = None) -> str:
         try:
             # Load memory bank from file if not provided
             if self.memory_bank is None and self.user_id:
-                self.memory_bank = MemoryBank.load_from_file(self.user_id)
+                self.memory_bank = MemoryBankBase.load_from_file(self.user_id)
             
             if self.memory_bank is None:
                 raise ToolException("No memory bank available")

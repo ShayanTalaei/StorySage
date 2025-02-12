@@ -82,6 +82,7 @@ UPDATE_MEMORY_BANK_INSTRUCTIONS = """
   3. Summarize the information clearly
   4. Add relevant metadata (e.g., topics, people mentioned, emotions, etc.)
   5. Rate the importance of the memory on a scale from 1 to 10
+  6. Include the exact user message that contains this information as the source
 
 ## Topics to focus on:
 - Information about the user's life
@@ -92,6 +93,11 @@ UPDATE_MEMORY_BANK_INSTRUCTIONS = """
 - Goals and aspirations
 - Emotional moments
 - Anything else that you think is important
+
+## Source Interview Response:
+- Always include the exact user message that contains the information
+- If the information spans multiple messages, include the most relevant one
+- The source should be traceable back to the original conversation
 
 # Calling Tools
 - For each piece of information worth storing, use the update_memory_bank tool.
@@ -109,11 +115,13 @@ If you identify information worth storing, use the following format:
         <text>Clear summary of the information</text>
         <metadata>{{"key 1": "value 1", "key 2": "value 2", ...}}</metadata>
         <importance_score>1-10</importance_score>
+        <source_interview_response>The exact user message containing this information</source_interview_response>
     </update_memory_bank>
     ...
 </tool_calls>
 - You can make multiple tool calls at once if there are multiple pieces of information worth storing.
 - If there's no information worth storing, don't make any tool calls; i.e. return <tool_calls></tool_calls>.
+- Always include the exact user message that contains the information as the source_interview_response.
 </output_format>
 """
 

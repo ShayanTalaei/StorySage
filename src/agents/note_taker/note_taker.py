@@ -217,6 +217,10 @@ class UpdateMemoryBankInput(BaseModel):
         "A score of 10 indicates major life events like a relationship ending or getting accepted to college. "
         "Use this scale to rate how significant this memory is likely to be."
     ))
+    source_interview_response: str = Field(description=(
+        "The original user response from the interview that this memory is derived from. "
+        "This should be the exact message from the user that contains this information."
+    ))
 
 class UpdateMemoryBank(BaseTool):
     """Tool for updating the memory bank."""
@@ -232,6 +236,7 @@ class UpdateMemoryBank(BaseTool):
         text: str,
         metadata: dict,
         importance_score: int,
+        source_interview_response: str,
         run_manager: Optional[CallbackManagerForToolRun] = None,
     ) -> str:
         try:
@@ -239,7 +244,8 @@ class UpdateMemoryBank(BaseTool):
                 title=title, 
                 text=text, 
                 metadata=metadata, 
-                importance_score=importance_score
+                importance_score=importance_score,
+                source_interview_response=source_interview_response
             )
             self.note_taker.add_new_memory(memory.to_dict())
             return f"Successfully stored memory: {title}"
