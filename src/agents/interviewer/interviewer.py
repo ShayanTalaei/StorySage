@@ -11,8 +11,8 @@ from datetime import datetime
 from agents.base_agent import BaseAgent
 from agents.interviewer.prompts import get_prompt
 from agents.prompt_utils import format_prompt
-from memory_bank.memory_bank_vector_db import MemoryBank
 from interview_session.session_models import Participant, Message
+from memory_bank.memory_bank_base import MemoryBankBase
 from utils.text_to_speech import TextToSpeechBase, create_tts_engine
 from utils.audio_player import create_audio_player, AudioPlayerBase
 
@@ -164,7 +164,7 @@ class Recall(BaseTool):
         "Whenever you need to recall information about the user, you can use call this tool."
     )
     args_schema: Type[BaseModel] = RecallInput
-    memory_bank: MemoryBank = Field(...)
+    memory_bank: MemoryBankBase = Field(...)
     handle_tool_error: bool = True
     correct_directory_path: str = ""
 

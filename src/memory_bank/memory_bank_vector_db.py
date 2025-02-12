@@ -11,17 +11,20 @@ import numpy as np
 from openai import OpenAI
 import dotenv
 
+from memory_bank.memory_bank_base import MemoryBankBase
 from memory_bank.memory import Memory
 
 # Load environment variables
 dotenv.load_dotenv(override=True)
 
-class MemoryBank:
+class MemoryBankVectorDB(MemoryBankBase):
+    """Vector database implementation of memory bank using FAISS and OpenAI embeddings."""
+    
     def __init__(self, embedding_dimension: int = 1536):
+        super().__init__()
         self.client = OpenAI()
         self.embedding_dimension = embedding_dimension
         self.index = faiss.IndexFlatL2(embedding_dimension)
-        self.memories: List[Memory] = []
         self.embeddings: Dict[str, np.ndarray] = {}
         
     def _get_embedding(self, text: str) -> np.ndarray:
@@ -32,16 +35,15 @@ class MemoryBank:
         )
         return np.array(response.data[0].embedding, dtype=np.float32)
 
-    def add_memory(self, title: str, text: str, importance_score: int, source_interview_response: str, metadata: Dict = None) -> None:
-        """Add a new memory to the database.
-        
-        Args:
-            title: Title of the memory
-            text: Content of the memory
-            importance_score: Importance score of the memory
-            source_interview_response: Original response from interview that generated this memory
-            metadata: Optional metadata dictionary
-        """
+    def add_memory(
+        self,
+        title: str,
+        text: str,
+        importance_score: int,
+        source_interview_response: str,
+        metadata: Dict = None
+    ) -> Memory:
+        """Add a new memory to the vector database."""
         if metadata is None:
             metadata = {}
             
@@ -67,7 +69,7 @@ class MemoryBank:
 
     def search_memories(self, query: str, k: int = 5) -> List[Dict]:
         """Search for similar memories using the query text."""
-        if not self.memories:  # Check if memories list is empty
+        if not self.memories:
             return []
         
         query_embedding = self._get_embedding(query)
@@ -91,12 +93,8 @@ class MemoryBank:
         
         return results
 
-    def save_to_file(self, user_id: str) -> None:
-        """Save the memory bank to separate content and embedding files."""
-        content_data = {
-            'memories': [memory.to_dict() for memory in self.memories]
-        }
-        
+    def _save_implementation_specific(self, user_id: str) -> None:
+        """Save embeddings to file."""
         embedding_data = {
             'embeddings': [
                 {'id': memory_id, 'embedding': embedding.tolist()}
@@ -104,47 +102,29 @@ class MemoryBank:
             ]
         }
         
-        content_filepath = os.getenv("LOGS_DIR") + f"/{user_id}/memory_bank_content.json"
         embedding_filepath = os.getenv("LOGS_DIR") + f"/{user_id}/memory_bank_embeddings.json"
-        
-        with open(content_filepath, 'w') as f:
-            json.dump(content_data, f, indent=2)
         with open(embedding_filepath, 'w') as f:
             json.dump(embedding_data, f)
 
-    @classmethod
-    def load_from_file(cls, user_id: str) -> 'MemoryBank':
-        """Load a memory bank from separate content and embedding files."""
-        memory_bank = cls()
-        
-        content_filepath = os.getenv("LOGS_DIR") + f"/{user_id}/memory_bank_content.json"
+    def _load_implementation_specific(self, user_id: str) -> None:
+        """Load embeddings from file and reconstruct the FAISS index."""
         embedding_filepath = os.getenv("LOGS_DIR") + f"/{user_id}/memory_bank_embeddings.json"
         
         try:
-            # Load content and embeddings
-            with open(content_filepath, 'r') as f:
-                content_data = json.load(f)
             with open(embedding_filepath, 'r') as f:
                 embedding_data = json.load(f)
                 
-            # Create embedding lookup dictionary and store in memory_bank
-            memory_bank.embeddings = {
+            # Create embedding lookup dictionary
+            self.embeddings = {
                 e['id']: np.array(e['embedding'], dtype=np.float32)
                 for e in embedding_data['embeddings']
             }
             
-            # Reconstruct memories
-            for memory_data in content_data['memories']:
-                memory = Memory.from_dict(memory_data)
-                memory_bank.memories.append(memory)
-                
-                # Add embedding to index if available
-                embedding = memory_bank.embeddings.get(memory.id)
+            # Reconstruct FAISS index
+            for memory in self.memories:
+                embedding = self.embeddings.get(memory.id)
                 if embedding is not None:
-                    memory_bank.index.add(embedding.reshape(1, -1))
-                
+                    self.index.add(embedding.reshape(1, -1))
+                    
         except FileNotFoundError:
-            # Create new empty memory bank if files don't exist
-            memory_bank.save_to_file(user_id)
-            
-        return memory_bank
+            pass  # No embeddings file exists yet

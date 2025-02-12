@@ -14,7 +14,7 @@ from agents.base_agent import BaseAgent
 from agents.note_taker.prompts import get_prompt
 from agents.prompt_utils import format_prompt
 from interview_session.session_models import Participant, Message
-from memory_bank.memory_bank_vector_db import MemoryBank
+from memory_bank.memory_bank_base import MemoryBankBase
 from session_note.session_note import SessionNote
 from utils.logger import SessionLogger
 
@@ -227,7 +227,7 @@ class UpdateMemoryBank(BaseTool):
     name: str = "update_memory_bank"
     description: str = "A tool for storing new memories in the memory bank."
     args_schema: Type[BaseModel] = UpdateMemoryBankInput
-    memory_bank: MemoryBank = Field(...)
+    memory_bank: MemoryBankBase = Field(...)  # Use the base class for type hint
     note_taker: NoteTaker = Field(...)
 
     def _run(
@@ -327,7 +327,7 @@ class Recall(BaseTool):
         "Explain your search intent and how the results will guide your decision."
     )
     args_schema: Type[BaseModel] = RecallInput
-    memory_bank: MemoryBank = Field(...)
+    memory_bank: MemoryBankBase = Field(...)  # Changed to use base class
 
     def _run(
         self,

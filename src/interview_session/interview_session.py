@@ -17,7 +17,8 @@ from utils.logger import SessionLogger, setup_logger
 from user.user import User
 from agents.biography_team.orchestrator import BiographyOrchestrator
 from agents.biography_team.base_biography_agent import BiographyConfig
-from memory_bank.memory_bank_vector_db import MemoryBank
+from memory_bank.memory_bank_vector_db import MemoryBankVectorDB
+# from memory_bank.memory_bank_graph_rag import MemoryBankGraphRAG  # future implementation
 
 load_dotenv(override=True)
 
@@ -34,7 +35,7 @@ class InterviewConfig(TypedDict, total=False):
 
 class InterviewSession: 
     
-    def __init__(self, interaction_mode: str = 'terminal', user_config: UserConfig = {}, interview_config: InterviewConfig = {}):
+    def __init__(self, interaction_mode: str = 'terminal', user_config: UserConfig = {}, interview_config: InterviewConfig = {}, config: dict = {}):
         """Initialize the interview session.
 
         Args:
@@ -44,16 +45,24 @@ class InterviewSession:
                 enable_voice: Enable voice input (default: False)
             interview_config: Interview configuration dictionary
                 enable_voice: Enable voice output (default: False)
+            config: Additional configuration dictionary
+                memory_bank_type: Type of memory bank to use ("vector_db" or "graph_rag")
         """
 
-        # Session setup
+        # User setup
         self.user_id = user_config.get("user_id", "default_user")
 
-        # Grabs last session note. This is updated to reflect the new questions for this session.
+        # Session note setup
         self.session_note = SessionNote.get_last_session_note(self.user_id)
-        self.memory_bank = MemoryBank.load_from_file(self.user_id)
         self.session_id = self.session_note.session_id + 1
 
+        # Memory bank setup
+        memory_bank_type = config.get("memory_bank_type", "vector_db")
+        if memory_bank_type == "vector_db":
+            self.memory_bank = MemoryBankVectorDB()
+        else:
+            raise ValueError(f"Unknown memory bank type: {memory_bank_type}")
+        
         # Logs to execution_log
         setup_logger(self.user_id, self.session_id, console_output_files=["execution_log"])
         SessionLogger.log_to_file("execution_log", f"[INIT] Starting interview session for user {self.user_id}")
