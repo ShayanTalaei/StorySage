@@ -117,16 +117,18 @@ class InterviewSession:
         
         SessionLogger.log_to_file("execution_log", f"[INIT] Agents initialized: Interviewer, Note Taker, Biography Orchestrator")
         
-        # Notetaker subscribes to Interviewer. That is, Notetaker's on_message function is called when Interviewer updates shared chat history.
-        # Interviewer + Notetaker subscribes to User. That is, Interviewer or NoteTaker's on_message function is called when User updates shared chat history.
+        
+        # Subscriptions of participants to each other
         self.subscriptions: Dict[str, List[Participant]] = {
-            "Interviewer": [self.note_taker],
-            "User": [self.interviewer, self.note_taker]
+            "Interviewer": [self.note_taker], # Note-taker subscribes to Interviewer. That is, Note-taker's on_message function is called when Interviewer updates shared chat history.
+            "User": [self.interviewer, self.note_taker] # Interviewer + Note-taker subscribes to User. That is, Interviewer or NoteTaker's on_message function is called when User updates shared chat history.
         }
+        
+        # API participant for terminal interaction
         if self.user:
             self.subscriptions["Interviewer"].append(self.user)
         
-        # API participant for handling API responses
+        # API participant for backend API interaction
         self.api_participant = None
         if interaction_mode == 'api':
             from api.core.api_participant import APIParticipant

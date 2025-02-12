@@ -1,15 +1,15 @@
-from typing import Optional, TYPE_CHECKING, Type
+from typing import Optional, TYPE_CHECKING
 from dataclasses import dataclass
-from langchain_core.callbacks.manager import CallbackManagerForToolRun
-from langchain_core.tools import BaseTool, ToolException
-from pydantic import BaseModel, Field
 
 
 from agents.biography_team.base_biography_agent import BiographyConfig, BiographyTeamAgent
 from agents.biography_team.models import TodoItem
 from agents.biography_team.section_writer.prompts import SECTION_WRITER_PROMPT, USER_ADD_SECTION_PROMPT, USER_COMMENT_EDIT_PROMPT
 from content.biography.biography_styles import BIOGRAPHY_STYLE_WRITER_INSTRUCTIONS
-from agents.biography_team.section_writer.tools import GetSection, GetSectionByTitle, UpdateSection, UpdateSectionByTitle, AddSection, Recall
+from agents.biography_team.section_writer.tools import (
+    GetSection, GetSectionByTitle, UpdateSection, 
+    UpdateSectionByTitle, AddSection, AddFollowUpQuestion, Recall
+)
 
 if TYPE_CHECKING:
     from interview_session.interview_session import InterviewSession
@@ -35,7 +35,9 @@ class SectionWriter(BiographyTeamAgent):
             "update_section": UpdateSection(biography=self.biography),
             "update_section_by_title": UpdateSectionByTitle(biography=self.biography),
             "add_section": AddSection(biography=self.biography),
-            "add_follow_up_question": AddFollowUpQuestion(section_writer=self),
+            "add_follow_up_question": AddFollowUpQuestion(
+                on_question_added=lambda q: self.follow_up_questions.append(q)
+            ),
             "recall": Recall(
                 memory_bank=self.interview_session.memory_bank if interview_session else None,
                 user_id=self.config.get("user_id") if not interview_session else None
@@ -125,32 +127,3 @@ class SectionWriter(BiographyTeamAgent):
             error_msg = f"Error saving biography: {str(e)}"
             self.add_event(sender=self.name, tag="error", content=error_msg)
             return error_msg
-
-class AddFollowUpQuestionInput(BaseModel):
-    content: str = Field(description="The question to ask")
-    context: str = Field(description="Context explaining why this question is important")
-
-class AddFollowUpQuestion(BaseTool):
-    """Tool for adding follow-up questions."""
-    name: str = "add_follow_up_question"
-    description: str = (
-        "Add a follow-up question that needs to be asked to gather more information for the biography. "
-        "Include both the question and context explaining why this information is needed."
-    )
-    args_schema: Type[BaseModel] = AddFollowUpQuestionInput
-    section_writer: SectionWriter = Field(...)
-
-    def _run(
-        self,
-        content: str,
-        context: str,
-        run_manager: Optional[CallbackManagerForToolRun] = None,
-    ) -> str:
-        try:
-            self.section_writer.follow_up_questions.append({
-                "content": content.strip(),
-                "context": context.strip()
-            })
-            return f"Successfully added follow-up question: {content}"
-        except Exception as e:
-            raise ToolException(f"Error adding follow-up question: {str(e)}")

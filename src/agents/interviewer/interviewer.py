@@ -1,22 +1,17 @@
-import asyncio
 import os
-import time
 import re
-from typing import Dict, Type, Optional, Any, TYPE_CHECKING, TypedDict
+from typing import TYPE_CHECKING, TypedDict
 from dotenv import load_dotenv
-from langchain_core.callbacks.manager import CallbackManagerForToolRun
-from langchain_core.tools import BaseTool, ToolException
-from pydantic import BaseModel, Field
 from datetime import datetime
 
 
 from agents.base_agent import BaseAgent
 from agents.interviewer.prompts import get_prompt
+from agents.interviewer.tools import EndConversation, RespondToUser
+from agents.note_taker.tools import Recall
 from agents.prompt_utils import format_prompt
 from interview_session.session_models import Participant, Message
-from content.memory_bank.memory_bank_base import MemoryBankBase
-from utils.text_to_speech import TextToSpeechBase, create_tts_engine
-from utils.audio_player import create_audio_player, AudioPlayerBase
+
 
 if TYPE_CHECKING:
     from interview_session.interview_session import InterviewSession
@@ -60,11 +55,24 @@ class Interviewer(BaseAgent, Participant):
         self.tools = {
             "recall": Recall(memory_bank=self.interview_session.memory_bank),
             "respond_to_user": RespondToUser(
-                interviewer=self,
                 tts_config=tts_config,
-                base_path=self.base_path
+                base_path=self.base_path,
+                on_response=lambda response: self.interview_session.add_message_to_chat_history(
+                    role=self.title, 
+                    content=response
+                ),
+                on_turn_complete=lambda: setattr(self, 'turn_to_respond', False)
             ),
-            "end_conversation": EndConversation(interviewer=self)
+            "end_conversation": EndConversation(
+                on_goodbye=lambda goodbye: (
+                    self.add_event(sender=self.name, tag="goodbye", content=goodbye),
+                    self.interview_session.add_message_to_chat_history(role=self.title, content=goodbye)
+                ),
+                on_end=lambda: (
+                    setattr(self, 'turn_to_respond', False),
+                    self.interview_session.end_session()
+                )
+            )
         }
         
         self.turn_to_respond = False
@@ -150,116 +158,3 @@ class Interviewer(BaseAgent, Participant):
         
         return response, question_id, thinking
         
-class RecallInput(BaseModel):
-    reasoning: str = Field(description="Explain how this information will help you answer the user's question.")
-    query: str = Field(description=("The query to search for in the memory bank. "
-                                   "This should be a short phrase or sentence that captures the essence of the information you want to recall." 
-                                   "For example, you can ask about a specific event, a person, a feeling, etc. "
-                                   "You can also query more specifically, like 'a daytrip to the zoo'."))
-
-class Recall(BaseTool):
-    """Tool for recalling memories."""
-
-    name: str = "recall"
-    description: str = (
-        "A tool for recalling memories. "
-        "Whenever you need to recall information about the user, you can use call this tool."
-    )
-    args_schema: Type[BaseModel] = RecallInput
-    memory_bank: MemoryBankBase = Field(...)
-    handle_tool_error: bool = True
-    correct_directory_path: str = ""
-
-    def _run(
-        self,
-        query: str,
-        run_manager: Optional[CallbackManagerForToolRun] = None,
-    ) -> Any:
-        """Use the tool to run the Python code."""
-
-        try:
-            memories = self.memory_bank.search_memories(query)
-            memories_str = "\n".join([f"Memory {i+1}:\n{memory['text']}" for i, memory in enumerate(memories)])
-            return memories_str
-        except Exception as e:  
-            raise ToolException(f"Error recalling memories: {e}")
-
-class ResponseToUserInput(BaseModel):
-    response: str = Field(description="The response to the user.")
-
-class RespondToUser(BaseTool):
-    """Tool for responding to the user."""
-
-    name: str = "respond_to_user"
-    description: str = (
-        "A tool for responding to the user."
-    )
-    interviewer: Interviewer = Field(...)
-    tts_config: Dict = Field(default_factory=dict)
-    base_path: str = Field(...)
-    args_schema: Type[BaseModel] = ResponseToUserInput
-    tts_engine: Optional[Any] = Field(default=None, exclude=True)
-    audio_player: Optional[Any] = Field(default=None, exclude=True)
-
-    def __init__(self, **data):
-        super().__init__(**data)
-        if self.tts_config.get("enabled", False):
-            self.tts_engine: TextToSpeechBase = create_tts_engine(
-                provider=self.tts_config.get("provider", "openai"),
-                voice=self.tts_config.get("voice", "alloy")
-            )
-            self.audio_player: AudioPlayerBase = create_audio_player()
-
-    async def _run(
-        self,
-        response: str,
-        run_manager: Optional[CallbackManagerForToolRun] = None,
-    ) -> Any:
-        interview_session = self.interviewer.interview_session
-        interview_session.add_message_to_chat_history(role=self.interviewer.title, content=response)
-        
-        if self.tts_engine:
-            try:
-                audio_path = await asyncio.to_thread(
-                    self.tts_engine.text_to_speech,
-                    response,
-                    f"{self.base_path}/audio_outputs/response_{int(time.time())}.mp3"
-                )
-                print(f"{GREEN}Audio saved to: {audio_path}{RESET}")
-                
-                await asyncio.to_thread(self.audio_player.play, audio_path)
-                
-            except Exception as e:
-                print(f"{RED}Failed to generate/play speech: {e}{RESET}")
-        
-        self.interviewer.turn_to_respond = False
-        return "Response sent to the user."
-
-class EndConversationInput(BaseModel):
-    goodbye: str = Field(description="The goodbye message to the user. Tell the user that you are looking forward to talking to them in the next session.")
-
-class EndConversation(BaseTool):
-    """Tool for ending the conversation."""
-
-    name: str = "end_conversation"
-    description: str = (
-        "A tool for ending the conversation."
-    )
-    args_schema: Type[BaseModel] = EndConversationInput
-    interviewer: Interviewer = Field(...)
-
-    def _run(
-        self,
-        goodbye: str,
-        run_manager: Optional[CallbackManagerForToolRun] = None,
-    ) -> Any:
-        interview_session = self.interviewer.interview_session
-        # Add the goodbye message to both chat histories
-        self.interviewer.add_event(sender=self.interviewer.name, tag="goodbye", content=goodbye)
-        interview_session.add_message_to_chat_history(role=self.interviewer.title, content=goodbye)
-        
-        # Sets boolean to False so loop in handle_tool_calls will break
-        self.interviewer.turn_to_respond = False
-        time.sleep(1)
-        interview_session.end_session()
-        return "Conversation ended successfully."

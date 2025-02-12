@@ -16,8 +16,6 @@ from utils.logger import SessionLogger
 # Load environment variables
 load_dotenv(override=True)
 
-RED = '\033[91m'
-RESET = '\033[0m'
 
 class BaseAgent:
     """Base class for all agents. All agents inherits from this class."""

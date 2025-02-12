@@ -1,5 +1,5 @@
-from typing import Optional, Type
-from pydantic import BaseModel, Field
+from typing import Optional, Type, Dict, Callable
+from pydantic import BaseModel, Field, SkipValidation
 from langchain_core.callbacks.manager import CallbackManagerForToolRun
 from langchain_core.tools import BaseTool, ToolException
 
@@ -135,4 +135,37 @@ class Recall(BaseTool):
 </memory_search>"""
         except Exception as e:
             raise ToolException(f"Error searching memories: {e}")
+
+
+class AddFollowUpQuestionInput(BaseModel):
+    content: str = Field(description="The question to ask")
+    context: str = Field(description="Context explaining why this question is important")
+
+class AddFollowUpQuestion(BaseTool):
+    """Tool for adding follow-up questions."""
+    name: str = "add_follow_up_question"
+    description: str = (
+        "Add a follow-up question that needs to be asked to gather more information for the biography. "
+        "Include both the question and context explaining why this information is needed."
+    )
+    args_schema: Type[BaseModel] = AddFollowUpQuestionInput
+    on_question_added: SkipValidation[Callable[[Dict], None]] = Field(
+        description="Callback function to be called when a follow-up question is added"
+    )
+
+    def _run(
+        self,
+        content: str,
+        context: str,
+        run_manager: Optional[CallbackManagerForToolRun] = None,
+    ) -> str:
+        try:
+            question = {
+                "content": content.strip(),
+                "context": context.strip()
+            }
+            self.on_question_added(question)
+            return f"Successfully added follow-up question: {content}"
+        except Exception as e:
+            raise ToolException(f"Error adding follow-up question: {str(e)}")
 

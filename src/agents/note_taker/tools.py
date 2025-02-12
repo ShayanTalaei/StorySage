@@ -1,12 +1,13 @@
-from typing import Type, Optional
+from typing import Type, Optional, List, Callable, Dict
 
 
 from langchain_core.callbacks.manager import CallbackManagerForToolRun
 from langchain_core.tools import BaseTool, ToolException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, SkipValidation
 
 from content.memory_bank.memory_bank_base import MemoryBankBase
 from content.session_note.session_note import SessionNote
+from content.question_bank.question_bank_base import QuestionBankBase
 
 
 class AddInterviewQuestionInput(BaseModel):
@@ -154,3 +155,61 @@ class DecideFollowups(BaseTool):
 <decision>{decision}</decision>
 <reasoning>{reasoning}</reasoning>
 </propose_followups_decision>"""
+
+
+class UpdateMemoryBankInput(BaseModel):
+    title: str = Field(description="A concise but descriptive title for the memory")
+    text: str = Field(description="A clear summary of the information")
+    metadata: dict = Field(description=(
+        "Additional metadata about the memory. "
+        "This can include topics, people mentioned, emotions, locations, dates, relationships, life events, achievements, goals, aspirations, beliefs, values, preferences, hobbies, interests, education, work experience, skills, challenges, fears, dreams, etc. "
+        "Of course, you don't need to include all of these in the metadata, just the most relevant ones."
+    ))
+    importance_score: int = Field(description=(
+        "This field represents the importance of the memory on a scale from 1 to 10. "
+        "A score of 1 indicates everyday routine activities like brushing teeth or making the bed. "
+        "A score of 10 indicates major life events like a relationship ending or getting accepted to college. "
+        "Use this scale to rate how significant this memory is likely to be."
+    ))
+    source_interview_response: str = Field(description=(
+        "The original user response from the interview that this memory is derived from. "
+        "This should be the exact message from the user that contains this information."
+    ))
+
+
+class UpdateMemoryBank(BaseTool):
+    """Tool for updating the memory bank."""
+    name: str = "update_memory_bank"
+    description: str = "A tool for storing new memories in the memory bank."
+    args_schema: Type[BaseModel] = UpdateMemoryBankInput
+    memory_bank: MemoryBankBase = Field(...)
+    on_memory_added: SkipValidation[Callable[[Dict], None]] = Field(
+        description="Callback function to be called when a new memory is added"
+    )
+
+    def _run(
+        self,
+        title: str,
+        text: str,
+        metadata: dict,
+        importance_score: int,
+        source_interview_response: str,
+        run_manager: Optional[CallbackManagerForToolRun] = None,
+    ) -> str:
+        try:
+            memory = self.memory_bank.add_memory(
+                title=title, 
+                text=text, 
+                metadata=metadata, 
+                importance_score=importance_score,
+                source_interview_response=source_interview_response
+            )
+            
+            # Call the callback if provided
+            if self.on_memory_added:
+                self.on_memory_added(memory.to_dict())
+                
+            return f"Successfully stored memory: {title}"
+        except Exception as e:
+            raise ToolException(f"Error storing memory: {e}")
+

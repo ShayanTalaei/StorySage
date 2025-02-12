@@ -1,12 +1,11 @@
 import json
-from typing import Dict, List, TYPE_CHECKING, Optional, Type
-from pydantic import BaseModel, Field
-from langchain_core.callbacks.manager import CallbackManagerForToolRun
-from langchain_core.tools import BaseTool, ToolException
+from typing import Dict, List, TYPE_CHECKING, Optional
 
 from agents.biography_team.base_biography_agent import BiographyConfig, BiographyTeamAgent
 from agents.biography_team.models import TodoItem
 from agents.biography_team.planner.prompts import get_prompt
+from agents.biography_team.planner.tools import AddPlan
+from agents.biography_team.section_writer.tools import AddFollowUpQuestion
 from content.biography.biography import Section
 from content.biography.biography_styles import BIOGRAPHY_STYLE_PLANNER_INSTRUCTIONS
 
@@ -27,8 +26,12 @@ class BiographyPlanner(BiographyTeamAgent):
         
         # Initialize tools
         self.tools = {
-            "add_plan": AddPlan(planner=self),
-            "add_follow_up_question": AddFollowUpQuestion(planner=self)
+            "add_plan": AddPlan(
+                on_plan_added=lambda p: self.plans.append(p)
+            ),
+            "add_follow_up_question": AddFollowUpQuestion(
+                on_question_added=lambda q: self.follow_up_questions.append(q)
+            )
         }
     
     def _get_full_biography_content(self) -> str:
@@ -111,76 +114,3 @@ class BiographyPlanner(BiographyTeamAgent):
         
         # Return just the latest plan
         return self.plans[-1] if self.plans else None
-
-class AddPlanInput(BaseModel):
-    action_type: str = Field(description="Type of action (create/update)")
-    section_path: Optional[str] = Field(
-        default=None,
-        description="Optional: Full original path to the section"
-    )
-    section_title: Optional[str] = Field(
-        default=None,
-        description="Optional: Title of the section to update"
-    )
-    relevant_memories: Optional[str] = Field(
-        default=None, 
-        description="Optional: List of memories in bullet points format, e.g. '- Memory 1\n- Memory 2'"
-    )
-    update_plan: str = Field(description="Detailed plan for updating/creating the section")
-
-class AddPlan(BaseTool):
-    """Tool for adding a biography update plan."""
-    name: str = "add_plan"
-    description: str = "Add a plan for updating or creating a biography section"
-    args_schema: Type[BaseModel] = AddPlanInput
-    planner: BiographyPlanner = Field(...)
-
-    def _run(
-        self,
-        action_type: str,
-        update_plan: str,
-        section_path: Optional[str] = None,
-        section_title: Optional[str] = None,
-        relevant_memories: Optional[str] = None,
-        run_manager: Optional[CallbackManagerForToolRun] = None,
-    ) -> str:
-        try:
-            self.planner.plans.append({
-                "action_type": action_type,
-                "section_path": section_path,
-                "section_title": section_title,
-                "relevant_memories": relevant_memories.strip() if relevant_memories else None,
-                "update_plan": update_plan
-            })
-            return f"Successfully added plan for {section_path}"
-        except Exception as e:
-            raise ToolException(f"Error adding plan: {str(e)}")
-
-class AddFollowUpQuestionInput(BaseModel):
-    content: str = Field(description="The question to ask")
-    context: str = Field(description="Context explaining why this question is important")
-
-class AddFollowUpQuestion(BaseTool):
-    """Tool for adding follow-up questions."""
-    name: str = "add_follow_up_question"
-    description: str = (
-        "Add a follow-up question that needs to be asked to gather more information for the biography. "
-        "Include both the question and context explaining why this information is needed."
-    )
-    args_schema: Type[BaseModel] = AddFollowUpQuestionInput
-    planner: BiographyPlanner = Field(...)
-
-    def _run(
-        self,
-        content: str,
-        context: str,
-        run_manager: Optional[CallbackManagerForToolRun] = None,
-    ) -> str:
-        try:
-            self.planner.follow_up_questions.append({
-                "content": content.strip(),
-                "context": context.strip()
-            })
-            return f"Successfully added follow-up question: {content}"
-        except Exception as e:
-            raise ToolException(f"Error adding follow-up question: {str(e)}")

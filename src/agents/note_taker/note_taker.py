@@ -1,21 +1,16 @@
 # Python standard library imports
-from typing import Dict, List, TYPE_CHECKING, Optional, Type, TypedDict
+from typing import Dict, List, TYPE_CHECKING, TypedDict
 import os
 from dotenv import load_dotenv
 import asyncio
 from datetime import datetime
 
-from pydantic import BaseModel, Field
-from langchain_core.tools import BaseTool, ToolException
-from langchain_core.callbacks.manager import CallbackManagerForToolRun
-
 
 from agents.base_agent import BaseAgent
 from agents.interviewer.interviewer import Recall
 from agents.note_taker.prompts import get_prompt
-from agents.note_taker.tools import AddInterviewQuestion, DecideFollowups, UpdateSessionNote
+from agents.note_taker.tools import AddInterviewQuestion, DecideFollowups, UpdateSessionNote, UpdateMemoryBank
 from agents.prompt_utils import format_prompt
-from content.memory_bank.memory_bank_base import MemoryBankBase
 from interview_session.session_models import Participant, Message
 from utils.logger import SessionLogger
 
@@ -47,14 +42,14 @@ class NoteTaker(BaseAgent, Participant):
         self.new_memories = []  
 
         # Locks and processing flags
-        self._notes_lock = asyncio.Lock()   # Lock for write_session_notes
+        self._notes_lock = asyncio.Lock()   # Lock for write_notes_and_questions
         self._memory_lock = asyncio.Lock()  # Lock for update_memory_bank
         self.processing_in_progress = False # Signal to indicate if processing is in progress
         
         self.tools = {
             "update_memory_bank": UpdateMemoryBank(
                 memory_bank=self.interview_session.memory_bank,
-                note_taker=self
+                on_memory_added=self.add_new_memory
             ),
             "update_session_note": UpdateSessionNote(session_note=self.interview_session.session_note),
             "add_interview_question": AddInterviewQuestion(session_note=self.interview_session.session_note),
@@ -78,23 +73,23 @@ class NoteTaker(BaseAgent, Participant):
         try:
             # Run both updates concurrently, each with their own lock
             await asyncio.gather(
-                self._locked_write_session_notes(),
-                self._locked_update_memory_bank()
+                self._locked_write_notes_and_questions(),
+                self._locked_write_memory_and_question_bank()
             )
         finally:
             self.processing_in_progress = False
 
-    async def _locked_write_session_notes(self) -> None:
-        """Wrapper to handle write_session_notes with lock"""
+    async def _locked_write_notes_and_questions(self) -> None:
+        """Wrapper to handle write_notes_and_questions with lock"""
         async with self._notes_lock:
-            await self.write_session_notes()
+            await self.write_notes_and_questions()
 
-    async def _locked_update_memory_bank(self) -> None:
+    async def _locked_write_memory_and_question_bank(self) -> None:
         """Wrapper to handle update_memory_bank with lock"""
         async with self._memory_lock:
-            await self.update_memory_bank()
+            await self.write_memory_and_question_bank()
 
-    async def write_session_notes(self) -> None:
+    async def write_notes_and_questions(self) -> None:
         """Process user's response by updating session notes and considering follow-up questions."""
         # First update the direct response in session notes
         await self.update_session_note()
@@ -134,6 +129,11 @@ class NoteTaker(BaseAgent, Participant):
                 tag="error",
                 content=f"Exceeded maximum number of consideration iterations ({self.max_consideration_iterations})"
             )
+
+    async def write_memory_and_question_bank(self) -> None:
+        """Process the latest conversation and update the memory bank if needed."""
+        await self.update_memory_bank()
+        # await self.update_question_bank()
 
     async def update_memory_bank(self) -> None:
         """Process the latest conversation and update the memory bank if needed."""
@@ -208,53 +208,3 @@ class NoteTaker(BaseAgent, Participant):
         """Get all memories added during current session"""
         return self.new_memories
 
-
-
-class UpdateMemoryBankInput(BaseModel):
-    title: str = Field(description="A concise but descriptive title for the memory")
-    text: str = Field(description="A clear summary of the information")
-    metadata: dict = Field(description=(
-        "Additional metadata about the memory. "
-        "This can include topics, people mentioned, emotions, locations, dates, relationships, life events, achievements, goals, aspirations, beliefs, values, preferences, hobbies, interests, education, work experience, skills, challenges, fears, dreams, etc. "
-        "Of course, you don't need to include all of these in the metadata, just the most relevant ones."
-    ))
-    importance_score: int = Field(description=(
-        "This field represents the importance of the memory on a scale from 1 to 10. "
-        "A score of 1 indicates everyday routine activities like brushing teeth or making the bed. "
-        "A score of 10 indicates major life events like a relationship ending or getting accepted to college. "
-        "Use this scale to rate how significant this memory is likely to be."
-    ))
-    source_interview_response: str = Field(description=(
-        "The original user response from the interview that this memory is derived from. "
-        "This should be the exact message from the user that contains this information."
-    ))
-
-class UpdateMemoryBank(BaseTool):
-    """Tool for updating the memory bank."""
-    name: str = "update_memory_bank"
-    description: str = "A tool for storing new memories in the memory bank."
-    args_schema: Type[BaseModel] = UpdateMemoryBankInput
-    memory_bank: MemoryBankBase = Field(...)  # Use the base class for type hint
-    note_taker: NoteTaker = Field(...)
-
-    def _run(
-        self,
-        title: str,
-        text: str,
-        metadata: dict,
-        importance_score: int,
-        source_interview_response: str,
-        run_manager: Optional[CallbackManagerForToolRun] = None,
-    ) -> str:
-        try:
-            memory = self.memory_bank.add_memory(
-                title=title, 
-                text=text, 
-                metadata=metadata, 
-                importance_score=importance_score,
-                source_interview_response=source_interview_response
-            )
-            self.note_taker.add_new_memory(memory.to_dict())
-            return f"Successfully stored memory: {title}"
-        except Exception as e:
-            raise ToolException(f"Error storing memory: {e}")
