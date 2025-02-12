@@ -6,6 +6,7 @@ import os
 import datetime
 
 
+@deprecated(reason="Not implemented yet")
 class MemoryBank:
     """
     MemoryBank class to manage memories using NetworkX graphs.

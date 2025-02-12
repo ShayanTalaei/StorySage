@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from typing import Dict, Any, List
 from api.core.auth import get_current_user
 from api.schemas.biography import BiographyEdit
-from biography.biography import Biography
+from content.biography.biography import Biography
 from agents.biography_team.orchestrator import BiographyOrchestrator
 from agents.biography_team.base_biography_agent import BiographyConfig
 

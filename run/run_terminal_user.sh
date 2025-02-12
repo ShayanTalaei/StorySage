@@ -1,0 +1,1 @@
+python3 src/main.py --mode terminal --user_id maggie --restart --voice_input

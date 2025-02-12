@@ -2,7 +2,7 @@ import os
 import json
 import dotenv
 
-from session_note.interview_question import InterviewQuestion
+from content.session_note.interview_question import InterviewQuestion
 
 dotenv.load_dotenv(override=True)
 

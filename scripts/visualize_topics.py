@@ -7,7 +7,7 @@ from pathlib import Path
 src_dir = str(Path(__file__).parent.parent / "src")
 sys.path.append(src_dir)
 
-from session_note.session_note import SessionNote
+from content.session_note.session_note import SessionNote
 
 def get_session_ids(user_id: str) -> list[int]:
     """

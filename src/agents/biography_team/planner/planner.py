@@ -7,8 +7,8 @@ from langchain_core.tools import BaseTool, ToolException
 from agents.biography_team.base_biography_agent import BiographyConfig, BiographyTeamAgent
 from agents.biography_team.models import TodoItem
 from agents.biography_team.planner.prompts import get_prompt
-from biography.biography import Section
-from biography.biography_styles import BIOGRAPHY_STYLE_PLANNER_INSTRUCTIONS
+from content.biography.biography import Section
+from content.biography.biography_styles import BIOGRAPHY_STYLE_PLANNER_INSTRUCTIONS
 
 if TYPE_CHECKING:
     from interview_session.interview_session import InterviewSession

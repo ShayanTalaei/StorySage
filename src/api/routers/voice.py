@@ -7,13 +7,9 @@ from botocore.exceptions import ClientError
 import uuid
 
 from api.core.auth import get_current_user
+from utils.colors import RESET, RED
 
 router = APIRouter(tags=["voice"])
-
-# Console colors
-GREEN = '\033[92m'
-RESET = '\033[0m'
-RED = '\033[91m'
 
 # Initialize S3 client
 s3_client = boto3.client(

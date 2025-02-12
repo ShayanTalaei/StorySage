@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from pydantic import BaseModel
 
 # Local imports
-from llm.engines import get_engine, invoke_engine
+from utils.llm.engines import get_engine, invoke_engine
 from agents.xml_formatter import format_tool_as_xml_v2, parse_tool_calls
 from utils.logger import SessionLogger
 
