@@ -2,6 +2,9 @@ from abc import ABC, abstractmethod
 from typing import Dict, List, Optional
 import os
 import json
+import random
+import string
+from datetime import datetime
 
 from memory_bank.memory import Memory
 
@@ -15,6 +18,15 @@ class MemoryBankBase(ABC):
     
     def __init__(self):
         self.memories: List[Memory] = []
+    
+    def generate_memory_id(self) -> str:
+        """Generate a short, unique memory ID.
+        Format: MEM_MMDDHHMM_{random_chars}
+        Example: MEM_03121423_X7K (March 12, 14:23)
+        """
+        timestamp = datetime.now().strftime("%m%d%H%M")
+        random_chars = ''.join(random.choices(string.ascii_uppercase + string.digits, k=3))
+        return f"MEM_{timestamp}_{random_chars}"
     
     @abstractmethod
     def add_memory(

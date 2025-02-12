@@ -47,7 +47,7 @@ class MemoryBankVectorDB(MemoryBankBase):
         if metadata is None:
             metadata = {}
             
-        memory_id = str(uuid.uuid4())
+        memory_id = self.generate_memory_id()
         combined_text = f"{title}\n{text}"
         embedding = self._get_embedding(combined_text)
         

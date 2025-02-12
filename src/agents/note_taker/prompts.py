@@ -55,12 +55,19 @@ Right now, you are observing a conversation between the interviewer and the user
 """
 
 UPDATE_MEMORY_BANK_EVENT = """
-Here is the stream of the events that have happened in the interview session from your perspective as the note taker:
-<event_stream>
-{event_stream}
-</event_stream>
+Here is the stream of previous events for context:
+<previous_events>
+{previous_events}
+</previous_events>
+
+Here is the current question-answer exchange you need to process:
+<current_qa>
+{current_qa}
+</current_qa>
+
 - The external tag of each event indicates the role of the sender of the event.
-- You can see the messages exchanged between the interviewer and the user, as well as the memory_updates that you have done in this interview session so far.
+- Focus ONLY on processing the content within the current Q&A exchange above.
+- Previous messages are shown only for context, not for reprocessing.
 """
 
 UPDATE_MEMORY_BANK_TOOL = """
@@ -119,9 +126,6 @@ If you identify information worth storing, use the following format:
     </update_memory_bank>
     ...
 </tool_calls>
-- You can make multiple tool calls at once if there are multiple pieces of information worth storing.
-- If there's no information worth storing, don't make any tool calls; i.e. return <tool_calls></tool_calls>.
-- Always include the exact user message that contains the information as the source_interview_response.
 </output_format>
 """
 

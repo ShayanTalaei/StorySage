@@ -149,11 +149,7 @@ class NoteTaker(BaseAgent, Participant):
         self.handle_tool_calls(response)
     
     def _get_formatted_prompt(self, prompt_type: str) -> str:
-        '''Gets the formatted prompt for the NoteTaker agent.
-        
-        Args:
-            prompt_type: The type of prompt to get.
-        '''
+        '''Gets the formatted prompt for the NoteTaker agent.'''
         prompt = get_prompt(prompt_type)
         if prompt_type == "consider_and_propose_followups":
             # Get all message events
@@ -176,17 +172,24 @@ class NoteTaker(BaseAgent, Participant):
                 {"tag": "message"}, 
                 {"sender": self.name, "tag": "update_memory_bank_response"},
             ], as_list=True)
+            current_qa = events[-2:] if len(events) >= 2 else []
+            previous_events = events[:-2] if len(events) >= 2 else events
             
-            recent_events = events[-self.max_events_len:] if len(events) > self.max_events_len else events
+            if len(previous_events) > self.max_events_len:
+                previous_events = previous_events[-self.max_events_len:]
             
             return format_prompt(prompt, {
-                "event_stream": "\n".join(recent_events),
+                "previous_events": "\n".join(previous_events),
+                "current_qa": "\n".join(current_qa),
                 "tool_descriptions": self.get_tools_description(selected_tools=["update_memory_bank"])
             })
         elif prompt_type == "update_session_note":
             events = self.get_event_stream_str(filter=[{"tag": "message"}], as_list=True)
             current_qa = events[-2:] if len(events) >= 2 else []
             previous_events = events[:-2] if len(events) >= 2 else events
+            
+            if len(previous_events) > self.max_events_len:
+                previous_events = previous_events[-self.max_events_len:]
             
             return format_prompt(prompt, {
                 "previous_events": "\n".join(previous_events),
