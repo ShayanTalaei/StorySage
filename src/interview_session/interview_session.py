@@ -263,9 +263,9 @@ class InterviewSession:
     
     def _signal_handler(self):
         """Handle shutdown signals"""
-        SessionLogger.log_to_file("execution_log", f"[SIGNAL] Shutdown signal received")
-        # Set flag to stop accepting new messages
         self.session_in_progress = False
+        SessionLogger.log_to_file("execution_log", f"[SIGNAL] Shutdown signal received")
+        SessionLogger.log_to_file("execution_log", f"[SIGNAL] Waiting for interview session to finish...")
 
     async def get_session_memories(self):
         """Get all memories added during this session"""
