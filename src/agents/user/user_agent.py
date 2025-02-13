@@ -24,9 +24,9 @@ class UserAgent(BaseAgent, User):
     
     async def on_message(self, message: Message):
         """Handle incoming messages by generating a response and notifying the interview session"""
-        if not message:  # Skip if no message (initial notification)
+        if not message or not self.interview_session.session_in_progress:
             return
-            
+        
         # Add the interviewer's message to our event stream
         self.add_event(sender=message.role, tag="message", content=message.content)
         # Score the interviewer's question for potential feedback

@@ -166,9 +166,6 @@ class InterviewSession:
 
     def add_message_to_chat_history(self, role: str, content: str = "", message_type: str = MessageType.CONVERSATION):
         """Add a message to the chat history"""
-        # Block new messages after session ended
-        if not self.session_in_progress:
-            return
 
         # Set fixed content for skip and like messages
         if message_type == MessageType.SKIP:
@@ -191,8 +188,7 @@ class InterviewSession:
         # Notify participants if message is a skip or conversation
         if message_type == MessageType.SKIP or message_type == MessageType.CONVERSATION:
             self.chat_history.append(message)
-            if self.session_in_progress:  
-                asyncio.create_task(self._notify_participants(message))
+            asyncio.create_task(self._notify_participants(message))
         
         # Update last message time when we receive a message
         if role == "User":
@@ -226,7 +222,7 @@ class InterviewSession:
             raise e
         
         finally:
-            try:
+            try:                
                 # Update biography (API mode handles this separately)
                 if self.interaction_mode != 'api' and not self._biography_updated:
                     with contextlib.suppress(KeyboardInterrupt):
@@ -237,11 +233,11 @@ class InterviewSession:
                 SessionLogger.log_to_file("execution_log", f"[RUN] Error during biography update: {str(e)}")
             finally:
                 self.memory_bank.save_to_file(self.user_id)
-                SessionLogger.log_to_file("execution_log", f"[FILE] Memory bank saved")
+                SessionLogger.log_to_file("execution_log", f"[COMPLETED] Memory bank saved")
                 self.question_bank.save_to_file(self.user_id)
-                SessionLogger.log_to_file("execution_log", f"[FILE] Question bank saved")
+                SessionLogger.log_to_file("execution_log", f"[COMPLETED] Question bank saved")
                 self.session_completed = True
-                SessionLogger.log_to_file("execution_log", f"[RUN] Session completed")
+                SessionLogger.log_to_file("execution_log", f"[COMPLETED] Session completed")
 
     def set_db_session_id(self, db_session_id: int):
         """Set the database session ID"""
@@ -260,8 +256,24 @@ class InterviewSession:
     def _signal_handler(self):
         """Handle shutdown signals"""
         SessionLogger.log_to_file("execution_log", f"[SIGNAL] Shutdown signal received")
+        
+        # Set flag to stop accepting new messages
         self.session_in_progress = False
-    
+        
+        # Create a task to wait for note taker to finish
+        async def wait_for_note_taker():
+            try:
+                SessionLogger.log_to_file("execution_log", f"[SIGNAL] Waiting for NoteTaker to finish processing...")
+                while self.note_taker.processing_in_progress:
+                    await asyncio.sleep(0.1)
+                SessionLogger.log_to_file("execution_log", f"[SIGNAL] NoteTaker finished processing")
+            except Exception as e:
+                SessionLogger.log_to_file("execution_log", f"[SIGNAL] Error while waiting for NoteTaker: {str(e)}")
+
+        # Get the current event loop and create the task
+        loop = asyncio.get_event_loop()
+        loop.create_task(wait_for_note_taker())
+
     def get_session_memories(self):
         """Get all memories added during this session"""
         memories = self.note_taker.get_session_memories()

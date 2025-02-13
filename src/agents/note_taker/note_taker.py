@@ -44,20 +44,22 @@ class NoteTaker(BaseAgent, Participant):
         self.memory_id_map = {}
 
         # Locks and processing flags
-        self._notes_lock = asyncio.Lock()   # Lock for write_notes_and_questions
-        self._memory_lock = asyncio.Lock()  # Lock for update_memory_bank
         self.processing_in_progress = False # If processing is in progress
-                
+        self._pending_tasks = 0             # Track number of pending tasks
+        self._notes_lock = asyncio.Lock()   # Lock for _write_notes_and_questions
+        self._memory_lock = asyncio.Lock()  # Lock for update_memory_bank
+        self._tasks_lock = asyncio.Lock()   # Lock for updating task counter
+
         self.tools = {
             "update_memory_bank": UpdateMemoryBank(
                 memory_bank=self.interview_session.memory_bank,
-                on_memory_added=self.add_new_memory,
-                update_memory_map=self.update_memory_map
+                on_memory_added=self._add_new_memory,
+                update_memory_map=self._update_memory_map
             ),
             "add_historical_question": AddHistoricalQuestion(
                 question_bank=self.interview_session.question_bank,
                 memory_bank=self.interview_session.memory_bank,
-                get_real_memory_ids=self.get_real_memory_ids
+                get_real_memory_ids=self._get_real_memory_ids
             ),
             "update_session_note": UpdateSessionNote(session_note=self.interview_session.session_note),
             "add_interview_question": AddInterviewQuestion(session_note=self.interview_session.session_note),
@@ -66,7 +68,7 @@ class NoteTaker(BaseAgent, Participant):
             
     async def on_message(self, message: Message):
         '''Handle incoming messages'''
-        
+
         self.add_event(sender=message.role, tag="message", content=message.content)
         
         if message.role == "User":
@@ -74,7 +76,8 @@ class NoteTaker(BaseAgent, Participant):
             asyncio.create_task(self._process_user_message())
 
     async def _process_user_message(self):
-        self.processing_in_progress = True
+        """Process a user message with task tracking"""
+        await self._increment_pending_tasks()
         try:
             # Run both updates concurrently, each with their own lock
             await asyncio.gather(
@@ -82,27 +85,27 @@ class NoteTaker(BaseAgent, Participant):
                 self._locked_write_memory_and_question_bank()
             )
         finally:
-            self.processing_in_progress = False
+            await self._decrement_pending_tasks()
 
     async def _locked_write_notes_and_questions(self) -> None:
-        """Wrapper to handle write_notes_and_questions with lock"""
+        """Wrapper to handle _write_notes_and_questions with lock"""
         async with self._notes_lock:
-            await self.write_notes_and_questions()
+            await self._write_notes_and_questions()
 
     async def _locked_write_memory_and_question_bank(self) -> None:
         """Wrapper to handle update_memory_bank with lock"""
         async with self._memory_lock:
-            await self.write_memory_and_question_bank()
+            await self._write_memory_and_question_bank()
 
-    async def write_notes_and_questions(self) -> None:
+    async def _write_notes_and_questions(self) -> None:
         """Process user's response by updating session notes and considering follow-up questions."""
         # First update the direct response in session notes
-        await self.update_session_note()
+        await self._update_session_note()
         
         # Then consider and propose follow-up questions if appropriate
-        await self.consider_and_propose_followups()
+        await self._consider_and_propose_followups()
 
-    async def consider_and_propose_followups(self) -> None:
+    async def _consider_and_propose_followups(self) -> None:
         """Determine if follow-up questions should be proposed and propose them if appropriate."""
         # Get prompt for considering and proposing followups
 
@@ -135,7 +138,7 @@ class NoteTaker(BaseAgent, Participant):
                 content=f"Exceeded maximum number of consideration iterations ({self.max_consideration_iterations})"
             )
 
-    async def write_memory_and_question_bank(self) -> None:
+    async def _write_memory_and_question_bank(self) -> None:
         """Process the latest conversation and update both memory and question banks."""
         prompt = self._get_formatted_prompt("update_memory_question_bank")
         self.add_event(sender=self.name, tag="update_memory_question_bank_prompt", content=prompt)
@@ -143,7 +146,7 @@ class NoteTaker(BaseAgent, Participant):
         self.add_event(sender=self.name, tag="update_memory_question_bank_response", content=response)
         self.handle_tool_calls(response)
 
-    async def update_session_note(self) -> None:
+    async def _update_session_note(self) -> None:
         prompt = self._get_formatted_prompt("update_session_note")
         self.add_event(sender=self.name, tag="update_session_note_prompt", content=prompt)
         response = await self.call_engine_async(prompt)
@@ -201,28 +204,40 @@ class NoteTaker(BaseAgent, Participant):
                 "tool_descriptions": self.get_tools_description(selected_tools=["update_session_note"])
             })
     
-    def add_new_memory(self, memory: Dict):
-        """Track newly added memory"""
-        self.new_memories.append(memory)
-
     def get_session_memories(self) -> List[Dict]:
         """Get all memories added during current session"""
         return self.new_memories
+    
+    def _add_new_memory(self, memory: Dict):
+        """Callback to track newly added memory"""
+        self.new_memories.append(memory)
 
-    def update_memory_map(self, temp_id: str, real_id: str) -> None:
+    def _update_memory_map(self, temp_id: str, real_id: str) -> None:
         """Callback to update the memory ID mapping"""
         self.memory_id_map[temp_id] = real_id
         SessionLogger.log_to_file("execution_log", 
-            f"[MEMORY_MAP] Updated mapping {temp_id} -> {real_id}")
+            f"[MEMORY] Write a new memory with {real_id}")
 
-    def get_real_memory_ids(self, temp_ids: List[str]) -> List[str]:
+    def _get_real_memory_ids(self, temp_ids: List[str]) -> List[str]:
         """Callback to get real memory IDs from temporary IDs"""
         real_ids = [
             self.memory_id_map[temp_id]
             for temp_id in temp_ids
             if temp_id in self.memory_id_map
         ]
-        SessionLogger.log_to_file("execution_log", 
-            f"[MEMORY_MAP] Converted temp IDs {temp_ids} to real IDs {real_ids}")
         return real_ids
+
+    async def _increment_pending_tasks(self):
+        """Increment the pending tasks counter"""
+        async with self._tasks_lock:
+            self._pending_tasks += 1
+            self.processing_in_progress = True
+
+    async def _decrement_pending_tasks(self):
+        """Decrement the pending tasks counter"""
+        async with self._tasks_lock:
+            self._pending_tasks -= 1
+            if self._pending_tasks <= 0:
+                self._pending_tasks = 0
+                self.processing_in_progress = False
 
