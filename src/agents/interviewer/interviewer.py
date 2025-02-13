@@ -12,18 +12,13 @@ from agents.note_taker.tools import Recall
 from utils.llm.prompt_utils import format_prompt
 from interview_session.session_models import Participant, Message
 from utils.logger import SessionLogger
-
+from utils.constants.colors import GREEN, RESET
 
 if TYPE_CHECKING:
     from interview_session.interview_session import InterviewSession
 
 load_dotenv()
 
-# Console colors
-GREEN = '\033[92m'
-ORANGE = '\033[93m'
-RESET = '\033[0m'
-RED = '\033[91m'
 
 class TTSConfig(TypedDict, total=False):
     """Configuration for text-to-speech."""
@@ -31,27 +26,32 @@ class TTSConfig(TypedDict, total=False):
     provider: str  # e.g. 'openai'
     voice: str     # e.g. 'alloy'
 
+
 class InterviewerConfig(TypedDict, total=False):
     """Configuration for the Interviewer agent."""
     user_id: str
     tts: TTSConfig
 
+
 class Interviewer(BaseAgent, Participant):
     '''Inherits from BaseAgent and Participant. Participant is a class that all agents in the interview session inherit from.'''
+
     def __init__(self, config: InterviewerConfig, interview_session: 'InterviewSession'):
-        BaseAgent.__init__(self, name="Interviewer", 
-                         description="The agent that interviews the user, asking questions about the user's life.",
-                         config=config)
-        Participant.__init__(self, title="Interviewer", interview_session=interview_session)
-        
+        BaseAgent.__init__(self, name="Interviewer",
+                           description="The agent that interviews the user, asking questions about the user's life.",
+                           config=config)
+        Participant.__init__(self, title="Interviewer",
+                             interview_session=interview_session)
+
         self.user_id = config.get("user_id")
         self.max_events_len = int(os.getenv("MAX_EVENTS_LEN", 40))
-        self.max_consideration_iterations = int(os.getenv("MAX_CONSIDERATION_ITERATIONS", 3))
-        
+        self.max_consideration_iterations = int(
+            os.getenv("MAX_CONSIDERATION_ITERATIONS", 3))
+
         # Initialize TTS configuration
         tts_config = config.get("tts", {})
         self.base_path = f"data/{self.user_id}/"
-        
+
         # Initialize tools
         self.tools = {
             "recall": Recall(memory_bank=self.interview_session.memory_bank),
@@ -59,15 +59,18 @@ class Interviewer(BaseAgent, Participant):
                 tts_config=tts_config,
                 base_path=self.base_path,
                 on_response=lambda response: self.interview_session.add_message_to_chat_history(
-                    role=self.title, 
+                    role=self.title,
                     content=response
                 ),
-                on_turn_complete=lambda: setattr(self, 'turn_to_respond', False)
+                on_turn_complete=lambda: setattr(
+                    self, 'turn_to_respond', False)
             ),
             "end_conversation": EndConversation(
                 on_goodbye=lambda goodbye: (
-                    self.add_event(sender=self.name, tag="goodbye", content=goodbye),
-                    self.interview_session.add_message_to_chat_history(role=self.title, content=goodbye)
+                    self.add_event(sender=self.name,
+                                   tag="goodbye", content=goodbye),
+                    self.interview_session.add_message_to_chat_history(
+                        role=self.title, content=goodbye)
                 ),
                 on_end=lambda: (
                     setattr(self, 'turn_to_respond', False),
@@ -75,14 +78,16 @@ class Interviewer(BaseAgent, Participant):
                 )
             )
         }
-        
+
         self.turn_to_respond = False
 
     async def on_message(self, message: Message):
-        
+
         if message:
-            SessionLogger.log_to_file("execution_log", f"[NOTIFY] Interviewer received message from {message.role}")
-            self.add_event(sender=message.role, tag="message", content=message.content)
+            SessionLogger.log_to_file(
+                "execution_log", f"[NOTIFY] Interviewer received message from {message.role}")
+            self.add_event(sender=message.role, tag="message",
+                           content=message.content)
 
         # This boolean is set to False when the interviewer is done responding (it has used respond_to_user tool)
         self.turn_to_respond = True
@@ -97,16 +102,18 @@ class Interviewer(BaseAgent, Participant):
             response = await self.call_engine_async(prompt)
             # Prints the green text in the console
             print(f"{GREEN}Interviewer:\n{response}{RESET}")
-            
-            response_content, question_id, thinking = self._extract_response(response)
+
+            response_content, question_id, thinking = self._extract_response(
+                response)
 
             # Format the response with question ID if available
             formatted_response = f"Question {question_id}:\n\n{response_content}" if question_id else response_content
 
-            self.add_event(sender=self.name, tag="message", content=formatted_response)
+            self.add_event(sender=self.name, tag="message",
+                           content=formatted_response)
             # Handle tool calls in the response
             await self.handle_tool_calls_async(response)
-            
+
             # Increment iteration count
             iterations += 1
 
@@ -134,11 +141,13 @@ class Interviewer(BaseAgent, Participant):
             ],
             as_list=True
         )
-        questions_and_notes_str = self.interview_session.session_note.get_questions_and_notes_str(hide_answered="qa")
-        ## TODO: Add additional notes
+        questions_and_notes_str = self.interview_session.session_note.get_questions_and_notes_str(
+            hide_answered="qa")
+        # TODO: Add additional notes
         tool_descriptions_str = self.get_tools_description()
-        recent_events = chat_history_str[-self.max_events_len:] if len(chat_history_str) > self.max_events_len else chat_history_str
-        
+        recent_events = chat_history_str[-self.max_events_len:] if len(
+            chat_history_str) > self.max_events_len else chat_history_str
+
         return format_prompt(main_prompt, {
             "user_portrait": user_portrait_str,
             "last_meeting_summary": last_meeting_summary_str,
@@ -146,16 +155,20 @@ class Interviewer(BaseAgent, Participant):
             "questions_and_notes": questions_and_notes_str,
             "tool_descriptions": tool_descriptions_str
         })
-    
+
     def _extract_response(self, full_response: str) -> tuple[str, str]:
         """Extract the content between <response_content> and <thinking> tags"""
-        response_match = re.search(r'<response>(.*?)</response>', full_response, re.DOTALL)
-        thinking_match = re.search(r'<thinking>(.*?)</thinking>', full_response, re.DOTALL)
+        response_match = re.search(
+            r'<response>(.*?)</response>', full_response, re.DOTALL)
+        thinking_match = re.search(
+            r'<thinking>(.*?)</thinking>', full_response, re.DOTALL)
 
-        question_id_match = re.search(r'<current_question_id>(.*?)</current_question_id>', full_response, re.DOTALL)
-        question_id = question_id_match.group(1).strip() if question_id_match else None
-        response = response_match.group(1).strip() if response_match else full_response
+        question_id_match = re.search(
+            r'<current_question_id>(.*?)</current_question_id>', full_response, re.DOTALL)
+        question_id = question_id_match.group(
+            1).strip() if question_id_match else None
+        response = response_match.group(
+            1).strip() if response_match else full_response
         thinking = thinking_match.group(1).strip() if thinking_match else ""
-        
+
         return response, question_id, thinking
-        

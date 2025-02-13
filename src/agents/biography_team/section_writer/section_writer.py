@@ -90,7 +90,10 @@ class SectionWriter(BiographyTeamAgent):
             events_str = self.get_event_stream_str(
                 filter=[{"sender": self.name, "tag": "recall_response"}]
             )
-            current_content = self.tools["get_section_by_title"]._run(todo_item.section_title) or "Section does not exist yet."
+            current_content = (
+                self.tools["get_section_by_title"]._run(todo_item.section_title)
+                or "Section does not exist yet."
+            )
             return USER_COMMENT_EDIT_PROMPT.format(
                 section_title=todo_item.section_title,
                 current_content=current_content,
@@ -99,12 +102,17 @@ class SectionWriter(BiographyTeamAgent):
                 style_instructions=BIOGRAPHY_STYLE_WRITER_INSTRUCTIONS.get(
                     self.config.get("biography_style", "chronological")
                 ),
-                tool_descriptions=self.get_tools_description(["recall", "update_section_by_title"])
+                tool_descriptions=self.get_tools_description(
+                    ["recall", "update_section_by_title"]
+                )
             )
         # Update a section based on newly collected memory
         else:
             section_identifier = todo_item.section_path or todo_item.section_title
-            current_content = self.tools["get_section"]._run(section_identifier) or "Section does not exist yet."
+            current_content = (
+                self.tools["get_section"]._run(section_identifier)
+                or "Section does not exist yet."
+            )
             return SECTION_WRITER_PROMPT.format(
                 section_path=section_identifier,
                 update_plan=todo_item.update_plan,
