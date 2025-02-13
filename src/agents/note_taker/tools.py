@@ -139,10 +139,10 @@ class UpdateMemoryBankInput(BaseModel):
         "A score of 10 indicates major life events like a relationship ending or getting accepted to college. "
         "Use this scale to rate how significant this memory is likely to be."
     ))
-    source_interview_response: str = Field(description=(
-        "The original user response from the interview that this memory is derived from. "
-        "This should be the exact message from the user that contains this information."
-    ))
+    # source_interview_response: str = Field(description=(
+    #     "The original user response from the interview that this memory is derived from. "
+    #     "This should be the exact message from the user that contains this information."
+    # ))
 
 
 class UpdateMemoryBank(BaseTool):
@@ -155,6 +155,9 @@ class UpdateMemoryBank(BaseTool):
     update_memory_map: SkipValidation[Callable[[str, str], None]] = Field(
         description="Callback function to update the memory ID mapping"
     )
+    get_current_response: SkipValidation[Callable[[], str]] = Field(
+        description="Function to get the current user response"
+    )
 
     def _run(
         self,
@@ -163,7 +166,7 @@ class UpdateMemoryBank(BaseTool):
         text: str,
         metadata: dict,
         importance_score: int,
-        source_interview_response: str,
+        # source_interview_response: str,
         run_manager: Optional[CallbackManagerForToolRun] = None,
     ) -> str:
         try:
@@ -172,7 +175,7 @@ class UpdateMemoryBank(BaseTool):
                 text=text, 
                 metadata=metadata, 
                 importance_score=importance_score,
-                source_interview_response=source_interview_response
+                source_interview_response=self.get_current_response()
             )
             
             # Use callback to update the mapping

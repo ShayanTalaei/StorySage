@@ -11,6 +11,7 @@ from agents.interviewer.tools import EndConversation, RespondToUser
 from agents.note_taker.tools import Recall
 from utils.llm.prompt_utils import format_prompt
 from interview_session.session_models import Participant, Message
+from utils.logger import SessionLogger
 
 
 if TYPE_CHECKING:
@@ -80,7 +81,7 @@ class Interviewer(BaseAgent, Participant):
     async def on_message(self, message: Message):
         
         if message:
-            print(f"{datetime.now()} ✅ Interviewer received message from {message.role}")
+            SessionLogger.log_to_file("execution_log", f"[NOTIFY] Interviewer received message from {message.role}")
             self.add_event(sender=message.role, tag="message", content=message.content)
 
         # This boolean is set to False when the interviewer is done responding (it has used respond_to_user tool)

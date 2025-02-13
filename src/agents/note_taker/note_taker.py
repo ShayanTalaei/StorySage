@@ -3,7 +3,6 @@ from typing import Dict, List, TYPE_CHECKING, TypedDict
 import os
 from dotenv import load_dotenv
 import asyncio
-from datetime import datetime
 import time
 
 
@@ -36,13 +35,13 @@ class NoteTaker(BaseAgent, Participant):
         
         # Config variables
         self.user_id = config.get("user_id")
-        self.max_events_len = int(os.getenv("MAX_EVENTS_LEN", 40))
-        self.max_consideration_iterations = int(os.getenv("MAX_CONSIDERATION_ITERATIONS", 3))
+        self._max_events_len = int(os.getenv("MAX_EVENTS_LEN", 40))
+        self._max_consideration_iterations = int(os.getenv("MAX_CONSIDERATION_ITERATIONS", 3))
 
         # New memories added in current session
-        self.new_memories = []  
+        self._new_memories = []  
         # Mapping from temporary memory IDs to real IDs
-        self.memory_id_map = {}
+        self._memory_id_map = {}
 
         # Locks and processing flags
         self.processing_in_progress = False # If processing is in progress
@@ -51,11 +50,22 @@ class NoteTaker(BaseAgent, Participant):
         self._memory_lock = asyncio.Lock()  # Lock for update_memory_bank
         self._tasks_lock = asyncio.Lock()   # Lock for updating task counter
 
+        # Track last interviewer message
+        self._last_interviewer_message = None
+
+        # Tools agent can use
         self.tools = {
             "update_memory_bank": UpdateMemoryBank(
                 memory_bank=self.interview_session.memory_bank,
                 on_memory_added=self._add_new_memory,
-                update_memory_map=self._update_memory_map
+                update_memory_map=self._update_memory_map,
+                get_current_response=lambda: (
+                    self.get_event_stream_str(filter=[
+                        {"tag": "memory_lock_message", "sender": "User"}
+                    ], as_list=True)[-1]
+                    .removeprefix("<User>\n")
+                    .removesuffix("\n</User>")
+                )
             ),
             "add_historical_question": AddHistoricalQuestion(
                 question_bank=self.interview_session.question_bank,
@@ -69,33 +79,42 @@ class NoteTaker(BaseAgent, Participant):
             
     async def on_message(self, message: Message):
         '''Handle incoming messages'''
+        SessionLogger.log_to_file("execution_log", f"[NOTIFY] Note taker received message from {message.role}")
 
-        self.add_event(sender=message.role, tag="message", content=message.content)
-        
-        if message.role == "User":
-            print(f"{datetime.now()} ✅ Note taker received message from {message.role}")
-            asyncio.create_task(self._process_user_message())
+        if message.role == "Interviewer":
+            self._last_interviewer_message = message
+        elif message.role == "User":
+            if self._last_interviewer_message:
+                asyncio.create_task(self._process_qa_pair(
+                    interviewer_message=self._last_interviewer_message,
+                    user_message=message
+                ))
+                self._last_interviewer_message = None
 
-    async def _process_user_message(self):
-        """Process a user message with task tracking"""
+    async def _process_qa_pair(self, interviewer_message: Message, user_message: Message):
+        """Process a Q&A pair with task tracking"""
         await self._increment_pending_tasks()
         try:
             # Run both updates concurrently, each with their own lock
             await asyncio.gather(
-                self._locked_write_notes_and_questions(),
-                self._locked_write_memory_and_question_bank()
+                self._locked_write_notes_and_questions(interviewer_message, user_message),
+                self._locked_write_memory_and_question_bank(interviewer_message, user_message)
             )
         finally:
             await self._decrement_pending_tasks()
 
-    async def _locked_write_notes_and_questions(self) -> None:
+    async def _locked_write_notes_and_questions(self, interviewer_message: Message, user_message: Message) -> None:
         """Wrapper to handle _write_notes_and_questions with lock"""
         async with self._notes_lock:
+            self.add_event(sender=interviewer_message.role, tag="notes_lock_message", content=interviewer_message.content)
+            self.add_event(sender=user_message.role, tag="notes_lock_message", content=user_message.content)
             await self._write_notes_and_questions()
 
-    async def _locked_write_memory_and_question_bank(self) -> None:
+    async def _locked_write_memory_and_question_bank(self, interviewer_message: Message, user_message: Message) -> None:
         """Wrapper to handle update_memory_bank with lock"""
         async with self._memory_lock:
+            self.add_event(sender=interviewer_message.role, tag="memory_lock_message", content=interviewer_message.content)
+            self.add_event(sender=user_message.role, tag="memory_lock_message", content=user_message.content)
             await self._write_memory_and_question_bank()
 
     async def _write_notes_and_questions(self) -> None:
@@ -111,7 +130,7 @@ class NoteTaker(BaseAgent, Participant):
         # Get prompt for considering and proposing followups
 
         iterations = 0
-        while iterations < self.max_consideration_iterations:
+        while iterations < self._max_consideration_iterations:
             ## Decide if we need to propose follow-ups + propose follow-ups if needed
             prompt = self._get_formatted_prompt("consider_and_propose_followups")
             self.add_event(sender=self.name, tag="consider_and_propose_followups_prompt", content=prompt)
@@ -132,11 +151,11 @@ class NoteTaker(BaseAgent, Participant):
                 break
             iterations += 1
         
-        if iterations >= self.max_consideration_iterations:
+        if iterations >= self._max_consideration_iterations:
             self.add_event(
                 sender="system",
                 tag="error",
-                content=f"Exceeded maximum number of consideration iterations ({self.max_consideration_iterations})"
+                content=f"Exceeded maximum number of consideration iterations ({self._max_consideration_iterations})"
             )
 
     async def _write_memory_and_question_bank(self) -> None:
@@ -160,11 +179,11 @@ class NoteTaker(BaseAgent, Participant):
         if prompt_type == "consider_and_propose_followups":
             # Get all message events
             events = self.get_event_stream_str(filter=[
-                {"tag": "message"},
+                {"tag": "notes_lock_message"},
                 {"sender": self.name, "tag": "recall_response"},
             ], as_list=True)
             
-            recent_events = events[-self.max_events_len:] if len(events) > self.max_events_len else events
+            recent_events = events[-self._max_events_len:] if len(events) > self._max_events_len else events
             
             return format_prompt(prompt, {
                 "event_stream": "\n".join(recent_events),
@@ -175,13 +194,13 @@ class NoteTaker(BaseAgent, Participant):
             })
         elif prompt_type == "update_memory_question_bank":
             events = self.get_event_stream_str(filter=[
-                {"tag": "message"}, 
+                {"tag": "memory_lock_message"}, 
             ], as_list=True)
             current_qa = events[-2:] if len(events) >= 2 else []
             previous_events = events[:-2] if len(events) >= 2 else events
             
-            if len(previous_events) > self.max_events_len:
-                previous_events = previous_events[-self.max_events_len:]
+            if len(previous_events) > self._max_events_len:
+                previous_events = previous_events[-self._max_events_len:]
             
             return format_prompt(prompt, {
                 "previous_events": "\n".join(previous_events),
@@ -191,12 +210,12 @@ class NoteTaker(BaseAgent, Participant):
                 )
             })
         elif prompt_type == "update_session_note":
-            events = self.get_event_stream_str(filter=[{"tag": "message"}], as_list=True)
+            events = self.get_event_stream_str(filter=[{"tag": "notes_lock_message"}], as_list=True)
             current_qa = events[-2:] if len(events) >= 2 else []
             previous_events = events[:-2] if len(events) >= 2 else events
             
-            if len(previous_events) > self.max_events_len:
-                previous_events = previous_events[-self.max_events_len:]
+            if len(previous_events) > self._max_events_len:
+                previous_events = previous_events[-self._max_events_len:]
             
             return format_prompt(prompt, {
                 "previous_events": "\n".join(previous_events),
@@ -221,25 +240,25 @@ class NoteTaker(BaseAgent, Participant):
                 break
 
         SessionLogger.log_to_file("execution_log", 
-            f"[MEMORY] Collected {len(self.new_memories)} memories from current session")
-        return self.new_memories
+            f"[MEMORY] Collected {len(self._new_memories)} memories from current session")
+        return self._new_memories
     
     def _add_new_memory(self, memory: Dict):
         """Callback to track newly added memory"""
-        self.new_memories.append(memory)
+        self._new_memories.append(memory)
 
     def _update_memory_map(self, temp_id: str, real_id: str) -> None:
         """Callback to update the memory ID mapping"""
-        self.memory_id_map[temp_id] = real_id
+        self._memory_id_map[temp_id] = real_id
         SessionLogger.log_to_file("execution_log", 
             f"[MEMORY] Write a new memory with {real_id}")
 
     def _get_real_memory_ids(self, temp_ids: List[str]) -> List[str]:
         """Callback to get real memory IDs from temporary IDs"""
         real_ids = [
-            self.memory_id_map[temp_id]
+            self._memory_id_map[temp_id]
             for temp_id in temp_ids
-            if temp_id in self.memory_id_map
+            if temp_id in self._memory_id_map
         ]
         return real_ids
 

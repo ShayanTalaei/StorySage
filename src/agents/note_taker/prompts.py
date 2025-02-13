@@ -48,7 +48,6 @@ You are a note taker who works as the assistant of the interviewer. You observe 
 Your job is to:
 1. Identify important information shared by the user and store it in the memory bank
 2. Store the interviewer's questions in the question bank and link them to relevant memories
-You should be thorough and precise in identifying and storing relevant information, but avoid storing redundant or trivial details.
 </note_taker_persona>
 
 <context>
@@ -96,7 +95,6 @@ UPDATE_MEMORY_QUESTION_BANK_INSTRUCTIONS = """
      * Summarize the information clearly
      * Add relevant metadata (e.g., topics, emotions, when, where, who, etc.)
      * Rate the importance (1-10)
-     * Include the EXACT PART of the user's message that contains this information
 
 2. Then, analyze and store questions:
    - Consider MULTIPLE questions that this response answers:
@@ -140,7 +138,6 @@ UPDATE_MEMORY_QUESTION_BANK_INSTRUCTIONS = """
 1. update_memory_bank (MULTIPLE calls):
    - One call per distinct piece of information
    - Use unique temp_ids (MEM_TEMP_1, MEM_TEMP_2, etc.)
-   - Track all temp_ids used
    - Ensure complete coverage of the user's response
 
 2. add_historical_question (MULTIPLE calls):
@@ -197,7 +194,6 @@ UPDATE_MEMORY_QUESTION_BANK_OUTPUT_FORMAT = """
         <text>Clear summary of the information</text>
         <metadata>{{"key 1": "value 1", "key 2": "value 2", ...}}</metadata>
         <importance_score>1-10</importance_score>
-        <source_interview_response>Exact user message</source_interview_response>
     </update_memory_bank>
     ...
 
