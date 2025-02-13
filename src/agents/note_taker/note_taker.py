@@ -4,6 +4,7 @@ import os
 from dotenv import load_dotenv
 import asyncio
 from datetime import datetime
+import time
 
 
 from agents.base_agent import BaseAgent
@@ -204,8 +205,23 @@ class NoteTaker(BaseAgent, Participant):
                 "tool_descriptions": self.get_tools_description(selected_tools=["update_session_note"])
             })
     
-    def get_session_memories(self) -> List[Dict]:
-        """Get all memories added during current session"""
+    async def get_session_memories(self) -> List[Dict]:
+        """Get all memories added during current session.
+        Waits for all pending memory updates to complete before returning."""
+        # Wait for all memory updates to complete
+        start_time = time.time()
+
+        SessionLogger.log_to_file("execution_log", 
+            f"[MEMORY] Waiting for memory updates to complete...")
+        while self.processing_in_progress:
+            await asyncio.sleep(0.1)
+            if time.time() - start_time > 300:  # 5 minutes timeout
+                SessionLogger.log_to_file("execution_log", 
+                    f"[MEMORY] Timeout waiting for memory updates to complete")
+                break
+
+        SessionLogger.log_to_file("execution_log", 
+            f"[MEMORY] Collected {len(self.new_memories)} memories from current session")
         return self.new_memories
     
     def _add_new_memory(self, memory: Dict):

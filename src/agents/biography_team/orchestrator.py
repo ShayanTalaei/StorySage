@@ -19,21 +19,29 @@ load_dotenv()
 
 class BiographyOrchestrator:
     def __init__(self, config: BiographyConfig, interview_session: Optional['InterviewSession']):
+        # Config and settings
         self.config = config
+        self.max_concurrent_updates = int(os.getenv("MAX_CONCURRENT_UPDATES", 5))
+        
+        # Planning and writing agents
         self.todo_items: List[TodoItem] = []
         self.planner = BiographyPlanner(config, interview_session)
         self.section_writer = SectionWriter(config, interview_session)
+
+        # Session note agent if it is an post-interview update
         if interview_session:
             self.session_note_agent = SessionSummaryWriter(config, interview_session)
             self.interview_session = interview_session
         else:
-            # Setup logging for non-session operations
+            # Setup logging for non-interview operations
             setup_default_logger(
                 user_id=config.get("user_id"),
                 log_type="user_edits",
                 log_level=logging.INFO
             )
-        self.max_concurrent_updates = int(os.getenv("MAX_CONCURRENT_UPDATES", 5))
+
+        # Flag to track if biography update is in progress
+        self.update_in_progress = False
     
     async def _process_section_update(self, item: TodoItem) -> None:
         """Process a single section update."""
@@ -97,38 +105,44 @@ class BiographyOrchestrator:
         self.section_writer.save_biography(save_markdown=True)
 
     async def update_biography(self, selected_topics: Optional[List[str]] = None):
-        """Update biography with new memories.
-        If selected_topics is None, the session note update will wait for topics to be set later.
-        """
-        new_memories = self.interview_session.get_session_memories()
-        
-        # 1. First process biography updates (must complete before collecting follow-ups)
-        await self._update_biography_content(new_memories)
-        
-        # 2. Collect follow-up questions after biography updates
-        follow_up_questions = self._collect_follow_up_questions()
-        
-        # 3. Process session note update
-        session_note_task = asyncio.create_task(
-            self.session_note_agent.update_session_note(
-                new_memories=new_memories,
-                follow_up_questions=follow_up_questions
+        """Update biography with new memories."""
+        try:
+            self.update_in_progress = True
+            
+            # Get memories after note taker finishes
+            new_memories = await self.interview_session.get_session_memories()
+            
+            # 1. First process biography updates
+            await self._update_biography_content(new_memories)
+            
+            # 2. Collect follow-up questions after biography updates
+            follow_up_questions = self._collect_follow_up_questions()
+            
+            # 3. Process session note update
+            session_note_task = asyncio.create_task(
+                self.session_note_agent.update_session_note(
+                    new_memories=new_memories,
+                    follow_up_questions=follow_up_questions
+                )
             )
-        )
-        
-        # If topics are provided now, set them immediately
-        if selected_topics is not None:
-            self.session_note_agent.set_selected_topics(selected_topics)
-        
-        # Wait for session note task to complete
-        await session_note_task
+            
+            # If topics are provided now, set them immediately
+            if selected_topics is not None:
+                self.session_note_agent.set_selected_topics(selected_topics)
+            
+            # Wait for session note task to complete
+            await session_note_task
 
-        # Save session note after all updates are complete
-        self.interview_session.session_note.increment_session_id()
-        self.interview_session.session_note.save()
+            # Save session note after all updates are complete
+            self.interview_session.session_note.increment_session_id()
+            self.interview_session.session_note.save()
+            
+        finally:
+            self.update_in_progress = False
 
     async def process_user_edits(self, edits: List[Dict]):
-        """Process user-requested edits to the biography."""
+        """Process user-requested edits to the biography.
+        This is used for the API mode and non-interview sessions."""
         todo_items: List[TodoItem] = []
         
         for edit in edits:

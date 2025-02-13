@@ -52,7 +52,7 @@ class SessionSummaryWriter(BiographyTeamAgent):
 
     async def extract_session_topics(self) -> List[str]:
         """Extract main topics covered in the session from memories."""
-        new_memories = self.interview_session.get_session_memories()
+        new_memories = await self.interview_session.get_session_memories()
         
         # Format memories for prompt
         memories_text = "\n".join([

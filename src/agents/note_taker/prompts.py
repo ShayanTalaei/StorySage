@@ -118,7 +118,7 @@ UPDATE_MEMORY_QUESTION_BANK_INSTRUCTIONS = """
 # Calling Tools
 1. First call update_memory_bank for each piece of information, using unique temp_ids
 2. Then call add_historical_question, referencing those temp_ids
-3. If there's no information worth storing, you can skip making any tool calls
+3. If there's no information worth storing (e.g. the user's response is just greetings or ice-breakers), you can skip making any tool calls
 </instructions>
 """
 

@@ -6,6 +6,7 @@ from typing import Dict, List, TypedDict
 import signal
 import contextlib
 from dotenv import load_dotenv
+import time
 
 from interview_session.session_models import Message, MessageType, Participant
 from agents.interviewer.interviewer import Interviewer, InterviewerConfig, TTSConfig
@@ -91,7 +92,6 @@ class InterviewSession:
         self.interaction_mode = interaction_mode
         self.session_in_progress = True
         self.session_completed = False
-        self._biography_updated = False
         
         # Last message timestamp tracking
         self.last_message_time = datetime.now()
@@ -224,11 +224,19 @@ class InterviewSession:
         finally:
             try:                
                 # Update biography (API mode handles this separately)
-                if self.interaction_mode != 'api' and not self._biography_updated:
+                if self.interaction_mode != 'api':
                     with contextlib.suppress(KeyboardInterrupt):
                         SessionLogger.log_to_file("execution_log", f"[BIOGRAPHY] Starting biography update automatically in interview session")
                         await self.biography_orchestrator.update_biography(selected_topics=[])
-                        self._biography_updated = True
+
+                # Wait for biography update to complete if it's in progress
+                start_time = time.time()
+                while self.biography_orchestrator.update_in_progress:
+                    await asyncio.sleep(0.1)
+                    if time.time() - start_time > 300: # 5 minutes timeout
+                        SessionLogger.log_to_file("execution_log", f"[BIOGRAPHY] Timeout waiting for biography update")
+                        break
+
             except Exception as e:
                 SessionLogger.log_to_file("execution_log", f"[RUN] Error during biography update: {str(e)}")
             finally:
@@ -256,33 +264,12 @@ class InterviewSession:
     def _signal_handler(self):
         """Handle shutdown signals"""
         SessionLogger.log_to_file("execution_log", f"[SIGNAL] Shutdown signal received")
-        
         # Set flag to stop accepting new messages
         self.session_in_progress = False
-        
-        # Create a task to wait for note taker to finish
-        async def wait_for_note_taker():
-            try:
-                SessionLogger.log_to_file("execution_log", f"[SIGNAL] Waiting for NoteTaker to finish processing...")
-                while self.note_taker.processing_in_progress:
-                    await asyncio.sleep(0.1)
-                SessionLogger.log_to_file("execution_log", f"[SIGNAL] NoteTaker finished processing")
-            except Exception as e:
-                SessionLogger.log_to_file("execution_log", f"[SIGNAL] Error while waiting for NoteTaker: {str(e)}")
 
-        # Get the current event loop and create the task
-        loop = asyncio.get_event_loop()
-        loop.create_task(wait_for_note_taker())
-
-    def get_session_memories(self):
+    async def get_session_memories(self):
         """Get all memories added during this session"""
-        memories = self.note_taker.get_session_memories()
-        SessionLogger.log_to_file("execution_log", f"[BIOGRAPHY] Found {len(memories)} memories")
-        return memories
-
-    def mark_biography_updated(self):
-        """Mark that the biography has been updated externally (used by API mode)"""
-        self._biography_updated = True
+        return await self.note_taker.get_session_memories()
 
     def end_session(self):
         """End the session without triggering biography update"""
