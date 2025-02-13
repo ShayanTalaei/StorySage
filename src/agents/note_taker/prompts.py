@@ -1,13 +1,13 @@
 from utils.llm.prompt_utils import format_prompt
 
 def get_prompt(prompt_type: str):
-    if prompt_type == "update_memory_bank":
-        return format_prompt(UPDATE_MEMORY_BANK_PROMPT, {
-            "CONTEXT": UPDATE_MEMORY_BANK_CONTEXT,
-            "EVENT_STREAM": UPDATE_MEMORY_BANK_EVENT,
-            "TOOL_DESCRIPTIONS": UPDATE_MEMORY_BANK_TOOL,
-            "INSTRUCTIONS": UPDATE_MEMORY_BANK_INSTRUCTIONS,
-            "OUTPUT_FORMAT": UPDATE_MEMORY_BANK_OUTPUT_FORMAT
+    if prompt_type == "update_memory_question_bank":
+        return format_prompt(UPDATE_MEMORY_QUESTION_BANK_PROMPT, {
+            "CONTEXT": UPDATE_MEMORY_QUESTION_BANK_CONTEXT,
+            "EVENT_STREAM": UPDATE_MEMORY_QUESTION_BANK_EVENT,
+            "TOOL_DESCRIPTIONS": UPDATE_MEMORY_QUESTION_BANK_TOOL,
+            "INSTRUCTIONS": UPDATE_MEMORY_QUESTION_BANK_INSTRUCTIONS,
+            "OUTPUT_FORMAT": UPDATE_MEMORY_QUESTION_BANK_OUTPUT_FORMAT
         })
     elif prompt_type == "update_session_note":
         return format_prompt(UPDATE_SESSION_NOTE_PROMPT, {
@@ -28,9 +28,9 @@ def get_prompt(prompt_type: str):
             "OUTPUT_FORMAT": CONSIDER_AND_PROPOSE_FOLLOWUPS_OUTPUT_FORMAT
         })
 
-#### UPDATE_MEMORY_BANK_PROMPT ####
+#### UPDATE_MEMORY_QUESTION_BANK_PROMPT ####
 
-UPDATE_MEMORY_BANK_PROMPT = """
+UPDATE_MEMORY_QUESTION_BANK_PROMPT = """
 {CONTEXT}
 
 {EVENT_STREAM}
@@ -42,10 +42,12 @@ UPDATE_MEMORY_BANK_PROMPT = """
 {OUTPUT_FORMAT}
 """
 
-UPDATE_MEMORY_BANK_CONTEXT = """
+UPDATE_MEMORY_QUESTION_BANK_CONTEXT = """
 <note_taker_persona>
 You are a note taker who works as the assistant of the interviewer. You observe conversations between the interviewer and the user. 
-Your job is to identify important information shared by the user and store it in the memory bank.
+Your job is to:
+1. Identify important information shared by the user and store it in the memory bank
+2. Store the interviewer's questions in the question bank and link them to relevant memories
 You should be thorough and precise in identifying and storing relevant information, but avoid storing redundant or trivial details.
 </note_taker_persona>
 
@@ -54,7 +56,8 @@ Right now, you are observing a conversation between the interviewer and the user
 </context>
 """
 
-UPDATE_MEMORY_BANK_EVENT = """
+UPDATE_MEMORY_QUESTION_BANK_EVENT = """
+<input_context>
 Here is the stream of previous events for context:
 <previous_events>
 {previous_events}
@@ -65,66 +68,80 @@ Here is the current question-answer exchange you need to process:
 {current_qa}
 </current_qa>
 
+Reminder:
 - The external tag of each event indicates the role of the sender of the event.
 - Focus ONLY on processing the content within the current Q&A exchange above.
 - Previous messages are shown only for context, not for reprocessing.
+</input_context>
 """
 
-UPDATE_MEMORY_BANK_TOOL = """
-Here are the tools that you can use to manage memories:
+UPDATE_MEMORY_QUESTION_BANK_TOOL = """
+Here are the tools that you can use to manage memories and questions:
 <tool_descriptions>
 {tool_descriptions}
 </tool_descriptions>
 """
 
-UPDATE_MEMORY_BANK_INSTRUCTIONS = """
+UPDATE_MEMORY_QUESTION_BANK_INSTRUCTIONS = """
 <instructions>
-# Memory Bank Update
 
 ## Process:
-- Analyze the conversation history to identify important information about the user
-- For each piece of information worth storing:
-  1. Use the update_memory_bank tool to store the information
-  2. Create a concise but descriptive title
-  3. Summarize the information clearly
-  4. Add relevant metadata (e.g., topics, people mentioned, emotions, etc.)
-  5. Rate the importance of the memory on a scale from 1 to 10
-  6. Include the exact user message that contains this information as the source
+1. First, analyze the user's response to identify important information:
+   - For each piece of information worth storing:
+     a. Use the update_memory_bank tool with a unique temporary ID (e.g., MEM_TEMP_1)
+     b. Create a concise but descriptive title
+     c. Summarize the information clearly
+     d. Add relevant metadata (e.g., topics, emotions, when, where, who, etc.)
+     e. Rate the importance (1-10)
+     f. Include the exact user message as source
 
-## Topics to focus on:
-- Information about the user's life
-- Personal experiences
+2. Then, store the interviewer's question:
+   - Use the add_historical_question tool to:
+     a. Store the exact question that was asked
+     b. Link it to the memories you just created by using their temporary IDs
+   - This creates a bidirectional link between questions and the memories they generated
+
+## Important Aspects to Focus On:
+- Life experiences
 - Preferences and opinions
-- Important life events
+- Important events
 - Relationships
 - Goals and aspirations
 - Emotional moments
 - Anything else that you think is important
 
-## Source Interview Response:
-- Always include the exact user message that contains the information
-- If the information spans multiple messages, include the most relevant one
-- The source should be traceable back to the original conversation
+## Guidelines for Memory-Question Links:
+- Each memory should be linked to the question that prompted it
+- Use temporary IDs consistently between memory and question tools
+- Make sure the links reflect which memories were generated by which questions
 
 # Calling Tools
-- For each piece of information worth storing, use the update_memory_bank tool.
-- If there are multiple pieces of information worth storing, make multiple tool calls.
-- If there's no information worth storing, you can skip making any tool calls.
+1. First call update_memory_bank for each piece of information, using unique temp_ids
+2. Then call add_historical_question, referencing those temp_ids
+3. If there's no information worth storing, you can skip making any tool calls
 </instructions>
 """
 
-UPDATE_MEMORY_BANK_OUTPUT_FORMAT = """
+UPDATE_MEMORY_QUESTION_BANK_OUTPUT_FORMAT = """
 <output_format>
-If you identify information worth storing, use the following format:
+
 <tool_calls>
+    <!-- First call update_memory_bank for each piece of information -->
     <update_memory_bank>
+        <temp_id>MEM_TEMP_1</temp_id>
         <title>Concise descriptive title</title>
         <text>Clear summary of the information</text>
         <metadata>{{"key 1": "value 1", "key 2": "value 2", ...}}</metadata>
         <importance_score>1-10</importance_score>
-        <source_interview_response>The exact user message containing this information</source_interview_response>
+        <source_interview_response>Exact user message</source_interview_response>
     </update_memory_bank>
     ...
+
+    <!-- Second call add_historical_question to link the question to the memories -->
+    <add_historical_question>
+        <content>The exact question that was asked</content>
+        <temp_memory_ids>MEM_TEMP_1,MEM_TEMP_2</temp_memory_ids>
+    </add_historical_question>
     ...
 </tool_calls>
 </output_format>
@@ -164,6 +181,7 @@ You have access to the session notes containing topics and questions to be discu
 """
 
 UPDATE_SESSION_NOTE_EVENT = """
+<input_context>
 Here is the stream of previous events for context:
 <previous_events>
 {previous_events}
@@ -174,9 +192,11 @@ Here is the current question-answer exchange you need to process:
 {current_qa}
 </current_qa>
 
+Reminder:
 - The external tag of each event indicates the role of the sender of the event.
 - Focus ONLY on processing the content within the current Q&A exchange above.
 - Previous messages are shown only for context, not for reprocessing.
+</input_context>
 """
 
 QUESTIONS_AND_NOTES_UPDATE_SESSION_NOTES = """
@@ -259,6 +279,7 @@ CONSIDER_AND_PROPOSE_FOLLOWUPS_PROMPT = """
 """
 
 FOLLOWUPS_EVENTS = """
+<input_context>
 The following events include the most recent:
 - Messages exchanged between the interviewer and user
 - Results from memory recalls (showing what information we already have)
@@ -266,6 +287,7 @@ The following events include the most recent:
 <event_stream>
 {event_stream}
 </event_stream>
+</input_context>
 """
 
 CONSIDER_AND_PROPOSE_FOLLOWUPS_CONTEXT = """

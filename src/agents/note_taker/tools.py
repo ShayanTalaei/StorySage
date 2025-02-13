@@ -9,7 +9,6 @@ from content.memory_bank.memory_bank_base import MemoryBankBase
 from content.session_note.session_note import SessionNote
 from content.question_bank.question_bank_base import QuestionBankBase
 
-
 class AddInterviewQuestionInput(BaseModel):
     topic: str = Field(description="The topic under which to add the question")
     question: str = Field(description="The interview question to add")
@@ -125,39 +124,8 @@ class Recall(BaseTool):
             raise ToolException(f"Error recalling memories: {e}")
 
 
-class DecideFollowupsInput(BaseModel):
-    decision: str = Field(
-        description="Your decision about whether to propose follow-ups (yes or no)",
-        pattern="^(yes|no)$"
-    )
-    reasoning: str = Field(
-        description="Brief explanation of your decision based on the recall results with confidence score (1-10). If yes, explain what kind of follow-ups to propose.")
-
-
-class DecideFollowups(BaseTool):
-    """Tool for making the final decision about proposing follow-ups."""
-    name: str = "decide_followups"
-    description: str = (
-        "Use this tool to make your final decision about whether to propose follow-up questions "
-        "after you have gathered enough information through recall searches. "
-        "Provide your decision (yes/no) and explain your reasoning based on the recall results."
-    )
-    args_schema: Type[BaseModel] = DecideFollowupsInput
-
-    def _run(
-        self,
-        decision: str,
-        reasoning: str,
-        run_manager: Optional[CallbackManagerForToolRun] = None,
-    ) -> str:
-        return f"""\
-<propose_followups_decision>
-<decision>{decision}</decision>
-<reasoning>{reasoning}</reasoning>
-</propose_followups_decision>"""
-
-
 class UpdateMemoryBankInput(BaseModel):
+    temp_id: str = Field(description="Unique temporary ID for this memory (e.g., MEM_TEMP_1)")
     title: str = Field(description="A concise but descriptive title for the memory")
     text: str = Field(description="A clear summary of the information")
     metadata: dict = Field(description=(
@@ -183,12 +151,14 @@ class UpdateMemoryBank(BaseTool):
     description: str = "A tool for storing new memories in the memory bank."
     args_schema: Type[BaseModel] = UpdateMemoryBankInput
     memory_bank: MemoryBankBase = Field(...)
-    on_memory_added: SkipValidation[Callable[[Dict], None]] = Field(
-        description="Callback function to be called when a new memory is added"
+    on_memory_added: SkipValidation[Callable[[Dict], None]] = Field(...)
+    update_memory_map: SkipValidation[Callable[[str, str], None]] = Field(
+        description="Callback function to update the memory ID mapping"
     )
 
     def _run(
         self,
+        temp_id: str,
         title: str,
         text: str,
         metadata: dict,
@@ -205,11 +175,65 @@ class UpdateMemoryBank(BaseTool):
                 source_interview_response=source_interview_response
             )
             
-            # Call the callback if provided
-            if self.on_memory_added:
-                self.on_memory_added(memory.to_dict())
+            # Use callback to update the mapping
+            self.update_memory_map(temp_id, memory.id)
+            
+            # Trigger callback to track newly added memory
+            self.on_memory_added(memory.to_dict())
                 
             return f"Successfully stored memory: {title}"
         except Exception as e:
             raise ToolException(f"Error storing memory: {e}")
 
+
+class AddHistoricalQuestionInput(BaseModel):
+    content: str = Field(description="The question text to add")
+    temp_memory_ids: List[str] = Field(
+        description="List of temporary memory IDs that are relevant to this question. "
+        "These should match the temporary IDs used in update_memory_bank calls. "
+        "Format: MEM_TEMP_1,MEM_TEMP_2 (comma-separated, no brackets)",
+        default=[]
+    )
+
+
+class AddHistoricalQuestion(BaseTool):
+    """Tool for adding historical questions to the question bank."""
+    name: str = "add_historical_question"
+    description: str = (
+        "A tool for storing questions that were asked in the interview. "
+        "Use this when saving a question that has been asked, "
+        "along with any memories that contain information relevant to this question."
+    )
+    args_schema: Type[BaseModel] = AddHistoricalQuestionInput
+    question_bank: QuestionBankBase = Field(...)
+    memory_bank: MemoryBankBase = Field(...)
+    get_real_memory_ids: SkipValidation[Callable[[List[str]], List[str]]] = Field(
+        description="Callback function to get real memory IDs from temporary IDs"
+    )
+
+    def _run(
+        self,
+        content: str,
+        temp_memory_ids: str = "",
+        run_manager: Optional[CallbackManagerForToolRun] = None,
+    ) -> str:
+        try:
+            # Parse comma-separated string into list
+            temp_ids = [id.strip() for id in temp_memory_ids.split(",") if id.strip()]
+            
+            # Get real memory IDs through callback
+            real_memory_ids = self.get_real_memory_ids(temp_ids)
+            
+            # Link the question to memories
+            question = self.question_bank.add_question(
+                content=content,
+                memory_ids=real_memory_ids
+            )
+            
+            # Link memories to the question
+            for memory_id in real_memory_ids:
+                self.memory_bank.link_question(memory_id, question.id)
+            
+            return f"Successfully stored question: {content}"
+        except Exception as e:
+            raise ToolException(f"Error storing question: {e}")

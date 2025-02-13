@@ -9,7 +9,7 @@ from datetime import datetime
 from agents.base_agent import BaseAgent
 from agents.interviewer.interviewer import Recall
 from agents.note_taker.prompts import get_prompt
-from agents.note_taker.tools import AddInterviewQuestion, DecideFollowups, UpdateSessionNote, UpdateMemoryBank
+from agents.note_taker.tools import AddInterviewQuestion, UpdateSessionNote, UpdateMemoryBank, AddHistoricalQuestion
 from utils.llm.prompt_utils import format_prompt
 from interview_session.session_models import Participant, Message
 from utils.logger import SessionLogger
@@ -40,32 +40,37 @@ class NoteTaker(BaseAgent, Participant):
 
         # New memories added in current session
         self.new_memories = []  
+        # Mapping from temporary memory IDs to real IDs
+        self.memory_id_map = {}
 
         # Locks and processing flags
         self._notes_lock = asyncio.Lock()   # Lock for write_notes_and_questions
         self._memory_lock = asyncio.Lock()  # Lock for update_memory_bank
-        self.processing_in_progress = False # Signal to indicate if processing is in progress
-        
+        self.processing_in_progress = False # If processing is in progress
+                
         self.tools = {
             "update_memory_bank": UpdateMemoryBank(
                 memory_bank=self.interview_session.memory_bank,
-                on_memory_added=self.add_new_memory
+                on_memory_added=self.add_new_memory,
+                update_memory_map=self.update_memory_map
+            ),
+            "add_historical_question": AddHistoricalQuestion(
+                question_bank=self.interview_session.question_bank,
+                memory_bank=self.interview_session.memory_bank,
+                get_real_memory_ids=self.get_real_memory_ids
             ),
             "update_session_note": UpdateSessionNote(session_note=self.interview_session.session_note),
             "add_interview_question": AddInterviewQuestion(session_note=self.interview_session.session_note),
             "recall": Recall(memory_bank=self.interview_session.memory_bank),
-            "decide_followups": DecideFollowups()
         }
             
     async def on_message(self, message: Message):
         '''Handle incoming messages'''
-        if not self.interview_session.session_in_progress:
-            return  # Ignore messages after session ended
         
-        print(f"{datetime.now()} ✅ Note taker received message from {message.role}")
         self.add_event(sender=message.role, tag="message", content=message.content)
         
-        if message.role == "User" and self.interview_session.session_in_progress:
+        if message.role == "User":
+            print(f"{datetime.now()} ✅ Note taker received message from {message.role}")
             asyncio.create_task(self._process_user_message())
 
     async def _process_user_message(self):
@@ -131,16 +136,11 @@ class NoteTaker(BaseAgent, Participant):
             )
 
     async def write_memory_and_question_bank(self) -> None:
-        """Process the latest conversation and update the memory bank if needed."""
-        await self.update_memory_bank()
-        # await self.update_question_bank()
-
-    async def update_memory_bank(self) -> None:
-        """Process the latest conversation and update the memory bank if needed."""
-        prompt = self._get_formatted_prompt("update_memory_bank")
-        self.add_event(sender=self.name, tag="update_memory_bank_prompt", content=prompt)
+        """Process the latest conversation and update both memory and question banks."""
+        prompt = self._get_formatted_prompt("update_memory_question_bank")
+        self.add_event(sender=self.name, tag="update_memory_question_bank_prompt", content=prompt)
         response = await self.call_engine_async(prompt)
-        self.add_event(sender=self.name, tag="update_memory_bank_response", content=response)
+        self.add_event(sender=self.name, tag="update_memory_question_bank_response", content=response)
         self.handle_tool_calls(response)
 
     async def update_session_note(self) -> None:
@@ -169,10 +169,9 @@ class NoteTaker(BaseAgent, Participant):
                     selected_tools=["recall", "add_interview_question"]
                 )
             })
-        elif prompt_type == "update_memory_bank":
+        elif prompt_type == "update_memory_question_bank":
             events = self.get_event_stream_str(filter=[
                 {"tag": "message"}, 
-                {"sender": self.name, "tag": "update_memory_bank_response"},
             ], as_list=True)
             current_qa = events[-2:] if len(events) >= 2 else []
             previous_events = events[:-2] if len(events) >= 2 else events
@@ -183,7 +182,9 @@ class NoteTaker(BaseAgent, Participant):
             return format_prompt(prompt, {
                 "previous_events": "\n".join(previous_events),
                 "current_qa": "\n".join(current_qa),
-                "tool_descriptions": self.get_tools_description(selected_tools=["update_memory_bank"])
+                "tool_descriptions": self.get_tools_description(
+                    selected_tools=["update_memory_bank", "add_historical_question"]
+                )
             })
         elif prompt_type == "update_session_note":
             events = self.get_event_stream_str(filter=[{"tag": "message"}], as_list=True)
@@ -207,4 +208,21 @@ class NoteTaker(BaseAgent, Participant):
     def get_session_memories(self) -> List[Dict]:
         """Get all memories added during current session"""
         return self.new_memories
+
+    def update_memory_map(self, temp_id: str, real_id: str) -> None:
+        """Callback to update the memory ID mapping"""
+        self.memory_id_map[temp_id] = real_id
+        SessionLogger.log_to_file("execution_log", 
+            f"[MEMORY_MAP] Updated mapping {temp_id} -> {real_id}")
+
+    def get_real_memory_ids(self, temp_ids: List[str]) -> List[str]:
+        """Callback to get real memory IDs from temporary IDs"""
+        real_ids = [
+            self.memory_id_map[temp_id]
+            for temp_id in temp_ids
+            if temp_id in self.memory_id_map
+        ]
+        SessionLogger.log_to_file("execution_log", 
+            f"[MEMORY_MAP] Converted temp IDs {temp_ids} to real IDs {real_ids}")
+        return real_ids
 

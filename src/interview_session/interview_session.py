@@ -18,6 +18,7 @@ from interview_session.user.user import User
 from agents.biography_team.orchestrator import BiographyOrchestrator
 from agents.biography_team.base_biography_agent import BiographyConfig
 from content.memory_bank.memory_bank_vector_db import MemoryBankVectorDB
+from content.question_bank.question_bank_vector_db import QuestionBankVectorDB
 # from content.memory_bank.memory_bank_graph_rag import MemoryBankGraphRAG  # future implementation
 
 load_dotenv(override=True)
@@ -33,9 +34,15 @@ class InterviewConfig(TypedDict, total=False):
     """Configuration for interview settings."""
     enable_voice: bool
 
+class BankConfig(TypedDict, total=False):
+    """Configuration for memory and question banks."""
+    memory_bank_type: str  # "vector_db", "graph_rag", etc.
+    question_bank_type: str  # "vector_db", "graph", "semantic", etc.
+
 class InterviewSession: 
     
-    def __init__(self, interaction_mode: str = 'terminal', user_config: UserConfig = {}, interview_config: InterviewConfig = {}, config: dict = {}):
+    def __init__(self, interaction_mode: str = 'terminal', user_config: UserConfig = {}, 
+                 interview_config: InterviewConfig = {}, bank_config: BankConfig = {}):
         """Initialize the interview session.
 
         Args:
@@ -45,8 +52,9 @@ class InterviewSession:
                 enable_voice: Enable voice input (default: False)
             interview_config: Interview configuration dictionary
                 enable_voice: Enable voice output (default: False)
-            config: Additional configuration dictionary
+            bank_config: Bank configuration dictionary
                 memory_bank_type: Type of memory bank to use ("vector_db" or "graph_rag")
+                question_bank_type: Type of question bank to use ("vector_db" or "graph" or "semantic")
         """
 
         # User setup
@@ -57,15 +65,23 @@ class InterviewSession:
         self.session_id = self.session_note.session_id + 1
 
         # Memory bank setup
-        memory_bank_type = config.get("memory_bank_type", "vector_db")
+        memory_bank_type = bank_config.get("memory_bank_type", "vector_db")
         if memory_bank_type == "vector_db":
-            self.memory_bank = MemoryBankVectorDB()
+            self.memory_bank = MemoryBankVectorDB.load_from_file(self.user_id)
         else:
             raise ValueError(f"Unknown memory bank type: {memory_bank_type}")
         
-        # Logs to execution_log
+        # Question bank setup
+        question_bank_type = bank_config.get("question_bank_type", "vector_db")
+        if question_bank_type == "vector_db":
+            self.question_bank = QuestionBankVectorDB.load_from_file(self.user_id)
+        else:
+            raise ValueError(f"Unknown question bank type: {question_bank_type}")
+        
+        # Logger setup
         setup_logger(self.user_id, self.session_id, console_output_files=["execution_log"])
-        SessionLogger.log_to_file("execution_log", f"[INIT] Starting interview session for user {self.user_id}")
+        SessionLogger.log_to_file("execution_log", f"[INIT] Interview session initialized")
+        SessionLogger.log_to_file("execution_log", f"[INIT] User ID: {self.user_id}")
         SessionLogger.log_to_file("execution_log", f"[INIT] Session ID: {self.session_id}")
         
         # Chat history
@@ -90,9 +106,7 @@ class InterviewSession:
             self.user = None  # No direct user interface for API mode
         else:
             raise ValueError(f"Invalid interaction_mode: {interaction_mode}")
-        
-        SessionLogger.log_to_file("execution_log", f"[INIT] User instance created with mode: {interaction_mode}")
-        
+                
         # Agents in the interview session
         self.interviewer: Interviewer = Interviewer(
             config=InterviewerConfig(
@@ -113,10 +127,7 @@ class InterviewSession:
                 biography_style=user_config.get("biography_style", "chronological")
             ),
             interview_session=self
-        )
-        
-        SessionLogger.log_to_file("execution_log", f"[INIT] Agents initialized: Interviewer, Note Taker, Biography Orchestrator")
-        
+        )        
         
         # Subscriptions of participants to each other
         self.subscriptions: Dict[str, List[Participant]] = {
@@ -216,19 +227,21 @@ class InterviewSession:
         
         finally:
             try:
-                # Only update biography if not in API mode and not already updated (API mode handles this separately)
+                # Update biography (API mode handles this separately)
                 if self.interaction_mode != 'api' and not self._biography_updated:
                     with contextlib.suppress(KeyboardInterrupt):
                         SessionLogger.log_to_file("execution_log", f"[BIOGRAPHY] Starting biography update automatically in interview session")
-                        await self.biography_orchestrator.update_biography([])
+                        await self.biography_orchestrator.update_biography(selected_topics=[])
                         self._biography_updated = True
             except Exception as e:
                 SessionLogger.log_to_file("execution_log", f"[RUN] Error during biography update: {str(e)}")
             finally:
                 self.memory_bank.save_to_file(self.user_id)
-                SessionLogger.log_to_file("execution_log", f"[FILE] Memory bank saved to file")
+                SessionLogger.log_to_file("execution_log", f"[FILE] Memory bank saved")
+                self.question_bank.save_to_file(self.user_id)
+                SessionLogger.log_to_file("execution_log", f"[FILE] Question bank saved")
                 self.session_completed = True
-                SessionLogger.log_to_file("execution_log", f"[RUN] Interview session completed")
+                SessionLogger.log_to_file("execution_log", f"[RUN] Session completed")
 
     def set_db_session_id(self, db_session_id: int):
         """Set the database session ID"""
@@ -243,7 +256,6 @@ class InterviewSession:
         loop = asyncio.get_event_loop()
         for sig in (signal.SIGINT, signal.SIGTERM):
             loop.add_signal_handler(sig, self._signal_handler)
-        SessionLogger.log_to_file("execution_log", f"[INIT] Signal handlers configured")
     
     def _signal_handler(self):
         """Handle shutdown signals"""
