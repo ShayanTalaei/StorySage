@@ -36,7 +36,7 @@ class Section:
 class Biography:
     def __init__(self, user_id):
         self.user_id = user_id or str(uuid.uuid4())
-        self.base_path = f"data/{self.user_id}/"
+        self.base_path = f"{os.getenv('DATA_DIR', 'data')}/{self.user_id}/"
         os.makedirs(self.base_path, exist_ok=True)
         self.version = self._get_next_version()
         self.file_name = f"{self.base_path}/biography_{self.version}"
@@ -324,9 +324,15 @@ class Biography:
             return section
         return None
 
-    def export_to_markdown(self) -> str:
-        """Convert the biography to markdown format and save to file.
-        Returns the markdown string."""
+    def export_to_markdown(self, save_to_file: bool = False) -> str:
+        """Convert the biography to markdown format and optionally save to file.
+        
+        Args:
+            save_to_file: Whether to save the markdown to a file (default: False)
+            
+        Returns:
+            The markdown string
+        """
         def _section_to_markdown(section: Section, level: int = 1) -> str:
             # Convert section to markdown with appropriate heading level
             md = f"{'#' * level} {section.title}\n\n"
@@ -342,27 +348,25 @@ class Biography:
         # Generate markdown content
         markdown_content = _section_to_markdown(self.root)
 
-        # Save to markdown file
-        output_path = f"{self.file_name}.md"
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        with open(output_path, 'w', encoding='utf-8') as f:
-            f.write(markdown_content)
+        # Save to markdown file if requested
+        if save_to_file:
+            output_path = f"{self.file_name}.md"
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            with open(output_path, 'w', encoding='utf-8') as f:
+                f.write(markdown_content)
 
         return markdown_content
     
     @classmethod
-    def export_to_markdown_from_file(cls, json_path: str) -> str:
-        """Convert a biography JSON file to markdown format and save it.
+    def export_to_markdown_from_file(cls, json_path: str, save_to_file: bool = True) -> str:
+        """Convert a biography JSON file to markdown format and optionally save it.
         
         Args:
             json_path: Path to the biography JSON file
+            save_to_file: Whether to save the markdown to a file (default: True)
             
         Returns:
             str: The generated markdown content
-            
-        Example:
-            Biography.export_to_markdown_from_file("data/user123/biography_1.json")
-            # Creates: data/user123/biography_1.md
         """
         # Load and validate JSON file
         try:
@@ -389,11 +393,12 @@ class Biography:
         # Generate markdown content
         markdown_content = _section_to_markdown(root)
 
-        # Save to markdown file
-        output_path = json_path.replace('.json', '.md')
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        with open(output_path, 'w', encoding='utf-8') as f:
-            f.write(markdown_content)
+        # Save to markdown file if requested
+        if save_to_file:
+            output_path = json_path.replace('.json', '.md')
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            with open(output_path, 'w', encoding='utf-8') as f:
+                f.write(markdown_content)
 
         return markdown_content
 

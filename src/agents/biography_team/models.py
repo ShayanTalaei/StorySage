@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Optional, List
 
 @dataclass
-class TodoItem:
+class Plan:
     update_plan: str
     status: str = "pending"
     action_type: str = "update"  # "update", "create", "user_add", "user_update"
@@ -18,3 +18,17 @@ class TodoItem:
         # Initialize empty list if memory_ids is None
         if self.memory_ids is None:
             self.memory_ids = []
+
+@dataclass
+class FollowUpQuestion:
+    content: str
+    context: str
+
+    def to_xml(self) -> str:
+        """Convert the follow-up question to XML format."""
+        return (
+            "<question>\n"
+            f"<content>{self.content}</content>\n"
+            f"<context>{self.context}</context>\n"
+            "</question>"
+        )

@@ -9,6 +9,7 @@ from agents.biography_team.session_summary_writer.prompts import (
 )
 from agents.biography_team.session_summary_writer.tools import UpdateLastMeetingSummary, UpdateUserPortrait, AddInterviewQuestion, DeleteInterviewQuestion, Recall
 from content.memory_bank.memory import Memory
+from agents.biography_team.models import FollowUpQuestion
 
 
 if TYPE_CHECKING:
@@ -23,8 +24,8 @@ class SessionSummaryWriter(BiographyTeamAgent):
             config=config,
             interview_session=interview_session
         )
-        self.session_note = self.interview_session.session_note
-        self.max_consideration_iterations = 3
+        self._session_note = self.interview_session.session_note
+        self._max_consideration_iterations = 3
 
         # Event for selected topics (used to wait for topics to be set)
         self._selected_topics_event = asyncio.Event()
@@ -34,18 +35,18 @@ class SessionSummaryWriter(BiographyTeamAgent):
         self.tools = {
             # Summary tools
             "update_last_meeting_summary": UpdateLastMeetingSummary(
-                session_note=self.session_note
+                session_note=self._session_note
             ),
             "update_user_portrait": UpdateUserPortrait(
-                session_note=self.session_note
+                session_note=self._session_note
             ),
 
             # Question tools
             "add_interview_question": AddInterviewQuestion(
-                session_note=self.session_note
+                session_note=self._session_note
             ),
             "delete_interview_question": DeleteInterviewQuestion(
-                session_note=self.session_note
+                session_note=self._session_note
             ),
             "recall": Recall(
                 memory_bank=self.interview_session.memory_bank
@@ -86,7 +87,7 @@ class SessionSummaryWriter(BiographyTeamAgent):
 
         return topics
 
-    async def update_session_note(self, new_memories: List[Dict], follow_up_questions: List[Dict]):
+    async def update_session_note(self, new_memories: List[Memory], follow_up_questions: List[Dict]):
         """Update session notes with new memories and follow-up questions."""
         # First update summaries and user portrait (can be done immediately)
         await self._update_session_summary(new_memories)
@@ -95,7 +96,7 @@ class SessionSummaryWriter(BiographyTeamAgent):
         selected_topics = await self.wait_for_selected_topics()
         await self._manage_interview_questions(follow_up_questions, selected_topics)
 
-    async def _update_session_summary(self, new_memories: List[Dict]):
+    async def _update_session_summary(self, new_memories: List[Memory]):
         """Update session summary and user portrait."""
         prompt = self._get_summary_prompt(new_memories)
         self.add_event(sender=self.name, tag="summary_prompt", content=prompt)
@@ -119,11 +120,11 @@ class SessionSummaryWriter(BiographyTeamAgent):
         - Breaks when actions are taken or max iterations reached
         """
         # Store old questions and notes and clear them
-        old_questions_and_notes = self.session_note.get_questions_and_notes_str()
-        self.session_note.clear_questions()
+        old_questions_and_notes = self._session_note.get_questions_and_notes_str()
+        self._session_note.clear_questions()
 
         iterations = 0
-        while iterations < self.max_consideration_iterations:
+        while iterations < self._max_consideration_iterations:
             prompt = self._get_questions_prompt(
                 follow_up_questions, old_questions_and_notes, selected_topics)
             self.add_event(sender=self.name,
@@ -168,26 +169,26 @@ class SessionSummaryWriter(BiographyTeamAgent):
                                content=error_msg)
                 raise
 
-        if iterations >= self.max_consideration_iterations:
+        if iterations >= self._max_consideration_iterations:
             self.add_event(
                 sender=self.name,
                 tag="warning",
                 content=(
-                    f"Reached maximum iterations ({self.max_consideration_iterations}) "
+                    f"Reached maximum iterations ({self._max_consideration_iterations}) "
                     f"without taking actions"
                 )
             )
 
-    def _get_summary_prompt(self, new_memories: List[Dict]) -> str:
+    def _get_summary_prompt(self, new_memories: List[Memory]) -> str:
         summary_tool_names = [
             "update_last_meeting_summary", "update_user_portrait"]
         return SESSION_SUMMARY_PROMPT.format(
-            new_memories="\n".join([f"- {m['text']}" for m in new_memories]),
-            user_portrait=self.session_note.get_user_portrait_str(),
+            new_memories="\n\n".join(m.to_xml() for m in new_memories),
+            user_portrait=self._session_note.get_user_portrait_str(),
             tool_descriptions=self.get_tools_description(summary_tool_names)
         )
 
-    def _get_questions_prompt(self, follow_up_questions: List[Dict], old_questions_and_notes: str, selected_topics: Optional[List[str]] = None) -> str:
+    def _get_questions_prompt(self, follow_up_questions: List[FollowUpQuestion], old_questions_and_notes: str, selected_topics: Optional[List[str]] = None) -> str:
         question_tool_names = ["add_interview_question", "recall"]
         events = self.get_event_stream_str(
             filter=[
@@ -201,11 +202,7 @@ class SessionSummaryWriter(BiographyTeamAgent):
             selected_topics="\n".join(
                 selected_topics) if selected_topics else "",
             follow_up_questions="\n\n".join([
-                "<question>\n"
-                f"<content>{q['content']}</content>\n"
-                f"<context>{q['context']}</context>\n"
-                "</question>"
-                for q in follow_up_questions
+                q.to_xml() for q in follow_up_questions
             ]),
             event_stream="\n".join(events[-10:]),
             tool_descriptions=self.get_tools_description(question_tool_names)

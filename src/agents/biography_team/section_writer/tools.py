@@ -6,6 +6,7 @@ from langchain_core.tools import BaseTool, ToolException
 
 from content.biography.biography import Biography
 from content.memory_bank.memory_bank_base import MemoryBankBase
+from agents.biography_team.models import FollowUpQuestion
 
 class GetSectionInput(BaseModel):
     path: str = Field(description="Path to the section to retrieve")
@@ -149,7 +150,7 @@ class AddFollowUpQuestion(BaseTool):
         "Include both the question and context explaining why this information is needed."
     )
     args_schema: Type[BaseModel] = AddFollowUpQuestionInput
-    on_question_added: SkipValidation[Callable[[Dict], None]] = Field(
+    on_question_added: SkipValidation[Callable[[FollowUpQuestion], None]] = Field(
         description="Callback function to be called when a follow-up question is added"
     )
 
@@ -160,10 +161,10 @@ class AddFollowUpQuestion(BaseTool):
         run_manager: Optional[CallbackManagerForToolRun] = None,
     ) -> str:
         try:
-            question = {
-                "content": content.strip(),
-                "context": context.strip()
-            }
+            question = FollowUpQuestion(
+                content=content.strip(),
+                context=context.strip()
+            )
             self.on_question_added(question)
             return f"Successfully added follow-up question: {content}"
         except Exception as e:

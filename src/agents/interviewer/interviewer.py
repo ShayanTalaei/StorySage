@@ -2,7 +2,6 @@ import os
 import re
 from typing import TYPE_CHECKING, TypedDict
 from dotenv import load_dotenv
-from datetime import datetime
 
 
 from agents.base_agent import BaseAgent
@@ -43,21 +42,16 @@ class Interviewer(BaseAgent, Participant):
         Participant.__init__(self, title="Interviewer",
                              interview_session=interview_session)
 
-        self.user_id = config.get("user_id")
-        self.max_events_len = int(os.getenv("MAX_EVENTS_LEN", 30))
-        self.max_consideration_iterations = int(
+        self._max_events_len = int(os.getenv("MAX_EVENTS_LEN", 30))
+        self._max_consideration_iterations = int(
             os.getenv("MAX_CONSIDERATION_ITERATIONS", 3))
-
-        # Initialize TTS configuration
-        tts_config = config.get("tts", {})
-        self.base_path = f"data/{self.user_id}/"
 
         # Initialize tools
         self.tools = {
             "recall": Recall(memory_bank=self.interview_session.memory_bank),
             "respond_to_user": RespondToUser(
-                tts_config=tts_config,
-                base_path=self.base_path,
+                tts_config=config.get("tts", {}),
+                base_path=f"{os.getenv('DATA_DIR', 'data')}/{config.get("user_id")}/",
                 on_response=lambda response: self.interview_session.add_message_to_chat_history(
                     role=self.title,
                     content=response
@@ -93,7 +87,7 @@ class Interviewer(BaseAgent, Participant):
         self.turn_to_respond = True
         iterations = 0
 
-        while self.turn_to_respond and iterations < self.max_consideration_iterations:
+        while self.turn_to_respond and iterations < self._max_consideration_iterations:
             # Get updated prompt with current chat history, session note, etc. This may change periodically (e.g. when the interviewer receives a system message that triggers a recall)
             prompt = self.get_prompt()
             # Logs the prompt to the event stream
@@ -117,15 +111,18 @@ class Interviewer(BaseAgent, Participant):
             # Increment iteration count
             iterations += 1
 
-            if iterations >= self.max_consideration_iterations:
+            if iterations >= self._max_consideration_iterations:
                 self.add_event(
                     sender="system",
                     tag="error",
-                    content=f"Exceeded maximum number of consideration iterations ({self.max_consideration_iterations})"
+                    content=f"Exceeded maximum number of consideration iterations ({self._max_consideration_iterations})"
                 )
 
     def get_prompt(self):
-        '''Gets the prompt for the interviewer. The logic for this is in the get_prompt function in interviewer/prompts.py'''
+        '''
+        Gets the prompt for the interviewer. 
+        The logic for this is in the get_prompt function in interviewer/prompts.py
+        '''
         main_prompt = get_prompt()
         # Get user portrait and last meeting summary from session note
         user_portrait_str = self.interview_session.session_note.get_user_portrait_str()
@@ -145,8 +142,8 @@ class Interviewer(BaseAgent, Participant):
             hide_answered="qa")
         # TODO: Add additional notes
         tool_descriptions_str = self.get_tools_description()
-        recent_events = chat_history_str[-self.max_events_len:] if len(
-            chat_history_str) > self.max_events_len else chat_history_str
+        recent_events = chat_history_str[-self._max_events_len:] if len(
+            chat_history_str) > self._max_events_len else chat_history_str
 
         return format_prompt(main_prompt, {
             "user_portrait": user_portrait_str,

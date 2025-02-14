@@ -103,12 +103,12 @@ class InterviewSession:
         self.chat_history: list[Message] = []
 
         # Session states signals
-        self.interaction_mode = interaction_mode
+        self._interaction_mode = interaction_mode
         self.session_in_progress = True
         self.session_completed = False
 
         # Last message timestamp tracking
-        self.last_message_time = datetime.now()
+        self._last_message_time = datetime.now()
         self.timeout_minutes = int(os.getenv("SESSION_TIMEOUT_MINUTES", 10))
 
         # User in the interview session
@@ -124,7 +124,7 @@ class InterviewSession:
             raise ValueError(f"Invalid interaction_mode: {interaction_mode}")
 
         # Agents in the interview session
-        self.interviewer: Interviewer = Interviewer(
+        self._interviewer: Interviewer = Interviewer(
             config=InterviewerConfig(
                 user_id=self.user_id,
                 tts=TTSConfig(enabled=interview_config.get(
@@ -148,23 +148,23 @@ class InterviewSession:
         )
 
         # Subscriptions of participants to each other
-        self.subscriptions: Dict[str, List[Participant]] = {
+        self._subscriptions: Dict[str, List[Participant]] = {
             # Subscribers of Interviewer: Note-taker and User (in following code)
             "Interviewer": [self.note_taker],
             # Subscribers of User: Interviewer and Note-taker
-            "User": [self.interviewer, self.note_taker]
+            "User": [self._interviewer, self.note_taker]
         }
 
         # API participant for terminal interaction
         if self.user:
-            self.subscriptions["Interviewer"].append(self.user)
+            self._subscriptions["Interviewer"].append(self.user)
 
         # API participant for backend API interaction
         self.api_participant = None
         if interaction_mode == 'api':
             from api.core.api_participant import APIParticipant
             self.api_participant = APIParticipant()
-            self.subscriptions["Interviewer"].append(self.api_participant)
+            self._subscriptions["Interviewer"].append(self.api_participant)
 
         # Shutdown signal handler - only for agent mode
         if interaction_mode == 'agent':
@@ -173,7 +173,7 @@ class InterviewSession:
     async def _notify_participants(self, message: Message):
         """Notify subscribers asynchronously"""
         # Gets subscribers for the user that sent the message.
-        subscribers = self.subscriptions.get(message.role, [])
+        subscribers = self._subscriptions.get(message.role, [])
         SessionLogger.log_to_file(
             "execution_log", 
             (
@@ -220,7 +220,7 @@ class InterviewSession:
 
         # Update last message time when we receive a message
         if role == "User":
-            self.last_message_time = datetime.now()
+            self._last_message_time = datetime.now()
 
         SessionLogger.log_to_file(
             "chat_history", f"{message.role}: {message.content}")
@@ -241,14 +241,14 @@ class InterviewSession:
         try:
             # Only have interviewer initiate the conversation if not in API mode
             if self.user is not None:
-                await self.interviewer.on_message(None)
+                await self._interviewer.on_message(None)
 
             # Monitor the session for completion and timeout
             while self.session_in_progress or self.note_taker.processing_in_progress:
                 await asyncio.sleep(0.1)
 
                 # Check for timeout
-                if datetime.now() - self.last_message_time > timedelta(minutes=self.timeout_minutes):
+                if datetime.now() - self._last_message_time > timedelta(minutes=self.timeout_minutes):
                     SessionLogger.log_to_file(
                         "execution_log", 
                         (
@@ -267,13 +267,13 @@ class InterviewSession:
         finally:
             try:
                 # Update biography (API mode handles this separately)
-                if self.interaction_mode != 'api':
+                if self._interaction_mode != 'api':
                     with contextlib.suppress(KeyboardInterrupt):
                         SessionLogger.log_to_file(
                             "execution_log", 
                             (
-                                f"[BIOGRAPHY] Starting biography update "
-                                f"automatically in interview session"
+                                f"[BIOGRAPHY] Trigger biography update. "
+                                f"Waiting for note taker to finish processing..."
                             )
                         )
                         await self.biography_orchestrator.update_biography_and_notes(selected_topics=[])
@@ -295,6 +295,7 @@ class InterviewSession:
                 SessionLogger.log_to_file(
                     "execution_log", f"[RUN] Error during biography update: {str(e)}")
             finally:
+                # Save memory and question banks
                 self.memory_bank.save_to_file(self.user_id)
                 SessionLogger.log_to_file(
                     "execution_log", f"[COMPLETED] Memory bank saved")

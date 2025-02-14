@@ -38,7 +38,6 @@ class NoteTaker(BaseAgent, Participant):
                              interview_session=interview_session)
 
         # Config variables
-        self.user_id = config.get("user_id")
         self._max_events_len = int(os.getenv("MAX_EVENTS_LEN", 30))
         self._max_consideration_iterations = int(
             os.getenv("MAX_CONSIDERATION_ITERATIONS", 3))

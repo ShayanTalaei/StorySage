@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 
 from agents.biography_team.base_biography_agent import BiographyConfig, BiographyTeamAgent
-from agents.biography_team.models import TodoItem
+from agents.biography_team.models import Plan, FollowUpQuestion
 from agents.biography_team.section_writer.prompts import SECTION_WRITER_PROMPT, USER_ADD_SECTION_PROMPT, USER_COMMENT_EDIT_PROMPT
 from content.biography.biography_styles import BIOGRAPHY_STYLE_WRITER_INSTRUCTIONS
 from agents.biography_team.section_writer.tools import (
@@ -27,7 +27,7 @@ class SectionWriter(BiographyTeamAgent):
             config=config,
             interview_session=interview_session
         )
-        self.follow_up_questions = []
+        self.follow_up_questions: List[FollowUpQuestion] = []
         
         self.tools = {
             "get_section": GetSection(biography=self.biography),
@@ -46,7 +46,7 @@ class SectionWriter(BiographyTeamAgent):
             )
         }
     
-    async def update_section(self, todo_item: TodoItem) -> UpdateResult:
+    async def update_section(self, todo_item: Plan) -> UpdateResult:
         """Update a biography section based on a plan."""
         max_iterations = 3
         iterations = 0
@@ -84,7 +84,7 @@ class SectionWriter(BiographyTeamAgent):
         
         return "\n\n".join(memory_texts)
 
-    def _get_prompt(self, todo_item: TodoItem) -> str:
+    def _get_prompt(self, todo_item: Plan) -> str:
         """Create a prompt for the section writer to update a biography section."""
 
         # Add a new section based on user feedback
@@ -147,7 +147,7 @@ class SectionWriter(BiographyTeamAgent):
         try:
             self.biography.save()
             if save_markdown:
-                self.biography.export_to_markdown()
+                self.biography.export_to_markdown(save_to_file=True)
             return "Successfully saved biography to file"
         except Exception as e:
             error_msg = f"Error saving biography: {str(e)}"

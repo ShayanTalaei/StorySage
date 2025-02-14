@@ -37,7 +37,7 @@ class OpenAITTS(TextToSpeechBase):
             Path to the saved audio file
         """
         if output_path is None:
-            output_path = f"data/temp_audio_{hash(text)}.mp3"
+            output_path = f"{os.getenv('DATA_DIR', 'data')}/temp_audio_{hash(text)}.mp3"
             
         response = self.client.audio.speech.create(
             model="tts-1",

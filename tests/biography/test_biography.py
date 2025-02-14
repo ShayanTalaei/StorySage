@@ -1,10 +1,10 @@
 import pytest
 import os
 import shutil
-from src.biography.biography import Biography
+from src.content.biography.biography import Biography
 
 USER_ID = "test_user"
-TEST_DATA_DIR = f"data/{USER_ID}"
+TEST_DATA_DIR = f"{os.getenv('DATA_DIR', 'data')}/{USER_ID}"
 
 @pytest.fixture(autouse=True)
 def setup():
@@ -101,7 +101,7 @@ def test_export_to_markdown():
     bio.add_section("1 Early Life", "Life content")
     bio.add_section("1 Early Life/1.1 Childhood", "Childhood content")
     
-    markdown = bio.export_to_markdown()
+    markdown = bio.export_to_markdown(save_to_file=True)
     
     assert f"# Biography of {USER_ID}" in markdown
     assert "## 1 Early Life" in markdown

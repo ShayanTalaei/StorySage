@@ -17,13 +17,13 @@ class UserAgent(BaseAgent, User):
 
         # Load profile background
         profile_path = os.path.join(
-            os.getenv("USER_AGENT_PROFILES_DIR"), f"{self.user_id}/{self.user_id}.md")
+            os.getenv("USER_AGENT_PROFILES_DIR"), f"{user_id}/{user_id}.md")
         with open(profile_path, 'r') as f:
             self.profile_background = f.read()
 
         # Load conversational style
         conv_style_path = os.path.join(
-            os.getenv("USER_AGENT_PROFILES_DIR"), f"{self.user_id}/conversation.md")
+            os.getenv("USER_AGENT_PROFILES_DIR"), f"{user_id}/conversation.md")
         with open(conv_style_path, 'r') as f:
             self.conversational_style = f.read()
 

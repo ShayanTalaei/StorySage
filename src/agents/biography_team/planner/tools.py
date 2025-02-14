@@ -5,6 +5,8 @@ from langchain_core.callbacks.manager import CallbackManagerForToolRun
 from langchain_core.tools import BaseTool, ToolException
 from pydantic import BaseModel, Field, SkipValidation
 
+from agents.biography_team.models import Plan, FollowUpQuestion
+
 
 class AddPlanInput(BaseModel):
     action_type: str = Field(description="Type of action (create/update)")
@@ -27,7 +29,7 @@ class AddPlan(BaseTool):
     name: str = "add_plan"
     description: str = "Add a plan for updating or creating a biography section"
     args_schema: Type[BaseModel] = AddPlanInput
-    on_plan_added: SkipValidation[Callable[[Dict], None]] = Field(
+    on_plan_added: SkipValidation[Callable[[Plan], None]] = Field(
         description="Callback function to be called when a plan is added"
     )
 
@@ -47,7 +49,7 @@ class AddPlan(BaseTool):
                 "memory_ids": memory_ids or [],  # Use empty list if None
                 "update_plan": update_plan
             }
-            self.on_plan_added(plan)
+            self.on_plan_added(Plan(**plan))
             return f"Successfully added plan for {section_title}"
         except Exception as e:
             raise ToolException(f"Error adding plan: {str(e)}")
@@ -64,7 +66,7 @@ class AddFollowUpQuestion(BaseTool):
         "Include both the question and context explaining why this information is needed."
     )
     args_schema: Type[BaseModel] = AddFollowUpQuestionInput
-    on_question_added: SkipValidation[Callable[[Dict], None]] = Field(
+    on_question_added: SkipValidation[Callable[[FollowUpQuestion], None]] = Field(
         description="Callback function to be called when a follow-up question is added"
     )
 
@@ -75,10 +77,10 @@ class AddFollowUpQuestion(BaseTool):
         run_manager: Optional[CallbackManagerForToolRun] = None,
     ) -> str:
         try:
-            question = {
-                "content": content.strip(),
-                "context": context.strip()
-            }
+            question = FollowUpQuestion(
+                content=content.strip(),
+                context=context.strip()
+            )
             self.on_question_added(question)
             return f"Successfully added follow-up question: {content}"
         except Exception as e:

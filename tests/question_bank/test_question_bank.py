@@ -1,10 +1,9 @@
 import os
 from pathlib import Path
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import List
 
-from content.question_bank.question import Question
 from content.question_bank.question_bank_vector_db import QuestionBankVectorDB, QuestionBankBase
 
 @pytest.fixture

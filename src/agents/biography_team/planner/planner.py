@@ -2,7 +2,7 @@ import json
 from typing import Dict, List, TYPE_CHECKING, Optional
 
 from agents.biography_team.base_biography_agent import BiographyConfig, BiographyTeamAgent
-from agents.biography_team.models import TodoItem
+from agents.biography_team.models import Plan, FollowUpQuestion
 from agents.biography_team.planner.prompts import get_prompt
 from agents.biography_team.planner.tools import AddPlan
 from agents.biography_team.section_writer.tools import AddFollowUpQuestion
@@ -22,8 +22,8 @@ class BiographyPlanner(BiographyTeamAgent):
             config=config,
             interview_session=interview_session
         )
-        self.follow_up_questions = []
-        self.plans: List[TodoItem] = []
+        self.follow_up_questions: List[FollowUpQuestion] = []
+        self.plans: List[Plan] = []
         
         # Initialize tools
         self.tools = {
@@ -35,31 +35,13 @@ class BiographyPlanner(BiographyTeamAgent):
             )
         }
     
-    def _get_full_biography_content(self) -> str:
-        """
-        Get the full content of the biography in a structured format.
-        """
-        def format_section(section: Section):
-            content = []
-            content.append(f"[{section.title}]")
-            if section.content:
-                content.append(section.content)
-            for subsection in section.subsections.values():
-                content.extend(format_section(subsection))
-            return content
-
-        sections = []
-        for section in self.biography.root.subsections.values():
-            sections.extend(format_section(section))
-        return "\n".join(sections)
-
-    async def create_adding_new_memory_plans(self, new_memories: List[Memory]) -> List[Dict]:
+    async def create_adding_new_memory_plans(self, new_memories: List[Memory]) -> List[Plan]:
         """
         Create update plans for the biography based on new memories.
         """
         prompt = get_prompt("add_new_memory_planner").format(
             biography_structure=json.dumps(self.get_biography_structure(), indent=2),
-            biography_content=self._get_full_biography_content(),
+            biography_content=self.biography.export_to_markdown(),
             new_information='\n\n'.join(
                 [memory.to_xml(include_id=True) for memory in new_memories]),
             style_instructions=BIOGRAPHY_STYLE_PLANNER_INSTRUCTIONS.get(
@@ -75,12 +57,12 @@ class BiographyPlanner(BiographyTeamAgent):
         
         return self.plans
 
-    async def create_user_edit_plan(self, edit: Dict) -> Dict:
+    async def create_user_edit_plan(self, edit: Dict) -> Plan:
         """Create a detailed plan for user-requested edits."""
         if edit["type"] == "ADD":
             prompt = get_prompt("user_add_planner").format(
                 biography_structure=json.dumps(self.get_biography_structure(), indent=2),
-                biography_content=self._get_full_biography_content(),
+                biography_content=self.biography.export_to_markdown(),
                 section_path=edit['data']['newPath'],
                 section_prompt=edit['data']['sectionPrompt'],
                 style_instructions=BIOGRAPHY_STYLE_PLANNER_INSTRUCTIONS.get(
@@ -91,7 +73,7 @@ class BiographyPlanner(BiographyTeamAgent):
         else:  # COMMENT
             prompt = get_prompt("user_comment_planner").format(
                 biography_structure=json.dumps(self.get_biography_structure(), indent=2),
-                biography_content=self._get_full_biography_content(),
+                biography_content=self.biography.export_to_markdown(),
                 section_title=edit['title'],
                 selected_text=edit['data']['comment']['text'],
                 user_comment=edit['data']['comment']['comment'],
