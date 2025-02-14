@@ -27,6 +27,36 @@ class Memory(BaseModel):
             'question_ids': self.question_ids
         }
 
+    def to_xml(self, include_id: bool = False, include_source: bool = False, ) -> str:
+        """Convert memory to XML format string.
+        
+        Args:
+            include_source: Whether to include source_interview_response
+            include_id: Whether to include memory ID
+        Returns:
+            str: XML formatted string of the memory
+        """
+        lines = ['<memory>']
+        
+        # Always include title and text
+        lines.append(f'<title>{self.title}</title>')
+        lines.append(f'<summary>{self.text}</summary>')
+        
+        # Optionally include ID
+        if include_id:
+            lines.append(f'<id>{self.id}</id>')
+            
+        # Optionally include source response
+        if include_source:
+            lines.append(
+                f'<source_interview_response>\n'
+                f'{self.source_interview_response}\n'
+                f'</source_interview_response>'
+            )
+                
+        lines.append('</memory>')
+        return '\n'.join(lines)
+
     @classmethod
     def from_dict(cls, memory_dict: dict) -> 'Memory':
         """Create Memory object from dictionary."""
@@ -38,5 +68,5 @@ class Memory(BaseModel):
             importance_score=memory_dict['importance_score'],
             timestamp=datetime.fromisoformat(memory_dict['timestamp']),
             source_interview_response=memory_dict['source_interview_response'],
-            question_ids=memory_dict.get('question_ids', [])  # Backward compatibility
+            question_ids=memory_dict.get('question_ids', [])
         )

@@ -8,6 +8,7 @@ from agents.biography_team.session_summary_writer.prompts import (
     TOPIC_EXTRACTION_PROMPT
 )
 from agents.biography_team.session_summary_writer.tools import UpdateLastMeetingSummary, UpdateUserPortrait, AddInterviewQuestion, DeleteInterviewQuestion, Recall
+from content.memory_bank.memory import Memory
 
 
 if TYPE_CHECKING:
@@ -63,18 +64,11 @@ class SessionSummaryWriter(BiographyTeamAgent):
 
     async def extract_session_topics(self) -> List[str]:
         """Extract main topics covered in the session from memories."""
-        new_memories = await self.interview_session.get_session_memories()
-
-        # Format memories for prompt
-        memories_text = "\n".join([
-            f"Memory {i+1}:\n"
-            f"Title: {memory['title']}\n"
-            f"Content: {memory['text']}\n"
-            for i, memory in enumerate(new_memories)
-        ])
+        new_memories: List[Memory] = await self.interview_session.get_session_memories()
 
         # Create prompt
-        prompt = TOPIC_EXTRACTION_PROMPT.format(memories_text=memories_text)
+        prompt = TOPIC_EXTRACTION_PROMPT.format(memories_text='\n\n'.join(
+            [memory.to_xml(include_source=True) for memory in new_memories]))
         self.add_event(sender=self.name,
                        tag="topic_extraction_prompt", content=prompt)
 

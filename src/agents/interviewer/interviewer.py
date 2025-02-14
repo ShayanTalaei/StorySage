@@ -44,7 +44,7 @@ class Interviewer(BaseAgent, Participant):
                              interview_session=interview_session)
 
         self.user_id = config.get("user_id")
-        self.max_events_len = int(os.getenv("MAX_EVENTS_LEN", 40))
+        self.max_events_len = int(os.getenv("MAX_EVENTS_LEN", 30))
         self.max_consideration_iterations = int(
             os.getenv("MAX_CONSIDERATION_ITERATIONS", 3))
 

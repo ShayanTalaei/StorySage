@@ -200,7 +200,7 @@ UPDATE_MEMORY_QUESTION_BANK_OUTPUT_FORMAT = """
     <!-- Then call add_historical_question for each answered question -->
     <add_historical_question>
         <content>The exact question that was asked</content>
-        <temp_memory_ids>MEM_TEMP_1,MEM_TEMP_2</temp_memory_ids>
+        <temp_memory_ids>['MEM_TEMP_1', 'MEM_TEMP_2', ...]</temp_memory_ids>
     </add_historical_question>
     ...
 </tool_calls>

@@ -270,7 +270,7 @@ async def prepare_end_session(
             await asyncio.sleep(0.1)
         
         # Start biography update in background
-        asyncio.create_task(session.biography_orchestrator.update_biography())
+        asyncio.create_task(session.biography_orchestrator.update_biography_and_notes())
         
         # Get topics from new memories
         topics = await session.biography_orchestrator.get_session_topics()

@@ -8,6 +8,7 @@ from agents.biography_team.planner.tools import AddPlan
 from agents.biography_team.section_writer.tools import AddFollowUpQuestion
 from content.biography.biography import Section
 from content.biography.biography_styles import BIOGRAPHY_STYLE_PLANNER_INSTRUCTIONS
+from content.memory_bank.memory import Memory
 
 if TYPE_CHECKING:
     from interview_session.interview_session import InterviewSession
@@ -52,20 +53,15 @@ class BiographyPlanner(BiographyTeamAgent):
             sections.extend(format_section(section))
         return "\n".join(sections)
 
-    async def create_adding_new_memory_plans(self, new_memories: List[Dict]) -> List[Dict]:
+    async def create_adding_new_memory_plans(self, new_memories: List[Memory]) -> List[Dict]:
         """
         Create update plans for the biography based on new memories.
         """
         prompt = get_prompt("add_new_memory_planner").format(
             biography_structure=json.dumps(self.get_biography_structure(), indent=2),
             biography_content=self._get_full_biography_content(),
-            new_information="\n".join([
-                "<memory>\n"
-                f"<title>{m['title']}</title>\n"
-                f"<content>{m['text']}</content>\n"
-                "</memory>\n"
-                for m in new_memories
-            ]),
+            new_information='\n\n'.join(
+                [memory.to_xml(include_id=True) for memory in new_memories]),
             style_instructions=BIOGRAPHY_STYLE_PLANNER_INSTRUCTIONS.get(
                 self.config.get("biography_style")
             ),

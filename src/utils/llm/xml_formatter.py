@@ -50,6 +50,27 @@ def parse_tool_calls(xml_string: str) -> Dict[str, Any]:
     root = ET.fromstring(xml_string)
     result = []
     
+    def parse_value(text: str) -> Any:
+        """Parse a value that might be a list or other data type."""
+        if not text:
+            return ""
+        text = text.strip()
+        
+        # Try to parse as a list if it looks like one
+        if text.startswith('[') and text.endswith(']'):
+            try:
+                import ast
+                return ast.literal_eval(text)
+            except:
+                pass
+                
+        # Try to parse as JSON
+        try:
+            return json.loads(text)
+        except (json.JSONDecodeError, TypeError):
+            # If not valid JSON, return as string
+            return text
+    
     # Iterate through each direct child of tool_calls (each is a tool name)
     for tool_element in root:
         tool_name = tool_element.tag
@@ -57,12 +78,7 @@ def parse_tool_calls(xml_string: str) -> Dict[str, Any]:
         
         # Each child of the tool element is an argument
         for arg in tool_element:
-            try:
-                # Try to parse as JSON
-                arguments[arg.tag] = json.loads(arg.text)
-            except (json.JSONDecodeError, TypeError):
-                # If not valid JSON or None, treat as a simple string
-                arguments[arg.tag] = arg.text.strip() if arg.text else ""
+            arguments[arg.tag] = parse_value(arg.text)
                 
         result.append({
             'tool_name': tool_name,

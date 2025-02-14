@@ -1,4 +1,4 @@
-from typing import Type, Optional, Callable, Dict
+from typing import Type, Optional, Callable, Dict, List
 
 
 from langchain_core.callbacks.manager import CallbackManagerForToolRun
@@ -16,9 +16,9 @@ class AddPlanInput(BaseModel):
         default=None,
         description="Optional: Title of the section to update"
     )
-    relevant_memories: Optional[str] = Field(
+    memory_ids: Optional[List[str]] = Field(
         default=None, 
-        description="Optional: List of memories in bullet points format, e.g. '- Memory 1\n- Memory 2'"
+        description="Optional: List of memory IDs that are relevant to this plan, e.g. ['MEM_03121423_X7K', 'MEM_03121423_X7K']"
     )
     update_plan: str = Field(description="Detailed plan for updating/creating the section")
 
@@ -37,15 +37,14 @@ class AddPlan(BaseTool):
         update_plan: str,
         section_path: Optional[str] = None,
         section_title: Optional[str] = None,
-        relevant_memories: Optional[str] = None,
+        memory_ids: Optional[List[str]] = None,
         run_manager: Optional[CallbackManagerForToolRun] = None,
     ) -> str:
         try:
             plan = {
                 "section_path": section_path,
                 "section_title": section_title,
-                "relevant_memories": relevant_memories.strip() if relevant_memories else 
-None,
+                "memory_ids": memory_ids or [],  # Use empty list if None
                 "update_plan": update_plan
             }
             self.on_plan_added(plan)

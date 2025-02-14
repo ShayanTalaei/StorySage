@@ -11,8 +11,9 @@ from agents.interviewer.interviewer import Recall
 from agents.note_taker.prompts import get_prompt
 from agents.note_taker.tools import AddInterviewQuestion, UpdateSessionNote, UpdateMemoryBank, AddHistoricalQuestion
 from utils.llm.prompt_utils import format_prompt
-from interview_session.session_models import Participant, Message
 from utils.logger import SessionLogger
+from interview_session.session_models import Participant, Message
+from content.memory_bank.memory import Memory
 
 if TYPE_CHECKING:
     from interview_session.interview_session import InterviewSession
@@ -38,12 +39,12 @@ class NoteTaker(BaseAgent, Participant):
 
         # Config variables
         self.user_id = config.get("user_id")
-        self._max_events_len = int(os.getenv("MAX_EVENTS_LEN", 40))
+        self._max_events_len = int(os.getenv("MAX_EVENTS_LEN", 30))
         self._max_consideration_iterations = int(
             os.getenv("MAX_CONSIDERATION_ITERATIONS", 3))
 
         # New memories added in current session
-        self._new_memories = []
+        self._new_memories: List[Memory] = []
         # Mapping from temporary memory IDs to real IDs
         self._memory_id_map = {}
 
@@ -122,18 +123,22 @@ class NoteTaker(BaseAgent, Participant):
         """Wrapper to handle _write_notes_and_questions with lock"""
         async with self._notes_lock:
             self.add_event(sender=interviewer_message.role,
-                           tag="notes_lock_message", content=interviewer_message.content)
+                           tag="notes_lock_message", 
+                           content=interviewer_message.content)
             self.add_event(sender=user_message.role,
-                           tag="notes_lock_message", content=user_message.content)
+                           tag="notes_lock_message", 
+                           content=user_message.content)
             await self._write_notes_and_questions()
 
     async def _locked_write_memory_and_question_bank(self, interviewer_message: Message, user_message: Message) -> None:
         """Wrapper to handle update_memory_bank with lock"""
         async with self._memory_lock:
             self.add_event(sender=interviewer_message.role,
-                           tag="memory_lock_message", content=interviewer_message.content)
+                           tag="memory_lock_message", 
+                           content=interviewer_message.content)
             self.add_event(sender=user_message.role,
-                           tag="memory_lock_message", content=user_message.content)
+                           tag="memory_lock_message", 
+                           content=user_message.content)
             await self._write_memory_and_question_bank()
 
     async def _write_notes_and_questions(self) -> None:
@@ -145,9 +150,9 @@ class NoteTaker(BaseAgent, Participant):
         await self._update_session_note()
 
         # Then consider and propose follow-up questions if appropriate
-        await self._consider_and_propose_followups()
+        await self._propose_followups()
 
-    async def _consider_and_propose_followups(self) -> None:
+    async def _propose_followups(self) -> None:
         """
         Determine if follow-up questions should be proposed 
         and propose them if appropriate.
@@ -204,19 +209,31 @@ class NoteTaker(BaseAgent, Participant):
         """Process the latest conversation and update both memory and question banks."""
         prompt = self._get_formatted_prompt("update_memory_question_bank")
         self.add_event(
-            sender=self.name, tag="update_memory_question_bank_prompt", content=prompt)
+            sender=self.name, 
+            tag="update_memory_question_bank_prompt", 
+            content=prompt
+        )
         response = await self.call_engine_async(prompt)
         self.add_event(
-            sender=self.name, tag="update_memory_question_bank_response", content=response)
+            sender=self.name, 
+            tag="update_memory_question_bank_response", 
+            content=response
+        )
         self.handle_tool_calls(response)
 
     async def _update_session_note(self) -> None:
         prompt = self._get_formatted_prompt("update_session_note")
-        self.add_event(sender=self.name,
-                       tag="update_session_note_prompt", content=prompt)
+        self.add_event(
+            sender=self.name,
+            tag="update_session_note_prompt",
+            content=prompt
+        )
         response = await self.call_engine_async(prompt)
-        self.add_event(sender=self.name,
-                       tag="update_session_note_response", content=response)
+        self.add_event(
+            sender=self.name,
+            tag="update_session_note_response",
+            content=response
+        )
         self.handle_tool_calls(response)
 
     def _get_formatted_prompt(self, prompt_type: str) -> str:
@@ -281,7 +298,7 @@ class NoteTaker(BaseAgent, Participant):
                 )
             })
 
-    async def get_session_memories(self) -> List[Dict]:
+    async def get_session_memories(self) -> List[Memory]:
         """Get all memories added during current session.
         Waits for all pending memory updates to complete before returning."""
         # Wait for all memory updates to complete
@@ -289,6 +306,7 @@ class NoteTaker(BaseAgent, Participant):
 
         SessionLogger.log_to_file("execution_log",
                                   f"[MEMORY] Waiting for memory updates to complete...")
+        
         while self.processing_in_progress:
             await asyncio.sleep(0.1)
             if time.time() - start_time > 300:  # 5 minutes timeout
@@ -307,8 +325,8 @@ class NoteTaker(BaseAgent, Participant):
         )
         return self._new_memories
 
-    def _add_new_memory(self, memory: Dict):
-        """Callback to track newly added memory"""
+    def _add_new_memory(self, memory: Memory):
+        """Callback to track newly added memory in the session"""
         self._new_memories.append(memory)
 
     def _update_memory_map(self, temp_id: str, real_id: str) -> None:

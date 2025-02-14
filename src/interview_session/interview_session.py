@@ -19,6 +19,7 @@ from interview_session.user.user import User
 from agents.biography_team.orchestrator import BiographyOrchestrator
 from agents.biography_team.base_biography_agent import BiographyConfig
 from content.memory_bank.memory_bank_vector_db import MemoryBankVectorDB
+from content.memory_bank.memory import Memory
 from content.question_bank.question_bank_vector_db import QuestionBankVectorDB
 # from content.memory_bank.memory_bank_graph_rag import MemoryBankGraphRAG  # future implementation
 
@@ -275,7 +276,7 @@ class InterviewSession:
                                 f"automatically in interview session"
                             )
                         )
-                        await self.biography_orchestrator.update_biography(selected_topics=[])
+                        await self.biography_orchestrator.update_biography_and_notes(selected_topics=[])
 
                 # Wait for biography update to complete if it's in progress
                 start_time = time.time()
@@ -326,7 +327,7 @@ class InterviewSession:
         SessionLogger.log_to_file(
             "execution_log", f"[SIGNAL] Waiting for interview session to finish...")
 
-    async def get_session_memories(self):
+    async def get_session_memories(self) -> List[Memory]:
         """Get all memories added during this session"""
         return await self.note_taker.get_session_memories()
 

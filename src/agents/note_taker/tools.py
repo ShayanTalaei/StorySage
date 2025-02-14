@@ -5,7 +5,7 @@ from langchain_core.callbacks.manager import CallbackManagerForToolRun
 from langchain_core.tools import BaseTool, ToolException
 from pydantic import BaseModel, Field, SkipValidation
 
-from content.memory_bank.memory_bank_base import MemoryBankBase
+from content.memory_bank.memory_bank_base import MemoryBankBase, Memory
 from content.session_note.session_note import SessionNote
 from content.question_bank.question_bank_base import QuestionBankBase
 
@@ -151,7 +151,7 @@ class UpdateMemoryBank(BaseTool):
     description: str = "A tool for storing new memories in the memory bank."
     args_schema: Type[BaseModel] = UpdateMemoryBankInput
     memory_bank: MemoryBankBase = Field(...)
-    on_memory_added: SkipValidation[Callable[[Dict], None]] = Field(...)
+    on_memory_added: SkipValidation[Callable[[Memory], None]] = Field(...)
     update_memory_map: SkipValidation[Callable[[str, str], None]] = Field(
         description="Callback function to update the memory ID mapping"
     )
@@ -182,7 +182,7 @@ class UpdateMemoryBank(BaseTool):
             self.update_memory_map(temp_id, memory.id)
             
             # Trigger callback to track newly added memory
-            self.on_memory_added(memory.to_dict())
+            self.on_memory_added(memory)
                 
             return f"Successfully stored memory: {title}"
         except Exception as e:
@@ -194,7 +194,7 @@ class AddHistoricalQuestionInput(BaseModel):
     temp_memory_ids: List[str] = Field(
         description="List of temporary memory IDs that are relevant to this question. "
         "These should match the temporary IDs used in update_memory_bank calls. "
-        "Format: MEM_TEMP_1,MEM_TEMP_2 (comma-separated, no brackets)",
+        "Format: ['MEM_TEMP_1', 'MEM_TEMP_2']",
         default=[]
     )
 
@@ -217,15 +217,15 @@ class AddHistoricalQuestion(BaseTool):
     def _run(
         self,
         content: str,
-        temp_memory_ids: str = "",
+        temp_memory_ids: List[str] = None,
         run_manager: Optional[CallbackManagerForToolRun] = None,
     ) -> str:
         try:
-            # Parse comma-separated string into list
-            temp_ids = [id.strip() for id in temp_memory_ids.split(",") if id.strip()]
+            # Use empty list if None
+            temp_memory_ids = temp_memory_ids or []
             
             # Get real memory IDs through callback
-            real_memory_ids = self.get_real_memory_ids(temp_ids)
+            real_memory_ids = self.get_real_memory_ids(temp_memory_ids)
             
             # Link the question to memories
             question = self.question_bank.add_question(
