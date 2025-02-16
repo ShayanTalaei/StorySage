@@ -11,9 +11,13 @@ from content.question_bank.question_bank_base import QuestionBankBase
 
 
 class UpdateSessionNoteInput(BaseModel):
-    question_id: str = Field(description=("The ID of the question to update. "
-                                          "It can be a top-level question or a sub-question, e.g. '1' or '1.1', '2.1.2', etc. "
-                                          "It can also be empty, in which case the note will be added as an additional note."))
+    question_id: str = Field(
+        description=(
+            "The ID of the question to update. "
+            "It can be a top-level question or a sub-question, e.g. '1' or '1.1', '2.1.2', etc. "
+            "It can also be empty, in which case the note will be added as an additional note."
+        )
+    )
     note: str = Field(
         description="A concise note to be added to the question, or as an additional note if the question_id is empty.")
 

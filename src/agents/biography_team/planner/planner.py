@@ -1,4 +1,5 @@
 import json
+import os
 from typing import Dict, List, TYPE_CHECKING, Optional
 
 from agents.biography_team.base_biography_agent import BiographyConfig, BiographyTeamAgent
@@ -8,6 +9,7 @@ from agents.biography_team.planner.tools import AddPlan
 from agents.biography_team.shared.tools import AddFollowUpQuestion
 from content.biography.biography_styles import BIOGRAPHY_STYLE_PLANNER_INSTRUCTIONS
 from content.memory_bank.memory import Memory
+from utils.llm.xml_formatter import extract_tool_arguments
 
 if TYPE_CHECKING:
     from interview_session.interview_session import InterviewSession
@@ -35,23 +37,103 @@ class BiographyPlanner(BiographyTeamAgent):
         }
     
     async def create_adding_new_memory_plans(self, new_memories: List[Memory]) -> List[Plan]:
-        """
-        Create update plans for the biography based on new memories.
-        """
-        prompt = get_prompt("add_new_memory_planner").format(
-            biography_structure=json.dumps(self.get_biography_structure(), indent=2),
-            biography_content=self.biography.export_to_markdown(),
-            new_information='\n\n'.join(
-                [memory.to_xml() for memory in new_memories]),
-            style_instructions=BIOGRAPHY_STYLE_PLANNER_INSTRUCTIONS.get(
-                self.config.get("biography_style")
-            ),
-            tool_descriptions=self.get_tools_description()
-        )
-        self.add_event(sender=self.name, tag="add_new_memory_prompt", content=prompt)
-        response = await self.call_engine_async(prompt)
-        self.add_event(sender=self.name, tag="add_new_memory_response", content=response)
+        """Create update plans for the biography based on new memories."""
+        max_iterations = int(os.getenv("MAX_CONSIDERATION_ITERATIONS", "3"))
+        iterations = 0
+        all_memory_ids = set(memory.id for memory in new_memories)
+        covered_memory_ids = set()
+        previous_tool_call = None
+        
+        while iterations < max_iterations:
+            # Get base prompt
+            prompt = get_prompt(
+                "add_new_memory_planner",
+                include_warning=(previous_tool_call is not None)
+            ).format(
+                biography_structure=json.dumps(
+                    self.get_biography_structure(), indent=2),
+                biography_content=self.biography.export_to_markdown(),
+                new_information='\n\n'.join(
+                    [memory.to_xml() for memory in new_memories]
+                ),
+                style_instructions=BIOGRAPHY_STYLE_PLANNER_INSTRUCTIONS.get(
+                    self.config.get("biography_style")
+                ),
+                tool_descriptions=self.get_tools_description(),
+                # Add warning context if needed
+                previous_tool_call=previous_tool_call if previous_tool_call else "",
+                missing_memory_ids="\n".join(
+                    sorted(list(all_memory_ids - covered_memory_ids))
+                ) if previous_tool_call else ""
+            )
+            
+            self.add_event(
+                sender=self.name,
+                tag="add_new_memory_prompt", 
+                content=prompt
+            )
+            
+            response = await self.call_engine_async(prompt)
+            self.add_event(
+                sender=self.name,
+                tag="add_new_memory_response",
+                content=response
+            )
 
+            # Check if agent wants to proceed with missing memories
+            if "<proceed>true</proceed>" in response.lower():
+                self.add_event(
+                    sender=self.name,
+                    tag="feedback_loop",
+                    content="Agent chose to proceed with missing memories"
+                )
+                break
+
+            # Extract tool calls section
+            tool_calls_start = response.find("<tool_calls>")
+            tool_calls_end = response.find("</tool_calls>")
+            if tool_calls_start != -1 and tool_calls_end != -1:
+                tool_calls_xml = response[
+                    tool_calls_start:tool_calls_end + len("</tool_calls>")
+                ]
+                
+                # Extract memory IDs from add_plan tool calls
+                memory_ids = extract_tool_arguments(
+                    tool_calls_xml, "add_plan", "memory_ids"
+                )
+                current_memory_ids = set()
+                for ids in memory_ids:
+                    if isinstance(ids, (list, set)):
+                        current_memory_ids.update(ids)
+                    else:
+                        current_memory_ids.add(ids)
+                
+                # Update covered memories
+                covered_memory_ids.update(current_memory_ids)
+                
+                # Save tool calls for next iteration if needed
+                previous_tool_call = tool_calls_xml
+            
+            # Check if all memories are covered
+            if covered_memory_ids >= all_memory_ids:
+                self.add_event(
+                    sender=self.name,
+                    tag="feedback_loop",
+                    content="All memories covered in plans"
+                )
+                break
+            
+            iterations += 1
+            
+            if iterations == max_iterations:
+                self.add_event(
+                    sender=self.name,
+                    tag="warning",
+                    content=f"Reached max iterations ({max_iterations}) "
+                            "without covering all memories"
+                )
+
+        # Handle the final tool calls
         self.handle_tool_calls(response)
         
         return self.plans
@@ -60,7 +142,8 @@ class BiographyPlanner(BiographyTeamAgent):
         """Create a detailed plan for user-requested edits."""
         if edit["type"] == "ADD":
             prompt = get_prompt("user_add_planner").format(
-                biography_structure=json.dumps(self.get_biography_structure(), indent=2),
+                biography_structure=json.dumps(
+                    self.get_biography_structure(), indent=2),
                 biography_content=self.biography.export_to_markdown(),
                 section_path=edit['data']['newPath'],
                 section_prompt=edit['data']['sectionPrompt'],
@@ -71,7 +154,8 @@ class BiographyPlanner(BiographyTeamAgent):
             )
         else:  # COMMENT
             prompt = get_prompt("user_comment_planner").format(
-                biography_structure=json.dumps(self.get_biography_structure(), indent=2),
+                biography_structure=json.dumps(
+                    self.get_biography_structure(), indent=2),
                 biography_content=self.biography.export_to_markdown(),
                 section_title=edit['title'],
                 selected_text=edit['data']['comment']['text'],
@@ -91,3 +175,4 @@ class BiographyPlanner(BiographyTeamAgent):
         
         # Return just the latest plan
         return self.plans[-1] if self.plans else None
+

@@ -173,8 +173,8 @@ Responsible for:
 Tools:
 
 - `update_memory_bank`: Update the memory bank with the new information
-- `add_historical_question`: Add a historical question to the question bank
 - `update_session_note`: Update the session notes with the new information
+- `add_historical_question`: Add a historical question to the question bank
 - `add_interview_question`: Add a follow-up interview question to the session notes
 - `recall`: Recall memories from memory bank to help decide whether to ask a follow-up question and what to ask
 

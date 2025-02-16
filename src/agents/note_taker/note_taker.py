@@ -52,7 +52,7 @@ class NoteTaker(BaseAgent, Participant):
         self._last_interviewer_message = None
 
         # Locks and processing flags
-        self.processing_in_progress = False  # If processing is in progress
+        self.processing_in_progress = False # If processing is in progress
         self._pending_tasks = 0             # Track number of pending tasks
         self._notes_lock = asyncio.Lock()   # Lock for _write_notes_and_questions
         self._memory_lock = asyncio.Lock()  # Lock for update_memory_bank
@@ -222,6 +222,7 @@ class NoteTaker(BaseAgent, Participant):
         self.handle_tool_calls(response)
 
     async def _update_session_note(self) -> None:
+        """Update session note with user's response"""
         prompt = self._get_formatted_prompt("update_session_note")
         self.add_event(
             sender=self.name,
@@ -289,9 +290,10 @@ class NoteTaker(BaseAgent, Participant):
                 "previous_events": "\n".join(previous_events),
                 "current_qa": "\n".join(current_qa),
                 "questions_and_notes": (
-                    self.interview_session.session_note.get_questions_and_notes_str(
-                        hide_answered="qa"
-                    )
+                    self.interview_session.session_note \
+                        .get_questions_and_notes_str(
+                            hide_answered="qa"
+                        )
                 ),
                 "tool_descriptions": self.get_tools_description(
                     selected_tools=["update_session_note"]
@@ -304,8 +306,10 @@ class NoteTaker(BaseAgent, Participant):
         # Wait for all memory updates to complete
         start_time = time.time()
 
-        SessionLogger.log_to_file("execution_log",
-                                  f"[MEMORY] Waiting for memory updates to complete...")
+        SessionLogger.log_to_file(
+            "execution_log",
+            f"[MEMORY] Waiting for memory updates to complete..."
+        )
         
         while self.processing_in_progress:
             await asyncio.sleep(0.1)

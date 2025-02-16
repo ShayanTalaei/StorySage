@@ -1,9 +1,11 @@
 from utils.llm.prompt_utils import format_prompt
 
-def get_prompt(prompt_type: str):
+def get_prompt(prompt_type: str, include_warning: bool = False):
     if prompt_type == "add_new_memory_planner":
         return format_prompt(ADD_NEW_MEMORY_PROMPT, {
             "NEW_MEMORY_MAIN_PROMPT": NEW_MEMORY_MAIN_PROMPT,
+            "MISSING_MEMORIES_WARNING": MISSING_MEMORIES_WARNING \
+                                        if include_warning else WARNING_PLACEHOLDER,
             "SECTION_PATH_FORMAT": SECTION_PATH_FORMAT
         })
     elif prompt_type == "user_add_planner":
@@ -82,6 +84,36 @@ SECTION_PATH_FORMAT = """\
 </format_notes>
 """
 
+MISSING_MEMORIES_WARNING = """\
+<missing_memories_warning>
+Warning: Some memories from the interview session are not yet incorporated into the biography.
+
+Previous Tool Calls:
+<previous_tool_call>
+{previous_tool_call}
+</previous_tool_call>
+
+Uncovered Memories:
+<missing_memory_ids>
+{missing_memory_ids}
+</missing_memory_ids>
+
+Action Required:
+1. Review the uncovered memories
+2. Either:
+a) Generate new tool calls from scratch to cover ALL memories, or
+b) Explain why some memories can be excluded in <thinking> tag and add <proceed>true</proceed> at the end of your response (outside of <thinking> and <tool_calls> tags)
+
+Note: Your explanation should be clear and specific about why certain memories don't need to be included.
+</missing_memories_warning>
+"""
+
+# Placeholder to prevent missing {previous_tool_call} and {missing_memory_ids} errors
+WARNING_PLACEHOLDER = """\
+{previous_tool_call}
+{missing_memory_ids}
+"""
+
 NEW_MEMORY_MAIN_PROMPT = """\
 <planner_persona>
 You are a biography expert responsible for planning and organizing life stories. Your role is to:
@@ -145,8 +177,12 @@ You are a biography expert responsible for planning and organizing life stories.
 </instructions>
 
 <output_format>
-Provide your response using tool calls:
+First, provide reasoning for your plans and tool calls.
+<thinking>
+Your thoughts here
+</thinking>
 
+Then, provide your action using tool calls:
 <tool_calls>
     <add_plan>
         ...

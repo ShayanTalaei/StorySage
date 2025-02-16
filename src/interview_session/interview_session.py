@@ -21,7 +21,7 @@ from agents.biography_team.base_biography_agent import BiographyConfig
 from content.memory_bank.memory_bank_vector_db import MemoryBankVectorDB
 from content.memory_bank.memory import Memory
 from content.question_bank.question_bank_vector_db import QuestionBankVectorDB
-# from content.memory_bank.memory_bank_graph_rag import MemoryBankGraphRAG  # future implementation
+
 
 load_dotenv(override=True)
 
@@ -117,7 +117,8 @@ class InterviewSession:
                 user_id=self.user_id, interview_session=self)
         elif interaction_mode == 'terminal':
             self.user: User = User(user_id=self.user_id, interview_session=self,
-                                   enable_voice_input=user_config.get("enable_voice", False))
+                                   enable_voice_input=user_config \
+                                   .get("enable_voice", False))
         elif interaction_mode == 'api':
             self.user = None  # No direct user interface for API mode
         else:
@@ -239,7 +240,7 @@ class InterviewSession:
         self.session_in_progress = True
 
         try:
-            # Only have interviewer initiate the conversation if not in API mode
+            # Interviewer initiate the conversation (if not in API mode)
             if self.user is not None:
                 await self._interviewer.on_message(None)
 
@@ -248,7 +249,8 @@ class InterviewSession:
                 await asyncio.sleep(0.1)
 
                 # Check for timeout
-                if datetime.now() - self._last_message_time > timedelta(minutes=self.timeout_minutes):
+                if datetime.now() - self._last_message_time \
+                        > timedelta(minutes=self.timeout_minutes):
                     SessionLogger.log_to_file(
                         "execution_log", 
                         (
@@ -276,7 +278,8 @@ class InterviewSession:
                                 f"Waiting for note taker to finish processing..."
                             )
                         )
-                        await self.biography_orchestrator.update_biography_and_notes(selected_topics=[])
+                        await self.biography_orchestrator \
+                            .update_biography_and_notes(selected_topics=[])
 
                 # Wait for biography update to complete if it's in progress
                 start_time = time.time()

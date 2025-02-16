@@ -217,4 +217,4 @@ class MemoryBankBase(ABC):
             else:
                 memory_texts.append(memory.to_xml(include_source=False))
         
-        return "\n\n".join(memory_texts) if memory_texts else "" 
+        return "\n\n".join(memory_texts) if memory_texts else ""

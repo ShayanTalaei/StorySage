@@ -38,8 +38,10 @@ class SectionWriter(BiographyTeamAgent):
                 on_question_added=lambda q: self.follow_up_questions.append(q)
             ),
             "recall": Recall(
-                memory_bank=self.interview_session.memory_bank if interview_session else None,
-                user_id=self.config.get("user_id") if not interview_session else None
+                memory_bank=self.interview_session.memory_bank \
+                            if interview_session else None,
+                user_id=self.config.get("user_id") \
+                         if not interview_session else None
             )
         }
     
@@ -125,8 +127,10 @@ class SectionWriter(BiographyTeamAgent):
             # Update a section based on newly collected memory
             else:
                 current_content = self.biography.get_section(
-                    path=todo_item.section_path if todo_item.section_path else None,
-                    title=todo_item.section_title if todo_item.section_title else None
+                    path=todo_item.section_path \
+                        if todo_item.section_path else None,
+                    title=todo_item.section_title \
+                        if todo_item.section_title else None
                 )
                 section_identifier = ""
                 if todo_item.section_path:
