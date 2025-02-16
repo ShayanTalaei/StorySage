@@ -7,9 +7,7 @@ Your task is to:
 </section_writer_persona>
 
 <input_context>
-<section_path>
-{section_path}
-</section_path>
+{section_identifier_xml}
 
 <current_content>
 {current_content}
@@ -93,7 +91,8 @@ Generate 1-3 focused questions that:
     </add_section>
 
     <update_section>
-        <path>...</path>
+        <path>full path to the section, optional if title is provided</path>
+        <title>title of the section, optional if path is provided</title>
         <content>...</content>
         <new_title>...</new_title>
     </update_section>

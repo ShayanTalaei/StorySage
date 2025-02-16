@@ -49,9 +49,9 @@ class BiographyPlanner(BiographyTeamAgent):
             ),
             tool_descriptions=self.get_tools_description()
         )
-        self.add_event(sender=self.name, tag="prompt", content=prompt)
+        self.add_event(sender=self.name, tag="add_new_memory_prompt", content=prompt)
         response = await self.call_engine_async(prompt)
-        self.add_event(sender=self.name, tag="llm_response", content=response)
+        self.add_event(sender=self.name, tag="add_new_memory_response", content=response)
 
         self.handle_tool_calls(response)
         

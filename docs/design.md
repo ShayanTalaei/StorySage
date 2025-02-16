@@ -223,7 +223,6 @@ Output:
 
 Tools:
 
-- `get_section`: Get the existing content of specified section
 - `update_section`: Update the section with the new content
 - `add_section`: Create a new section with initial content
 - `add_follow_up_question`: Add a follow-up question to the section

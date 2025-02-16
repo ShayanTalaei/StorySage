@@ -1,3 +1,4 @@
+import os
 from typing import Optional, TYPE_CHECKING, List, Dict
 from dataclasses import dataclass
 
@@ -7,8 +8,7 @@ from agents.biography_team.models import Plan, FollowUpQuestion
 from agents.biography_team.section_writer.prompts import SECTION_WRITER_PROMPT, USER_ADD_SECTION_PROMPT, USER_COMMENT_EDIT_PROMPT
 from content.biography.biography_styles import BIOGRAPHY_STYLE_WRITER_INSTRUCTIONS
 from agents.biography_team.section_writer.tools import (
-    GetSection, GetSectionByTitle, UpdateSection, 
-    UpdateSectionByTitle, AddSection, AddFollowUpQuestion, Recall
+    UpdateSection, AddSection, AddFollowUpQuestion, Recall
 )
 
 if TYPE_CHECKING:
@@ -30,12 +30,7 @@ class SectionWriter(BiographyTeamAgent):
         self.follow_up_questions: List[FollowUpQuestion] = []
         
         self.tools = {
-            "get_section": GetSection(biography=self.biography),
-            "get_section_by_title": GetSectionByTitle(biography=self.biography),
             "update_section": UpdateSection(biography=self.biography),
-            "update_section_by_title": UpdateSectionByTitle(
-                biography=self.biography
-            ),
             "add_section": AddSection(biography=self.biography),
             "add_follow_up_question": AddFollowUpQuestion(
                 on_question_added=lambda q: self.follow_up_questions.append(q)
@@ -48,28 +43,44 @@ class SectionWriter(BiographyTeamAgent):
     
     async def update_section(self, todo_item: Plan) -> UpdateResult:
         """Update a biography section based on a plan."""
-        max_iterations = 3
-        iterations = 0
-        
-        while iterations < max_iterations:
-            prompt = self._get_prompt(todo_item)
-            self.add_event(sender=self.name, tag="section_write_prompt", content=prompt)
-            response = await self.call_engine_async(prompt)
-            self.add_event(sender=self.name, tag="section_write_response", content=response)
+        try:
+            max_iterations = int(os.getenv("MAX_CONSIDERATION_ITERATIONS", "3"))
+            iterations = 0
             
-            try:
-                if "<recall>" in response:
-                    # Handle recall response
-                    result = self.handle_tool_calls(response)
-                    self.add_event(sender=self.name, tag="recall_response", content=result)
-                    iterations += 1
-                else:
-                    # Handle section update
-                    self.handle_tool_calls(response)
-                    return UpdateResult(success=True, message="Section updated successfully")
+            while iterations < max_iterations:
+                try:
+                    prompt = self._get_prompt(todo_item)
+                    self.add_event(sender=self.name, 
+                                   tag="section_write_prompt", content=prompt)
                     
-            except Exception as e:
-                return UpdateResult(success=False, message=str(e))
+                    response = await self.call_engine_async(prompt)
+                    self.add_event(sender=self.name, 
+                                   tag="section_write_response", content=response)
+                    
+                    if "<recall>" in response:
+                        # Handle recall response
+                        result = await self.handle_tool_calls_async(response)
+                        self.add_event(sender=self.name, 
+                                       tag="recall_response", content=result)
+                        iterations += 1
+                    else:
+                        # Handle section update
+                        await self.handle_tool_calls_async(response)
+                        return UpdateResult(success=True, 
+                                            message="Section updated successfully")
+                        
+                except Exception as e:
+                    self.add_event(sender=self.name, tag="error", 
+                                   content=f"Error in iteration {iterations}: {str(e)}")
+                    return UpdateResult(success=False, message=str(e))
+                    
+            return UpdateResult(success=False, 
+                                message="Max iterations reached when updating section.")
+            
+        except Exception as e:
+            self.add_event(sender=self.name, tag="error", 
+                           content=f"Error in update_section: {str(e)}")
+            return UpdateResult(success=False, message=str(e))
 
     def _get_formatted_memories(self, memory_ids: List[str]) -> str:
         """Get and format memories from memory IDs."""
@@ -86,69 +97,85 @@ class SectionWriter(BiographyTeamAgent):
 
     def _get_prompt(self, todo_item: Plan) -> str:
         """Create a prompt for the section writer to update a biography section."""
-
-        # Add a new section based on user feedback
-        if todo_item.action_type == "user_add":
-            events_str = self.get_event_stream_str(
-                filter=[{"sender": self.name, "tag": "recall_response"}]
-            )
-            return USER_ADD_SECTION_PROMPT.format(
-                section_path=todo_item.section_path,
-                update_plan=todo_item.update_plan,
-                event_stream=events_str,
-                style_instructions=BIOGRAPHY_STYLE_WRITER_INSTRUCTIONS.get(
-                    self.config.get("biography_style", "chronological")
-                ),
-                tool_descriptions=self.get_tools_description(["recall", "add_section"])
-            )
-        # Update a section based on user feedback
-        elif todo_item.action_type == "user_update":
-            events_str = self.get_event_stream_str(
-                filter=[{"sender": self.name, "tag": "recall_response"}]
-            )
-            current_content = (
-                self.tools["get_section_by_title"]._run(todo_item.section_title)
-                or "Section does not exist yet."
-            )
-            return USER_COMMENT_EDIT_PROMPT.format(
-                section_title=todo_item.section_title,
-                current_content=current_content,
-                update_plan=todo_item.update_plan,
-                event_stream=events_str,
-                style_instructions=BIOGRAPHY_STYLE_WRITER_INSTRUCTIONS.get(
-                    self.config.get("biography_style", "chronological")
-                ),
-                tool_descriptions=self.get_tools_description(
-                    ["recall", "update_section_by_title"]
+        try:
+            if todo_item.action_type == "user_add":
+                events_str = self.get_event_stream_str(
+                    filter=[{"sender": self.name, "tag": "recall_response"}]
                 )
-            )
-        # Update a section based on newly collected memory
-        else:
-            section_identifier = todo_item.section_path or todo_item.section_title
-            current_content = (
-                self.tools["get_section"]._run(section_identifier)
-                or "Section does not exist yet."
-            )
-            return SECTION_WRITER_PROMPT.format(
-                section_path=section_identifier,
-                update_plan=todo_item.update_plan,
-                current_content=current_content,
-                relevant_memories=(
-                    self._get_formatted_memories(todo_item.memory_ids)
-                ),
-                style_instructions=BIOGRAPHY_STYLE_WRITER_INSTRUCTIONS.get(
-                    self.config.get("biography_style", "chronological")
-                ),
-                tool_descriptions=self.get_tools_description()
-            )
+                return USER_ADD_SECTION_PROMPT.format(
+                    section_path=todo_item.section_path,
+                    update_plan=todo_item.update_plan,
+                    event_stream=events_str,
+                    style_instructions=BIOGRAPHY_STYLE_WRITER_INSTRUCTIONS.get(
+                        self.config.get("biography_style", "chronological")
+                    ),
+                    tool_descriptions=self.get_tools_description(
+                        ["recall", "add_section"]
+                    )
+                )
+            # Update a section based on user feedback
+            elif todo_item.action_type == "user_update":
+                events_str = self.get_event_stream_str(
+                    filter=[{"sender": self.name, "tag": "recall_response"}]
+                )
+                current_content = self.biography.get_section(
+                    title=todo_item.section_title
+                )
+                return USER_COMMENT_EDIT_PROMPT.format(
+                    section_title=todo_item.section_title,
+                    current_content=current_content,
+                    update_plan=todo_item.update_plan,
+                    event_stream=events_str,
+                    style_instructions=BIOGRAPHY_STYLE_WRITER_INSTRUCTIONS.get(
+                        self.config.get("biography_style", "chronological")
+                    ),
+                    tool_descriptions=self.get_tools_description(
+                        ["recall", "update_section"]
+                    )
+                )
+            # Update a section based on newly collected memory
+            else:
+                current_content = self.biography.get_section(
+                    path=todo_item.section_path if todo_item.section_path else None,
+                    title=todo_item.section_title if todo_item.section_title else None
+                )
+                section_identifier = ""
+                if todo_item.section_path:
+                    section_identifier = (
+                        f"<section_path>"
+                        f"{todo_item.section_path}"
+                        f"</section_path>"
+                    )
+                else:
+                    section_identifier = (
+                        f"<section_title>"
+                        f"{todo_item.section_title}"
+                        f"</section_title>"
+                    )
+                return SECTION_WRITER_PROMPT.format(
+                    section_identifier_xml=section_identifier,
+                    update_plan=todo_item.update_plan,
+                    current_content=current_content,
+                    relevant_memories=(
+                        self._get_formatted_memories(todo_item.memory_ids)
+                    ),
+                    style_instructions=BIOGRAPHY_STYLE_WRITER_INSTRUCTIONS.get(
+                        self.config.get("biography_style", "chronological")
+                    ),
+                    tool_descriptions=self.get_tools_description(
+                        ["add_section", "update_section", "add_follow_up_question"]
+                    )
+                )
+        except Exception as e:
+            self.add_event(sender=self.name, tag="error", 
+                           content=f"Error in _get_prompt: {str(e)}")
+            raise
 
-    def save_biography(self, save_markdown: bool = False) -> str:
+    async def save_biography(self, save_markdown: bool = False) -> str:
         """Save the current state of the biography to file."""
         try:
-            self.biography.save()
-            if save_markdown:
-                self.biography.export_to_markdown(save_to_file=True)
-            return "Successfully saved biography to file"
+            await self.biography.save(save_markdown=save_markdown)
+            return "Biography saved successfully"
         except Exception as e:
             error_msg = f"Error saving biography: {str(e)}"
             self.add_event(sender=self.name, tag="error", content=error_msg)

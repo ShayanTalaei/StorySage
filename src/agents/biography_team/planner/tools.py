@@ -12,15 +12,23 @@ class AddPlanInput(BaseModel):
     action_type: str = Field(description="Type of action (create/update)")
     section_path: Optional[str] = Field(
         default=None,
-        description="Optional: Full original path to the section"
+        description=(
+            "Full path to the section. "
+            "Required when creating a new section."
+            "But either section_path or section_title must be provided."
+        )
     )
     section_title: Optional[str] = Field(
         default=None,
-        description="Optional: Title of the section to update"
+        description=(
+            "Title of the section to update. "
+            "Recommended when updating an existing section"
+            "But either section_path or section_title must be provided."
+        )
     )
-    memory_ids: Optional[List[str]] = Field(
-        default=None, 
-        description="Optional: List of memory IDs that are relevant to this plan, e.g. ['MEM_03121423_X7K', 'MEM_03121423_X7K']"
+    memory_ids: List[str] = Field(
+        default=[], 
+        description="Required: List of memory IDs that are relevant to this plan, e.g. ['MEM_03121423_X7K', 'MEM_03121423_X7K']"
     )
     update_plan: str = Field(description="Detailed plan for updating/creating the section")
 

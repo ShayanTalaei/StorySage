@@ -1,5 +1,5 @@
 # Python standard library imports
-from typing import Dict, List, TYPE_CHECKING, TypedDict
+from typing import List, TYPE_CHECKING, TypedDict
 import os
 from dotenv import load_dotenv
 import asyncio

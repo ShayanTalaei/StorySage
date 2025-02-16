@@ -1,9 +1,7 @@
 from typing import Dict, List, TYPE_CHECKING, Optional
 import asyncio
-import os
 from dotenv import load_dotenv
 import logging
-import concurrent.futures
 
 from agents.biography_team.base_biography_agent import BiographyConfig
 from agents.biography_team.planner.planner import BiographyPlanner
@@ -11,7 +9,8 @@ from agents.biography_team.section_writer.section_writer import SectionWriter
 from agents.biography_team.session_summary_writer.session_summary_writer import SessionSummaryWriter
 from agents.biography_team.models import Plan
 from content.memory_bank.memory import Memory
-from utils.logger import setup_default_logger
+from utils.logger import setup_default_logger, SessionLogger
+
 
 if TYPE_CHECKING:
     from interview_session.interview_session import InterviewSession
@@ -21,10 +20,6 @@ load_dotenv()
 
 class BiographyOrchestrator:
     def __init__(self, config: BiographyConfig, interview_session: Optional['InterviewSession']):
-        # Config and settings
-        self._max_concurrent_updates = int(
-            os.getenv("MAX_CONCURRENT_UPDATES", 5))
-
         # Planning and writing agents
         self._planner = BiographyPlanner(config, interview_session)
         self._section_writer = SectionWriter(config, interview_session)
@@ -55,41 +50,36 @@ class BiographyOrchestrator:
             item.error = str(e)
 
     async def _process_updates_in_batches(self, items: List[Plan]) -> None:
-        """Process todo items using thread pool for parallel execution."""
+        """Process todo items concurrently using asyncio."""
         pending_items = [item for item in items if item.status == "pending"]
-
-        # Process in batches to control concurrency
-        for i in range(0, len(pending_items), self._max_concurrent_updates):
-            batch = pending_items[i:i + self._max_concurrent_updates]
-
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                futures = []
-                for item in batch:
-                    item.status = "in_progress"
-                    # Wrap async function for thread execution
-                    future = executor.submit(
-                        lambda i=item: asyncio.run(
-                            self._process_section_update(i))
-                    )
-                    futures.append(future)
-
-                # Wait for batch completion
-                for future in concurrent.futures.as_completed(futures):
-                    try:
-                        future.result()  # Get result to propagate exceptions
-                    except Exception as e:
-                        print(f"Error processing item: {str(e)}")
+        
+        # Create tasks for concurrent execution
+        tasks = []
+        for item in pending_items:
+            item.status = "in_progress"
+            task = asyncio.create_task(self._process_section_update(item))
+            tasks.append(task)
+        
+        # Wait for all tasks to complete
+        try:
+            await asyncio.gather(*tasks)
+        except Exception as e:
+            logging.error(f"Error processing updates: {str(e)}")
 
     async def _plan_and_update_biography(self, new_memories: List[Memory]):
         """Handle the biography content updates (planner and section writer)"""
         # 1. Get plans from planner
         plans = await self._planner.create_adding_new_memory_plans(new_memories)
+        SessionLogger.log_to_file("execution_log", 
+                                  f"[BIOGRAPHY] Planned updates for biography")
 
         # 2. Execute section updates in parallel batches
         await self._process_updates_in_batches(plans)
-
+        SessionLogger.log_to_file("execution_log", 
+                                  f"[BIOGRAPHY] Executed updates for biography")
+        
         # Save biography after all updates are complete
-        self._section_writer.save_biography(save_markdown=True)
+        await self._section_writer.save_biography(save_markdown=True)
 
     async def update_biography_and_notes(self, selected_topics: Optional[List[str]] = None):
         """Update biography with new memories."""
@@ -146,7 +136,7 @@ class BiographyOrchestrator:
         await self._process_updates_in_batches(todo_items)
 
         # Save biography after all updates are complete
-        self._section_writer.save_biography()
+        await self._section_writer.save_biography()
     
     async def get_session_topics(self) -> List[str]:
         """To user: Get list of topics covered in this session"""

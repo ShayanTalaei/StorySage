@@ -3,6 +3,7 @@ import json
 from typing import Dict, Optional
 import uuid
 import os
+import asyncio
 
 class Section:
     def __init__(self, title: str, content: str = "", parent: Optional['Section'] = None):
@@ -35,12 +36,37 @@ class Section:
 
 class Biography:
     def __init__(self, user_id):
+        # Path information
         self.user_id = user_id or str(uuid.uuid4())
         self.base_path = f"{os.getenv('DATA_DIR', 'data')}/{self.user_id}/"
         os.makedirs(self.base_path, exist_ok=True)
+
+        # Version information
         self.version = self._get_next_version()
         self.file_name = f"{self.base_path}/biography_{self.version}"
+
+        # Root section
         self.root = Section(f"Biography of {self.user_id}")
+
+        # Locks for write operations
+        self._write_lock = asyncio.Lock()           # Lock for write operations
+        self._pending_writes = 0            # Counter for pending write operations
+        self._pending_writes_lock = asyncio.Lock()  # Lock for the counter
+        self._all_writes_complete = asyncio.Event() # Event to track write completion
+        self._all_writes_complete.set()     # Initially set to True
+
+    async def _increment_pending_writes(self):
+        """Increment the pending writes counter."""
+        async with self._pending_writes_lock:
+            self._pending_writes += 1
+            self._all_writes_complete.clear()
+
+    async def _decrement_pending_writes(self):
+        """Decrement the pending writes counter."""
+        async with self._pending_writes_lock:
+            self._pending_writes -= 1
+            if self._pending_writes == 0:
+                self._all_writes_complete.set()
 
     def _get_next_version(self) -> int:
         """Get the next available version number for the biography file.
@@ -101,12 +127,24 @@ class Biography:
         
         return biography
     
-    def save(self) -> None:
+    async def save(self, save_markdown: bool = False) -> None:
         """Save the biography to a JSON file using user_id."""
-        os.makedirs(self.base_path, exist_ok=True)
+        try:
+            # Wait for all pending writes with timeout
+            await asyncio.wait_for(self._all_writes_complete.wait(), timeout=30)
+        except asyncio.TimeoutError:
+            raise TimeoutError("Timeout waiting for pending writes to complete")
+
+        async with self._write_lock:
+            os.makedirs(self.base_path, exist_ok=True)
             
-        with open(f'{self.file_name}.json', 'w', encoding='utf-8') as f:
-            json.dump(self.root.to_dict(), f, indent=4, ensure_ascii=False)
+            # Save JSON
+            with open(f'{self.file_name}.json', 'w', encoding='utf-8') as f:
+                json.dump(self.root.to_dict(), f, indent=4, ensure_ascii=False)
+
+            # Save markdown if requested
+            if save_markdown:
+                self.export_to_markdown(save_to_file=True)
 
     def is_valid_path_format(self, path: str) -> bool:
         """
@@ -163,7 +201,7 @@ class Biography:
         """
         if not self.is_valid_path_format(path):
             return False
-        return self.get_section_by_path(path) is not None
+        return self._get_section_by_path(path) is not None
 
     def _sort_sections(self, sections: Dict[str, Section]) -> Dict[str, Section]:
         """Sort sections based on their numeric prefixes."""
@@ -197,7 +235,7 @@ class Biography:
         
         return _search(self.root)
     
-    def get_section_by_path(self, path: str) -> Optional[Section]:
+    def _get_section_by_path(self, path: str) -> Optional[Section]:
         """Get a section using its path (e.g., 'Chapter 1/Section 1.1')"""
         if not path:
             return self.root
@@ -213,7 +251,7 @@ class Biography:
                 return None
         return current
 
-    def get_section_by_title(self, title: str) -> Optional[Section]:
+    def _get_section_by_title(self, title: str) -> Optional[Section]:
         """Find a section by its title using DFS"""
         def _search(section: Section) -> Optional[Section]:
             if section.title == title:
@@ -226,103 +264,117 @@ class Biography:
         
         return _search(self.root)
     
+    def get_section(self, path: Optional[str] = None, title: Optional[str] = None) -> Optional[Section]:
+        """Get a section using either its path or title."""
+        if not path and not title:
+            raise ValueError("Must provide either path or title to get a section")
+        elif path and title and not path.endswith(title):
+            raise ValueError("Path and title must match to get a section")
+
+        if path:
+            if not self.is_valid_path_format(path):
+                raise ValueError(f"Invalid path format: {path}. "
+                                 "Path must follow the required format rules.")
+            return self._get_section_by_path(path)
+        else:
+            return self._get_section_by_title(title)
+    
     def get_sections(self) -> Dict[str, Dict]:
         """Get a dictionary of all sections with their titles only"""
         def _build_section_dict(section: Section) -> Dict:
             return {
                 "title": section.title,
-                "subsections": {k: _build_section_dict(v) for k, v in section.subsections.items()}
+                "subsections": {
+                    k: _build_section_dict(v)
+                    for k, v in section.subsections.items()
+                }
             }
         
         return _build_section_dict(self.root)
 
-    def add_section(self, path: str, content: str = "") -> Section:
+    async def add_section(self, path: str, content: str = "") -> Section:
         """Add a new section at the specified path, creating parent sections if they don't exist."""
-        if not path:
-            raise ValueError("Path cannot be empty - must provide a section path")
-        
-        if not self.is_valid_path_format(path):
-            raise ValueError(f"Invalid path format: {path}. Path must follow the required format rules.")
+        await self._increment_pending_writes()
+        try:
+            async with self._write_lock:
+                if not path:
+                    raise ValueError("Path cannot be empty - must provide a section path")
+                
+                if not self.is_valid_path_format(path):
+                    raise ValueError(f"Invalid path format: {path}. Path must follow the required format rules.")
 
-        # Split the path into parts
-        path_parts = path.split('/')
-        title = path_parts[-1]
-        
-        # Get or create the parent section
-        current = self.root
-        for part in path_parts[:-1]:  # Exclude the last part (which is the new section's title)
-            if part not in current.subsections:
-                # Create missing parent section
-                new_parent = Section(part, "", current)
-                current.subsections[part] = new_parent
-            current = current.subsections[part]
-        
-        # Create and add the new section
-        new_section = Section(title, content, current)
-        current.subsections[path_parts[-1]] = new_section
-        
-        # Sort the subsections after adding the new one
-        current.subsections = self._sort_sections(current.subsections)
-        return new_section
+                # Split the path into parts
+                path_parts = path.split('/')
+                title = path_parts[-1]
+                
+                # Get or create the parent section
+                current = self.root
+                for part in path_parts[:-1]:
+                    if part not in current.subsections:
+                        new_parent = Section(part, "", current)
+                        current.subsections[part] = new_parent
+                    current = current.subsections[part]
+                
+                # Create and add the new section
+                new_section = Section(title, content, current)
+                current.subsections[path_parts[-1]] = new_section
+                
+                # Sort the subsections after adding the new one
+                current.subsections = self._sort_sections(current.subsections)
+                return new_section
+        finally:
+            await self._decrement_pending_writes()
 
-    def update_section(self, path: str = None, title: str = None, content: str = None, new_title: str = None) -> Optional[Section]:
-        """Update the content and optionally the title of a section by path or title.
-        
-        Args:
-            path: Path to the section. If None, will try to find section by title
-            title: Title of the section to update. Only used if path is None
-            content: New content for the section. If None, content remains unchanged
-            new_title: New title for the section. If None, title remains unchanged
-            
-        Returns:
-            Updated section if found, None otherwise
-            
-        Raises:
-            ValueError: If neither path nor title is provided, or if path format is invalid
-        """
-        if path is None and title is None:
-            raise ValueError("Must provide either path or title to update a section")
-        
-        # Handle special case for root section
-        if path is not None and path == "":
-            if content is not None:
-                self.root.content = content
-                self.root.last_edit = datetime.now().isoformat()
-            if new_title:
-                self.root.title = new_title
-            return self.root
-        
-        # Get section by path or title
-        section = None
-        if path is not None:
-            if not self.is_valid_path_format(path):
-                raise ValueError(f"Invalid path format: {path}. Path must follow the required format rules.")
-            section = self.get_section_by_path(path)
-        else:
-            section = self.get_section_by_title(title)
-        
-        if section:
-            if content is not None:
-                section.content = content
-                section.last_edit = datetime.now().isoformat()
-            
-            # Handle title update if provided
-            if new_title and new_title != section.title:
-                parent = self._find_parent(section.title)
-                if parent:
-                    # Update the key in parent's subsections
-                    subsections = parent.subsections
-                    subsections[new_title] = subsections.pop(section.title)
-                    # Update the title
-                    section.title = new_title
-                    # Sort the parent's subsections
-                    parent.subsections = self._sort_sections(parent.subsections)
-                else:
-                    # This is the root section
-                    section.title = new_title
-            
-            return section
-        return None
+    async def update_section(self, path: Optional[str] = None, title: Optional[str] = None, content: Optional[str] = None, new_title: Optional[str] = None) -> Optional[Section]:
+        """Update the content and optionally the title of a section by path or title."""
+        await self._increment_pending_writes()
+        try:
+            async with self._write_lock:
+                if path is None and title is None:
+                    raise ValueError("Must provide either path or title")
+                elif path and title and not path.endswith(title):
+                    raise ValueError("Path and title must match to update a section")
+                
+                # Handle special case for root section
+                if path is not None and path == "":
+                    if content is not None:
+                        self.root.content = content
+                        self.root.last_edit = datetime.now().isoformat()
+                    if new_title:
+                        self.root.title = new_title
+                    return self.root
+                
+                # Get section by path or title
+                section = None
+                if path is not None:
+                    section = self._get_section_by_path(path)
+                elif title is not None:
+                    section = self._get_section_by_title(title)
+                
+                if section:
+                    if content is not None:
+                        section.content = content
+                        section.last_edit = datetime.now().isoformat()
+                    
+                    # Handle title update if provided
+                    if new_title and new_title != section.title:
+                        parent = self._find_parent(section.title)
+                        if parent:
+                            # Update the key in parent's subsections
+                            subsections = parent.subsections
+                            subsections[new_title] = subsections.pop(section.title)
+                            # Update the title
+                            section.title = new_title
+                            # Sort the parent's subsections
+                            parent.subsections = self._sort_sections(parent.subsections)
+                        else:
+                            # This is the root section
+                            section.title = new_title
+                    
+                    return section
+                return None
+        finally:
+            await self._decrement_pending_writes()
 
     def export_to_markdown(self, save_to_file: bool = False) -> str:
         """Convert the biography to markdown format and optionally save to file.
@@ -402,49 +454,43 @@ class Biography:
 
         return markdown_content
 
-    def delete_section(self, path: str = None, title: str = None) -> bool:
-        """Delete a section by its path or title.
-        
-        Args:
-            path: Path to the section. If None, will try to find section by title
-            title: Title of the section to delete. Only used if path is None
-            
-        Returns:
-            True if section was found and deleted, False otherwise
-            
-        Raises:
-            ValueError: If neither path nor title is provided, or if path format is invalid
-                       or if attempting to delete root section
-        """
-        if path is None and title is None:
-            raise ValueError("Must provide either path or title to delete a section")
-        
-        # Handle root section deletion attempt
-        if path == "":
-            raise ValueError("Cannot delete root section")
-        
-        # Get section by path or title
-        section = None
-        if path is not None:
-            if not self.is_valid_path_format(path):
-                raise ValueError(f"Invalid path format: {path}. Path must follow the required format rules.")
-            section = self.get_section_by_path(path)
-            if section:
-                title = section.title
-        else:
-            section = self.get_section_by_title(title)
-        
-        if not section:
-            return False
-        
-        # Can't delete root section
-        if section == self.root:
-            raise ValueError("Cannot delete root section")
-        
-        # Find and delete from parent's subsections
-        parent = self._find_parent(section.title)
-        if parent:
-            del parent.subsections[title]
-            return True
-        
-        return False
+    async def delete_section(self, path: str = None, title: str = None) -> bool:
+        """Delete a section by its path or title."""
+        await self._increment_pending_writes()
+        try:
+            async with self._write_lock:
+                if path is None and title is None:
+                    raise ValueError("Must provide either path or title to delete a section")
+                
+                # Handle root section deletion attempt
+                if path == "":
+                    raise ValueError("Cannot delete root section")
+                
+                # Get section by path or title
+                section = None
+                if path is not None:
+                    if not self.is_valid_path_format(path):
+                        raise ValueError(f"Invalid path format: {path}. Path must follow the required format rules.")
+                    section = self._get_section_by_path(path)
+                    if section:
+                        title = section.title
+                else:
+                    section = self._get_section_by_title(title)
+                
+                if not section:
+                    return False
+                
+                # Can't delete root section
+                if section == self.root:
+                    raise ValueError("Cannot delete root section")
+                
+                # Find and delete from parent's subsections
+                parent = self._find_parent(section.title)
+                if parent:
+                    del parent.subsections[title]
+                    return True
+                
+                return False
+        finally:
+            await self._decrement_pending_writes()
+

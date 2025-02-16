@@ -82,7 +82,10 @@ class Interviewer(BaseAgent, Participant):
                 "execution_log", f"[NOTIFY] Interviewer received message from {message.role}")
             self.add_event(sender=message.role, tag="message",
                            content=message.content)
-
+        
+        if not self.interview_session.session_in_progress:
+            return
+        
         # This boolean is set to False when the interviewer is done responding (it has used respond_to_user tool)
         self.turn_to_respond = True
         iterations = 0
