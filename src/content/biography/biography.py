@@ -241,7 +241,10 @@ class Biography:
             return self.root
 
         if path and not self.is_valid_path_format(path):
-            raise ValueError(f"Invalid path format: {path}. Path must follow the required format rules.")
+            raise ValueError(
+                f"Invalid path format: {path}. "
+                "Path must follow the required format rules."
+            )
 
         current = self.root
         for part in path.split('/'):
@@ -266,12 +269,12 @@ class Biography:
     
     def get_section(self, path: Optional[str] = None, title: Optional[str] = None) -> Optional[Section]:
         """Get a section using either its path or title."""
-        if not path and not title:
+        if path is None and title is None:
             raise ValueError("Must provide either path or title to get a section")
         elif path and title and not path.endswith(title):
             raise ValueError("Path and title must match to get a section")
 
-        if path:
+        if path is not None:
             if not self.is_valid_path_format(path):
                 raise ValueError(f"Invalid path format: {path}. "
                                  "Path must follow the required format rules.")
@@ -301,7 +304,10 @@ class Biography:
                     raise ValueError("Path cannot be empty - must provide a section path")
                 
                 if not self.is_valid_path_format(path):
-                    raise ValueError(f"Invalid path format: {path}. Path must follow the required format rules.")
+                    raise ValueError(
+                        f"Invalid path format: {path}. "
+                        "Path must follow the required format rules."
+                    )
 
                 # Split the path into parts
                 path_parts = path.split('/')
@@ -346,10 +352,7 @@ class Biography:
                 
                 # Get section by path or title
                 section = None
-                if path is not None:
-                    section = self._get_section_by_path(path)
-                elif title is not None:
-                    section = self._get_section_by_title(title)
+                section = self.get_section(path=path, title=title)
                 
                 if section:
                     if content is not None:
@@ -373,6 +376,40 @@ class Biography:
                     
                     return section
                 return None
+        finally:
+            await self._decrement_pending_writes()
+    
+    async def delete_section(self, path: Optional[str] = None, title: Optional[str] = None) -> bool:
+        """Delete a section by its path or title."""
+        await self._increment_pending_writes()
+        try:
+            async with self._write_lock:
+                if path is None and title is None:
+                    raise ValueError("Must provide either path or title to delete a section")
+                
+                # Handle root section deletion attempt
+                if path == "":
+                    raise ValueError("Cannot delete root section")
+                
+                # Get section by path or title
+                section = self.get_section(path=path, title=title)
+                if section:
+                    title = section.title
+                
+                if not section:
+                    return False
+                
+                # Can't delete root section
+                if section == self.root:
+                    raise ValueError("Cannot delete root section")
+                
+                # Find and delete from parent's subsections
+                parent = self._find_parent(section.title)
+                if parent:
+                    del parent.subsections[title]
+                    return True
+                
+                return False
         finally:
             await self._decrement_pending_writes()
 
@@ -453,44 +490,4 @@ class Biography:
                 f.write(markdown_content)
 
         return markdown_content
-
-    async def delete_section(self, path: str = None, title: str = None) -> bool:
-        """Delete a section by its path or title."""
-        await self._increment_pending_writes()
-        try:
-            async with self._write_lock:
-                if path is None and title is None:
-                    raise ValueError("Must provide either path or title to delete a section")
-                
-                # Handle root section deletion attempt
-                if path == "":
-                    raise ValueError("Cannot delete root section")
-                
-                # Get section by path or title
-                section = None
-                if path is not None:
-                    if not self.is_valid_path_format(path):
-                        raise ValueError(f"Invalid path format: {path}. Path must follow the required format rules.")
-                    section = self._get_section_by_path(path)
-                    if section:
-                        title = section.title
-                else:
-                    section = self._get_section_by_title(title)
-                
-                if not section:
-                    return False
-                
-                # Can't delete root section
-                if section == self.root:
-                    raise ValueError("Cannot delete root section")
-                
-                # Find and delete from parent's subsections
-                parent = self._find_parent(section.title)
-                if parent:
-                    del parent.subsections[title]
-                    return True
-                
-                return False
-        finally:
-            await self._decrement_pending_writes()
 

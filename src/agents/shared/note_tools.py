@@ -1,13 +1,15 @@
 from pydantic import BaseModel, Field
 from langchain_core.tools import BaseTool, ToolException
-from typing import Type, Optional
+from typing import Type, Optional, Callable
 from langchain_core.callbacks.manager import CallbackManagerForToolRun
+from pydantic import BaseModel, Field, SkipValidation
 
 
 from content.session_note.session_note import SessionNote
+from agents.biography_team.models import FollowUpQuestion
 
 """
-Shared tools for note taking by:
+Shared tools for updating the session notes:
 - Note taker
 - Session summary writer
 """
@@ -48,3 +50,44 @@ class AddInterviewQuestion(BaseTool):
             return f"Successfully added question {question_id} as follow-up to question"
         except Exception as e:
             raise ToolException(f"Error adding interview question: {str(e)}")
+        
+
+"""
+Shared tools for proposing follow-up questions by:
+- Planner
+- Section writer
+
+* Note: This tool only proposes follow-up questions, it does not really add them to the session notes, which is different from the add_interview_question tool.
+"""
+
+class AddFollowUpQuestionInput(BaseModel):
+    content: str = Field(description="The question to ask")
+    context: str = Field(description="Context explaining why this question is important")
+
+class AddFollowUpQuestion(BaseTool):
+    """Tool for adding follow-up questions."""
+    name: str = "add_follow_up_question"
+    description: str = (
+        "Add a follow-up question that needs to be asked to gather more information for the biography. "
+        "Include both the question and context explaining why this information is needed."
+    )
+    args_schema: Type[BaseModel] = AddFollowUpQuestionInput
+    on_question_added: SkipValidation[Callable[[FollowUpQuestion], None]] = Field(
+        description="Callback function to be called when a follow-up question is added"
+    )
+
+    def _run(
+        self,
+        content: str,
+        context: str,
+        run_manager: Optional[CallbackManagerForToolRun] = None,
+    ) -> str:
+        try:
+            question = FollowUpQuestion(
+                content=content.strip(),
+                context=context.strip()
+            )
+            self.on_question_added(question)
+            return f"Successfully added follow-up question: {content}"
+        except Exception as e:
+            raise ToolException(f"Error adding follow-up question: {str(e)}")

@@ -36,7 +36,7 @@ class UserAgent(BaseAgent, User):
         self.add_event(sender=message.role, tag="message",
                        content=message.content)
         # Score the interviewer's question for potential feedback
-        score_prompt = self.get_prompt(prompt_type="score_question")
+        score_prompt = self._get_prompt(prompt_type="score_question")
         self.add_event(sender=self.name,
                        tag="score_question_prompt", content=score_prompt)
 
@@ -48,7 +48,7 @@ class UserAgent(BaseAgent, User):
         self.question_score, self.question_score_reasoning = self._extract_response(
             score_response)
 
-        prompt = self.get_prompt(prompt_type="respond_to_question")
+        prompt = self._get_prompt(prompt_type="respond_to_question")
         self.add_event(sender=self.name,
                        tag="respond_to_question_prompt", content=prompt)
 
@@ -78,7 +78,7 @@ class UserAgent(BaseAgent, User):
             self.interview_session.add_message_to_chat_history(
                 role=self.title, message_type=MessageType.SKIP)
 
-    def get_prompt(self, prompt_type: str) -> str:
+    def _get_prompt(self, prompt_type: str) -> str:
         """Get the formatted prompt for the LLM"""
         from agents.user.prompts import get_prompt
 

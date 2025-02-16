@@ -8,7 +8,7 @@ from content.memory_bank.memory_bank_base import MemoryBankBase
 
 
 """
-Shared tools by:
+Shared tools to access the memory bank by:
 - Section writer
 - Session summary writer
 - Interviewer

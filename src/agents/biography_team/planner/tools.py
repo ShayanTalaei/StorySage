@@ -5,7 +5,7 @@ from langchain_core.callbacks.manager import CallbackManagerForToolRun
 from langchain_core.tools import BaseTool, ToolException
 from pydantic import BaseModel, Field, SkipValidation
 
-from agents.biography_team.shared.models import Plan
+from agents.biography_team.models import Plan
 
 
 class AddPlanInput(BaseModel):

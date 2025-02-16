@@ -9,7 +9,7 @@ from agents.biography_team.session_summary_writer.prompts import (
 )
 from agents.biography_team.session_summary_writer.tools import UpdateLastMeetingSummary, UpdateUserPortrait, DeleteInterviewQuestion
 from content.memory_bank.memory import Memory
-from agents.biography_team.shared.models import FollowUpQuestion
+from agents.biography_team.models import FollowUpQuestion
 from agents.shared.memory_tools import Recall
 from agents.shared.note_tools import AddInterviewQuestion
 
@@ -21,7 +21,8 @@ class SessionSummaryWriter(BiographyTeamAgent):
     def __init__(self, config: BiographyConfig, interview_session: 'InterviewSession'):
         super().__init__(
             name="SessionSummaryWriter",
-            description="Prepares end-of-session summaries and manages interview questions",
+            description="Prepares end-of-session summaries "
+                        "and manages interview questions",
             config=config,
             interview_session=interview_session
         )
@@ -41,7 +42,6 @@ class SessionSummaryWriter(BiographyTeamAgent):
             "update_user_portrait": UpdateUserPortrait(
                 session_note=self._session_note
             ),
-
             # Question tools
             "add_interview_question": AddInterviewQuestion(
                 session_note=self._session_note
@@ -55,12 +55,12 @@ class SessionSummaryWriter(BiographyTeamAgent):
         }
 
     async def wait_for_selected_topics(self) -> List[str]:
-        """Wait for selected topics to be set"""
+        """Wait for selected topics to be set from user"""
         await self._selected_topics_event.wait()
         return self._selected_topics
 
     def set_selected_topics(self, topics: List[str]):
-        """Set selected topics and trigger the event"""
+        """Set selected topics from user and trigger the generation event"""
         self._selected_topics = topics
         self._selected_topics_event.set()
 
@@ -109,17 +109,7 @@ class SessionSummaryWriter(BiographyTeamAgent):
         self.handle_tool_calls(response)
 
     async def _manage_interview_questions(self, follow_up_questions: List[Dict], selected_topics: Optional[List[str]] = None):
-        """Rebuild interview questions list with only essential questions.
-
-        Process:
-        1. Clear all existing questions
-        2. Perform memory searches if needed
-        3. Add only important unanswered questions and worthy follow-ups
-
-        Will iterate up to max_consideration_iterations times:
-        - Each iteration either does memory search or takes actions
-        - Breaks when actions are taken or max iterations reached
-        """
+        """Rebuild interview questions list with only essential questions."""
         # Store old questions and notes and clear them
         old_questions_and_notes = self._session_note.get_questions_and_notes_str()
         self._session_note.clear_questions()

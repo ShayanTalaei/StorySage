@@ -3,10 +3,10 @@ import os
 from typing import Dict, List, TYPE_CHECKING, Optional
 
 from agents.biography_team.base_biography_agent import BiographyConfig, BiographyTeamAgent
-from agents.biography_team.shared.models import Plan, FollowUpQuestion
+from agents.biography_team.models import Plan, FollowUpQuestion
 from agents.biography_team.planner.prompts import get_prompt
 from agents.biography_team.planner.tools import AddPlan
-from agents.biography_team.shared.tools import AddFollowUpQuestion
+from agents.shared.note_tools import AddFollowUpQuestion
 from content.biography.biography_styles import BIOGRAPHY_STYLE_PLANNER_INSTRUCTIONS
 from content.memory_bank.memory import Memory
 from utils.llm.xml_formatter import extract_tool_arguments
@@ -26,7 +26,6 @@ class BiographyPlanner(BiographyTeamAgent):
         self.follow_up_questions: List[FollowUpQuestion] = []
         self.plans: List[Plan] = []
         
-        # Initialize tools
         self.tools = {
             "add_plan": AddPlan(
                 on_plan_added=lambda p: self.plans.append(p)
@@ -35,7 +34,7 @@ class BiographyPlanner(BiographyTeamAgent):
                 on_question_added=lambda q: self.follow_up_questions.append(q)
             )
         }
-    
+
     async def create_adding_new_memory_plans(self, new_memories: List[Memory]) -> List[Plan]:
         """Create update plans for the biography based on new memories."""
         max_iterations = int(os.getenv("MAX_CONSIDERATION_ITERATIONS", "3"))
@@ -45,23 +44,10 @@ class BiographyPlanner(BiographyTeamAgent):
         previous_tool_call = None
         
         while iterations < max_iterations:
-            # Get base prompt
-            prompt = get_prompt(
+            prompt = self._get_formatted_prompt(
                 "add_new_memory_planner",
-                include_warning=(previous_tool_call is not None)
-            ).format(
-                biography_structure=json.dumps(
-                    self.get_biography_structure(), indent=2),
-                biography_content=self.biography.export_to_markdown(),
-                new_information='\n\n'.join(
-                    [memory.to_xml() for memory in new_memories]
-                ),
-                style_instructions=BIOGRAPHY_STYLE_PLANNER_INSTRUCTIONS.get(
-                    self.config.get("biography_style")
-                ),
-                tool_descriptions=self.get_tools_description(),
-                # Add warning context if needed
-                previous_tool_call=previous_tool_call if previous_tool_call else "",
+                new_memories=new_memories,
+                previous_tool_call=previous_tool_call,
                 missing_memory_ids="\n".join(
                     sorted(list(all_memory_ids - covered_memory_ids))
                 ) if previous_tool_call else ""
@@ -140,30 +126,18 @@ class BiographyPlanner(BiographyTeamAgent):
 
     async def create_user_edit_plan(self, edit: Dict) -> Plan:
         """Create a detailed plan for user-requested edits."""
-        if edit["type"] == "ADD":
-            prompt = get_prompt("user_add_planner").format(
-                biography_structure=json.dumps(
-                    self.get_biography_structure(), indent=2),
-                biography_content=self.biography.export_to_markdown(),
+        if edit["type"] == "ADD":   # ADD
+            prompt = self._get_formatted_prompt(
+                "user_add_planner",
                 section_path=edit['data']['newPath'],
-                section_prompt=edit['data']['sectionPrompt'],
-                style_instructions=BIOGRAPHY_STYLE_PLANNER_INSTRUCTIONS.get(
-                    self.config.get("biography_style")
-                ),
-                tool_descriptions=self.get_tools_description(["add_plan"])
+                section_prompt=edit['data']['sectionPrompt']
             )
         else:  # COMMENT
-            prompt = get_prompt("user_comment_planner").format(
-                biography_structure=json.dumps(
-                    self.get_biography_structure(), indent=2),
-                biography_content=self.biography.export_to_markdown(),
+            prompt = self._get_formatted_prompt(
+                "user_comment_planner",
                 section_title=edit['title'],
                 selected_text=edit['data']['comment']['text'],
-                user_comment=edit['data']['comment']['comment'],
-                style_instructions=BIOGRAPHY_STYLE_PLANNER_INSTRUCTIONS.get(
-                    self.config.get("biography_style")
-                ),
-                tool_descriptions=self.get_tools_description(["add_plan"])
+                user_comment=edit['data']['comment']['comment']
             )
 
         self.add_event(sender=self.name, tag="user_edit_prompt", content=prompt)
@@ -176,3 +150,49 @@ class BiographyPlanner(BiographyTeamAgent):
         # Return just the latest plan
         return self.plans[-1] if self.plans else None
 
+    def _get_formatted_prompt(self, prompt_type: str, **kwargs) -> str:
+        """
+        Format prompt with the appropriate parameters based on prompt type.
+        
+        Args:
+            prompt_type: Type of prompt to format
+            **kwargs: Additional parameters specific to the prompt type
+        """
+        base_params = {
+            "biography_structure": json.dumps(self.get_biography_structure(), indent=2),
+            "biography_content": self.biography.export_to_markdown(),
+            "style_instructions": BIOGRAPHY_STYLE_PLANNER_INSTRUCTIONS.get(
+                self.config.get("biography_style")
+            )
+        }
+
+        prompt_params = {
+            "add_new_memory_planner": {
+                **base_params,
+                "new_information": '\n\n'.join(
+                    [memory.to_xml() for memory in kwargs.get('new_memories', [])]
+                ),
+                "tool_descriptions": self.get_tools_description(
+                    ["add_plan", "add_follow_up_question"]),
+                "previous_tool_call": kwargs.get('previous_tool_call', ""),
+                "missing_memory_ids": kwargs.get('missing_memory_ids', "")
+            },
+            "user_add_planner": {
+                **base_params,
+                "section_path": kwargs.get('section_path'),
+                "section_prompt": kwargs.get('section_prompt'),
+                "tool_descriptions": self.get_tools_description(["add_plan"])
+            },
+            "user_comment_planner": {
+                **base_params,
+                "section_title": kwargs.get('section_title'),
+                "selected_text": kwargs.get('selected_text'),
+                "user_comment": kwargs.get('user_comment'),
+                "tool_descriptions": self.get_tools_description(["add_plan"])
+            }
+        }
+
+        return get_prompt(
+            prompt_type,
+            include_warning=(kwargs.get('previous_tool_call') is not None)
+        ).format(**prompt_params[prompt_type])

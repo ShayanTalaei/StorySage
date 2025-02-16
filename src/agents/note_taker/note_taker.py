@@ -1,4 +1,3 @@
-# Python standard library imports
 from typing import List, TYPE_CHECKING, TypedDict
 import os
 from dotenv import load_dotenv
@@ -161,7 +160,7 @@ class NoteTaker(BaseAgent, Participant):
 
         iterations = 0
         while iterations < self._max_consideration_iterations:
-            # Decide if we need to propose follow-ups + propose follow-ups if needed
+            # Decide if to propose follow-ups and propose if needed
             prompt = self._get_formatted_prompt(
                 "consider_and_propose_followups")
             self.add_event(
@@ -188,7 +187,6 @@ class NoteTaker(BaseAgent, Participant):
                 )
                 break
             elif "recall" in tool_call:
-                # Get recall response and confidence level
                 self.add_event(
                     sender=self.name, tag="recall_response", content=tool_responses)
             else:
@@ -303,7 +301,6 @@ class NoteTaker(BaseAgent, Participant):
     async def get_session_memories(self) -> List[Memory]:
         """Get all memories added during current session.
         Waits for all pending memory updates to complete before returning."""
-        # Wait for all memory updates to complete
         start_time = time.time()
 
         SessionLogger.log_to_file(

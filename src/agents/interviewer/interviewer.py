@@ -36,28 +36,30 @@ class Interviewer(BaseAgent, Participant):
     '''Inherits from BaseAgent and Participant. Participant is a class that all agents in the interview session inherit from.'''
 
     def __init__(self, config: InterviewerConfig, interview_session: 'InterviewSession'):
-        BaseAgent.__init__(self, name="Interviewer",
-                           description="The agent that interviews the user, asking questions about the user's life.",
-                           config=config)
-        Participant.__init__(self, title="Interviewer",
-                             interview_session=interview_session)
+        BaseAgent.__init__(
+            self, name="Interviewer",
+            description="The agent that holds the interview and asks questions.",
+            config=config)
+        Participant.__init__(
+            self, title="Interviewer",
+            interview_session=interview_session)
 
         self._max_events_len = int(os.getenv("MAX_EVENTS_LEN", 30))
         self._max_consideration_iterations = int(
             os.getenv("MAX_CONSIDERATION_ITERATIONS", 3))
 
-        # Initialize tools
         self.tools = {
             "recall": Recall(memory_bank=self.interview_session.memory_bank),
             "respond_to_user": RespondToUser(
                 tts_config=config.get("tts", {}),
                 base_path=f"{os.getenv('DATA_DIR', 'data')}/{config.get("user_id")}/",
-                on_response=lambda response: self.interview_session.add_message_to_chat_history(
-                    role=self.title,
-                    content=response
-                ),
+                on_response=lambda response: \
+                    self.interview_session.add_message_to_chat_history(
+                        role=self.title,
+                        content=response
+                    ),
                 on_turn_complete=lambda: setattr(
-                    self, 'turn_to_respond', False)
+                    self, '_turn_to_respond', False)
             ),
             "end_conversation": EndConversation(
                 on_goodbye=lambda goodbye: (
@@ -67,72 +69,75 @@ class Interviewer(BaseAgent, Participant):
                         role=self.title, content=goodbye)
                 ),
                 on_end=lambda: (
-                    setattr(self, 'turn_to_respond', False),
+                    setattr(self, '_turn_to_respond', False),
                     self.interview_session.end_session()
                 )
             )
         }
 
-        self.turn_to_respond = False
+        self._turn_to_respond = False
 
     async def on_message(self, message: Message):
 
         if message:
             SessionLogger.log_to_file(
-                "execution_log", f"[NOTIFY] Interviewer received message from {message.role}")
+                "execution_log",
+                f"[NOTIFY] Interviewer received message from {message.role}"
+            )
             self.add_event(sender=message.role, tag="message",
                            content=message.content)
         
         if not self.interview_session.session_in_progress:
             return
         
-        # This boolean is set to False when the interviewer is done responding (it has used respond_to_user tool)
-        self.turn_to_respond = True
+        self._turn_to_respond = True
         iterations = 0
 
-        while self.turn_to_respond and iterations < self._max_consideration_iterations:
-            # Get updated prompt with current chat history, session note, etc. This may change periodically (e.g. when the interviewer receives a system message that triggers a recall)
-            prompt = self.get_prompt()
-            # Logs the prompt to the event stream
+        while self._turn_to_respond and iterations < self._max_consideration_iterations:
+            prompt = self._get_prompt()
             self.add_event(sender=self.name, tag="prompt", content=prompt)
-            # Call the LLM engine with the updated prompt, This is the prompt the interviewer gives to the LLM to formulate it's response (includes thinking and tool calls)
             response = await self.call_engine_async(prompt)
-            # Prints the green text in the console
             print(f"{GREEN}Interviewer:\n{response}{RESET}")
 
             response_content, question_id, thinking = self._extract_response(
                 response)
 
             # Format the response with question ID if available
-            formatted_response = f"Question {question_id}:\n\n{response_content}" if question_id else response_content
+            formatted_response = (
+                f"Question {question_id}:\n\n{response_content}"
+                if question_id
+                else response_content
+            )
 
             self.add_event(sender=self.name, tag="message",
                            content=formatted_response)
-            # Handle tool calls in the response
+            
             await self.handle_tool_calls_async(response)
 
-            # Increment iteration count
             iterations += 1
 
             if iterations >= self._max_consideration_iterations:
                 self.add_event(
                     sender="system",
                     tag="error",
-                    content=f"Exceeded maximum number of consideration iterations ({self._max_consideration_iterations})"
+                    content=f"Exceeded maximum number of consideration "
+                    f"iterations ({self._max_consideration_iterations})"
                 )
 
-    def get_prompt(self):
+    def _get_prompt(self):
         '''
         Gets the prompt for the interviewer. 
         The logic for this is in the get_prompt function in interviewer/prompts.py
         '''
         main_prompt = get_prompt()
         # Get user portrait and last meeting summary from session note
-        user_portrait_str = self.interview_session.session_note.get_user_portrait_str()
-        last_meeting_summary_str = self.interview_session.session_note.get_last_meeting_summary_str()
+        user_portrait_str = self.interview_session.session_note \
+            .get_user_portrait_str()
+        last_meeting_summary_str = (
+            self.interview_session.session_note
+            .get_last_meeting_summary_str()
+        )
         # Get chat history from event stream where these are the senders
-        # Upon using a tool, the tool name is added to the event stream with the tag as the tool name
-        # This is important for letting the agent know the system response if a tool is called.
         chat_history_str = self.get_event_stream_str(
             [
                 {"sender": "Interviewer", "tag": "message"},
@@ -141,12 +146,14 @@ class Interviewer(BaseAgent, Participant):
             ],
             as_list=True
         )
-        questions_and_notes_str = self.interview_session.session_note.get_questions_and_notes_str(
-            hide_answered="qa")
+        questions_and_notes_str = self.interview_session.session_note \
+            .get_questions_and_notes_str(
+                hide_answered="qa"
+            )
         # TODO: Add additional notes
         tool_descriptions_str = self.get_tools_description()
-        recent_events = chat_history_str[-self._max_events_len:] if len(
-            chat_history_str) > self._max_events_len else chat_history_str
+        recent_events = chat_history_str[-self._max_events_len:] if \
+            len(chat_history_str) > self._max_events_len else chat_history_str
 
         return format_prompt(main_prompt, {
             "user_portrait": user_portrait_str,
