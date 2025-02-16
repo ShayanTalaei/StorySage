@@ -1,4 +1,4 @@
-from typing import Type, Optional, List, Callable, Dict
+from typing import Type, Optional, List, Callable
 
 
 from langchain_core.callbacks.manager import CallbackManagerForToolRun
@@ -8,45 +8,6 @@ from pydantic import BaseModel, Field, SkipValidation
 from content.memory_bank.memory_bank_base import MemoryBankBase, Memory
 from content.session_note.session_note import SessionNote
 from content.question_bank.question_bank_base import QuestionBankBase
-
-class AddInterviewQuestionInput(BaseModel):
-    topic: str = Field(description="The topic under which to add the question")
-    question: str = Field(description="The interview question to add")
-    question_id: str = Field(
-        description="The ID for the question (e.g., '1', '1.1', '2.3', etc.)")
-    parent_id: str = Field(
-        description="The ID of the parent question (e.g., '1', '2', etc.). Still include it but leave it empty if it is a top-level question.")
-    parent_text: str = Field(
-        description="The text of the parent question. Still include it but leave it empty if it is a top-level question.")
-
-
-class AddInterviewQuestion(BaseTool):
-    """Tool for adding new interview questions."""
-    name: str = "add_interview_question"
-    description: str = "Adds a new interview question to the session notes"
-    args_schema: Type[BaseModel] = AddInterviewQuestionInput
-    session_note: SessionNote = Field(...)
-
-    def _run(
-        self,
-        topic: str,
-        parent_id: str,
-        parent_text: str,
-        question_id: str,
-        question: str,
-        run_manager: Optional[CallbackManagerForToolRun] = None,
-    ) -> str:
-        try:
-            # TODO: pruning (add timestamp)
-            self.session_note.add_interview_question(
-                topic=topic,
-                question=question,
-                question_id=str(question_id)
-            )
-            self.session_note.save()
-            return f"Successfully added question {question_id} as follow-up to question {parent_id}"
-        except Exception as e:
-            raise ToolException(f"Error adding interview question: {str(e)}")
 
 
 class UpdateSessionNoteInput(BaseModel):
@@ -75,55 +36,6 @@ class UpdateSessionNote(BaseTool):
         return f"Successfully added the note for `{target_question}`."
 
 
-class RecallInput(BaseModel):
-    reasoning: str = Field(description="Explain: "
-                           "0. The current confidence level (1-10) "
-                           "1. Why you need this specific information "
-                           "2. How the results will help determine follow-up questions")
-    query: str = Field(
-        description="The query to search for in the memory bank")
-
-
-class Recall(BaseTool):
-    """Tool for recalling memories."""
-    name: str = "recall"
-    description: str = (
-        "A tool for recalling memories. "
-        "Use this tool to check if we already have relevant information about a topic "
-        "before deciding to propose follow-up questions. "
-        "Explain your search intent and how the results will guide your decision."
-    )
-    args_schema: Type[BaseModel] = RecallInput
-    memory_bank: MemoryBankBase = Field(...)  # Changed to use base class
-
-    def _run(
-        self,
-        query: str,
-        reasoning: str,
-        run_manager: Optional[CallbackManagerForToolRun] = None,
-    ) -> str:
-        try:
-            memories = self.memory_bank.search_memories(query)
-            memories_str = "\n".join(
-                [f"<memory>{memory['text']}</memory>" for memory in memories])
-            return f"""\
-<memory_search>
-<query>{query}</query>
-<reasoning>{reasoning}</reasoning>
-<results>
-{memories_str}
-</results>
-</memory_search>
-""" if memories_str else f"""\
-<memory_search>
-<query>{query}</query>
-<reasoning>{reasoning}</reasoning>
-<results>No relevant memories found.</results>
-</memory_search>"""
-        except Exception as e:
-            raise ToolException(f"Error recalling memories: {e}")
-
-
 class UpdateMemoryBankInput(BaseModel):
     temp_id: str = Field(description="Unique temporary ID for this memory (e.g., MEM_TEMP_1)")
     title: str = Field(description="A concise but descriptive title for the memory")
@@ -139,10 +51,6 @@ class UpdateMemoryBankInput(BaseModel):
         "A score of 10 indicates major life events like a relationship ending or getting accepted to college. "
         "Use this scale to rate how significant this memory is likely to be."
     ))
-    # source_interview_response: str = Field(description=(
-    #     "The original user response from the interview that this memory is derived from. "
-    #     "This should be the exact message from the user that contains this information."
-    # ))
 
 
 class UpdateMemoryBank(BaseTool):
@@ -166,7 +74,6 @@ class UpdateMemoryBank(BaseTool):
         text: str,
         metadata: dict,
         importance_score: int,
-        # source_interview_response: str,
         run_manager: Optional[CallbackManagerForToolRun] = None,
     ) -> str:
         try:

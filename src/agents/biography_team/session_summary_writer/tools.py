@@ -4,7 +4,6 @@ from typing import Type, Optional
 from langchain_core.callbacks.manager import CallbackManagerForToolRun
 
 
-from content.memory_bank.memory_bank_base import MemoryBankBase
 from content.session_note.session_note import SessionNote
 
 class UpdateLastMeetingSummaryInput(BaseModel):
@@ -63,42 +62,6 @@ class UpdateUserPortrait(BaseTool):
         except Exception as e:
             raise ToolException(f"Error updating user portrait: {e}")
 
-class AddInterviewQuestionInput(BaseModel):
-    topic: str = Field(description="The topic category for the question (e.g., 'Career', 'Education')")
-    question: str = Field(description="The actual question text")
-    question_id: str = Field(description="The ID for the question (e.g., '1', '1.1', '2.3')")
-    # parent_id: str = Field(description="The ID of the parent question (e.g., '1', '2', etc.). Still include it but leave it empty if it is a top-level question.")
-    # parent_text: str = Field(description="The text of the parent question. Still include it but leave it empty if it is a top-level question.")
-
-class AddInterviewQuestion(BaseTool):
-    """Tool for adding new interview questions."""
-    name: str = "add_interview_question"
-    description: str = (
-        "Adds a new interview question to the session notes. "
-    )
-    args_schema: Type[BaseModel] = AddInterviewQuestionInput
-    session_note: SessionNote = Field(...)
-
-    def _run(
-        self,
-        topic: str,
-        # parent_id: str,
-        # parent_text: str,
-        question_id: str,
-        question: str,
-        run_manager: Optional[CallbackManagerForToolRun] = None,
-    ) -> str:
-        try:
-
-            self.session_note.add_interview_question(
-                topic=str(topic),
-                question=str(question).strip(),
-                question_id=str(question_id)
-            )
-            
-            return f"Added parent question {question_id} as follow-up."
-        except Exception as e:
-            raise ToolException(f"Error adding interview question: {str(e)}")
 
 class DeleteInterviewQuestionInput(BaseModel):
     question_id: str = Field(description="The ID of the question to delete")
@@ -131,56 +94,3 @@ class DeleteInterviewQuestion(BaseTool):
             return f"Successfully deleted question {question_id}. Reason: {reasoning}"
         except Exception as e:
             raise ToolException(f"Error deleting interview question: {str(e)}")
-
-class RecallInput(BaseModel):
-    reasoning: str = Field(
-        description="Explain:\n"
-        "1. What information you're looking for\n"
-        "2. How this search will help evaluate multiple related questions\n"
-        "3. What decisions this search will inform"
-    )
-    query: str = Field(
-        description="The search query to find relevant information. Make it broad enough to cover related topics."
-    )
-
-class Recall(BaseTool):
-    """Tool for recalling memories."""
-    name: str = "recall"
-    description: str = (
-        "A tool for recalling memories. "
-        "Use this tool to check if we already have relevant information about a topic "
-        "before deciding to propose or delete questions in the session notes. "
-        "Explain your search intent and how the results will guide your decision."
-    )
-    args_schema: Type[BaseModel] = RecallInput
-    memory_bank: MemoryBankBase = Field(...)
-
-    def _run(
-        self,
-        query: str,
-        reasoning: str,
-        run_manager: Optional[CallbackManagerForToolRun] = None,
-    ) -> str:
-        try:
-            memories = self.memory_bank.search_memories(query)
-            memories_str = "\n".join([f"<memory>{memory['text']}</memory>" for memory in memories])
-            return f"""\
-<memory_search>
-<query>{query}</query>
-<reasoning>
-{reasoning}
-</reasoning>
-<results>
-{memories_str}
-</results>
-</memory_search>
-""" if memories_str else f"""\
-<memory_search>
-<query>{query}</query>
-<reasoning>
-{reasoning}
-</reasoning>
-<results>No relevant memories found.</results>
-</memory_search>"""
-        except Exception as e:
-            raise ToolException(f"Error recalling memories: {e}")

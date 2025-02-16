@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from agents.base_agent import BaseAgent
 from agents.interviewer.prompts import get_prompt
 from agents.interviewer.tools import EndConversation, RespondToUser
-from agents.note_taker.tools import Recall
+from agents.shared.memory_tools import Recall
 from utils.llm.prompt_utils import format_prompt
 from interview_session.session_models import Participant, Message
 from utils.logger import SessionLogger

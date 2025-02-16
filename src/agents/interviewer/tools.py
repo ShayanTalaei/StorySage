@@ -2,48 +2,13 @@ import asyncio
 import time
 from typing import Dict, Type, Optional, Any, Callable
 from langchain_core.callbacks.manager import CallbackManagerForToolRun
-from langchain_core.tools import BaseTool, ToolException
+from langchain_core.tools import BaseTool
 from pydantic import BaseModel, Field, SkipValidation
 
-from content.memory_bank.memory_bank_base import MemoryBankBase
 from utils.speech.text_to_speech import TextToSpeechBase, create_tts_engine
 from utils.speech.audio_player import create_audio_player, AudioPlayerBase
 from utils.constants.colors import RED, RESET, GREEN
 
-
-class RecallInput(BaseModel):
-    reasoning: str = Field(description="Explain how this information will help you answer the user's question.")
-    query: str = Field(description=("The query to search for in the memory bank. "
-                                   "This should be a short phrase or sentence that captures the essence of the information you want to recall." 
-                                   "For example, you can ask about a specific event, a person, a feeling, etc. "
-                                   "You can also query more specifically, like 'a daytrip to the zoo'."))
-
-class Recall(BaseTool):
-    """Tool for recalling memories."""
-
-    name: str = "recall"
-    description: str = (
-        "A tool for recalling memories. "
-        "Whenever you need to recall information about the user, you can use call this tool."
-    )
-    args_schema: Type[BaseModel] = RecallInput
-    memory_bank: MemoryBankBase = Field(...)
-    handle_tool_error: bool = True
-    correct_directory_path: str = ""
-
-    def _run(
-        self,
-        query: str,
-        run_manager: Optional[CallbackManagerForToolRun] = None,
-    ) -> Any:
-        """Use the tool to run the Python code."""
-
-        try:
-            memories = self.memory_bank.search_memories(query)
-            memories_str = "\n".join([f"Memory {i+1}:\n{memory['text']}" for i, memory in enumerate(memories)])
-            return memories_str
-        except Exception as e:  
-            raise ToolException(f"Error recalling memories: {e}")
 
 class ResponseToUserInput(BaseModel):
     response: str = Field(description="The response to the user.")

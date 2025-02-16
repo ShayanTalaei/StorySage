@@ -7,10 +7,11 @@ from agents.biography_team.session_summary_writer.prompts import (
     INTERVIEW_QUESTIONS_PROMPT,
     TOPIC_EXTRACTION_PROMPT
 )
-from agents.biography_team.session_summary_writer.tools import UpdateLastMeetingSummary, UpdateUserPortrait, AddInterviewQuestion, DeleteInterviewQuestion, Recall
+from agents.biography_team.session_summary_writer.tools import UpdateLastMeetingSummary, UpdateUserPortrait, DeleteInterviewQuestion
 from content.memory_bank.memory import Memory
-from agents.biography_team.models import FollowUpQuestion
-
+from agents.biography_team.shared.models import FollowUpQuestion
+from agents.shared.memory_tools import Recall
+from agents.shared.note_tools import AddInterviewQuestion
 
 if TYPE_CHECKING:
     from interview_session.interview_session import InterviewSession

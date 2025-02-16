@@ -2,11 +2,10 @@ import json
 from typing import Dict, List, TYPE_CHECKING, Optional
 
 from agents.biography_team.base_biography_agent import BiographyConfig, BiographyTeamAgent
-from agents.biography_team.models import Plan, FollowUpQuestion
+from agents.biography_team.shared.models import Plan, FollowUpQuestion
 from agents.biography_team.planner.prompts import get_prompt
 from agents.biography_team.planner.tools import AddPlan
-from agents.biography_team.section_writer.tools import AddFollowUpQuestion
-from content.biography.biography import Section
+from agents.biography_team.shared.tools import AddFollowUpQuestion
 from content.biography.biography_styles import BIOGRAPHY_STYLE_PLANNER_INSTRUCTIONS
 from content.memory_bank.memory import Memory
 
