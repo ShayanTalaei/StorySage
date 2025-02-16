@@ -84,19 +84,6 @@ class SectionWriter(BiographyTeamAgent):
                            content=f"Error in update_section: {str(e)}")
             return UpdateResult(success=False, message=str(e))
 
-    def _get_formatted_memories(self, memory_ids: List[str]) -> str:
-        """Get and format memories from memory IDs."""
-        if not memory_ids:
-            return "No relevant memories provided."
-            
-        memory_texts = []
-        for memory_id in memory_ids:
-            memory = self.interview_session.memory_bank.get_memory_by_id(memory_id)
-            if memory:
-                memory_texts.append(memory.to_xml(include_source=True))
-        
-        return "\n\n".join(memory_texts)
-
     def _get_prompt(self, todo_item: Plan) -> str:
         """Create a prompt for the section writer to update a biography section."""
         try:
@@ -159,7 +146,11 @@ class SectionWriter(BiographyTeamAgent):
                     update_plan=todo_item.update_plan,
                     current_content=current_content,
                     relevant_memories=(
-                        self._get_formatted_memories(todo_item.memory_ids)
+                        self.interview_session.memory_bank \
+                            .get_formatted_memories_from_ids(
+                                todo_item.memory_ids,
+                                include_source=True
+                            )
                     ),
                     style_instructions=BIOGRAPHY_STYLE_WRITER_INSTRUCTIONS.get(
                         self.config.get("biography_style", "chronological")

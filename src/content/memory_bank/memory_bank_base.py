@@ -162,4 +162,59 @@ class MemoryBankBase(ABC):
         Returns:
             List[Memory]: List of memories linked to the question
         """
-        return [m for m in self.memories if question_id in m.question_ids] 
+        return [m for m in self.memories if question_id in m.question_ids]
+
+    def get_formatted_memories_from_ids(self, memory_ids: List[str], include_source: bool = True) -> str:
+        """Get and format memories from memory IDs into XML format.
+        
+        Args:
+            memory_ids: List of memory IDs to format
+            include_source: Whether to include source interview response in output
+            
+        Returns:
+            str: XML formatted string of memories, or empty string if no memories
+        """
+        if not memory_ids:
+            return ""
+            
+        # Track seen source responses to avoid duplicates
+        seen_sources = {}  # source_text -> first_memory_id
+        memory_texts = []
+        
+        for memory_id in memory_ids:
+            memory = self.get_memory_by_id(memory_id)
+            if not memory:
+                continue
+                
+            if include_source:
+                source_text = memory.source_interview_response
+                if source_text in seen_sources:
+                    # Reference the first memory with this source
+                    source_xml = (
+                        f'<source_interview_response>\n'
+                        f'Same as {seen_sources[source_text]}\n'
+                        f'</source_interview_response>'
+                    )
+                else:
+                    # First time seeing this source
+                    seen_sources[source_text] = memory.id
+                    source_xml = (
+                        f'<source_interview_response>\n'
+                        f'{source_text}\n'
+                        f'</source_interview_response>'
+                    )
+                
+                # Build memory XML with modified source
+                memory_xml = [
+                    '<memory>',
+                    f'<title>{memory.title}</title>',
+                    f'<summary>{memory.text}</summary>',
+                    f'<id>{memory.id}</id>',
+                    source_xml,
+                    '</memory>'
+                ]
+                memory_texts.append('\n'.join(memory_xml))
+            else:
+                memory_texts.append(memory.to_xml(include_source=False))
+        
+        return "\n\n".join(memory_texts) if memory_texts else "" 

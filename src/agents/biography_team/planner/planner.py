@@ -42,7 +42,7 @@ class BiographyPlanner(BiographyTeamAgent):
             biography_structure=json.dumps(self.get_biography_structure(), indent=2),
             biography_content=self.biography.export_to_markdown(),
             new_information='\n\n'.join(
-                [memory.to_xml(include_id=True) for memory in new_memories]),
+                [memory.to_xml() for memory in new_memories]),
             style_instructions=BIOGRAPHY_STYLE_PLANNER_INSTRUCTIONS.get(
                 self.config.get("biography_style")
             ),

@@ -27,26 +27,21 @@ class Memory(BaseModel):
             'question_ids': self.question_ids
         }
 
-    def to_xml(self, include_id: bool = False, include_source: bool = False, ) -> str:
-        """Convert memory to XML format string.
+    def to_xml(self, include_source: bool = False) -> str:
+        """Convert memory to XML format string without source handling.
         
         Args:
             include_source: Whether to include source_interview_response
-            include_id: Whether to include memory ID
         Returns:
             str: XML formatted string of the memory
         """
-        lines = ['<memory>']
+        lines = [
+            '<memory>',
+            f'<title>{self.title}</title>',
+            f'<summary>{self.text}</summary>',
+            f'<id>{self.id}</id>'
+        ]
         
-        # Always include title and text
-        lines.append(f'<title>{self.title}</title>')
-        lines.append(f'<summary>{self.text}</summary>')
-        
-        # Optionally include ID
-        if include_id:
-            lines.append(f'<id>{self.id}</id>')
-            
-        # Optionally include source response
         if include_source:
             lines.append(
                 f'<source_interview_response>\n'
