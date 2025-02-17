@@ -62,7 +62,7 @@ class MemoryBankBase(ABC):
             k: Number of results to return
             
         Returns:
-            List[Dict]: List of memory dictionaries with similarity scores
+            List[Dict]: List of memory dictionaries with similarity_score
         """
         pass
     

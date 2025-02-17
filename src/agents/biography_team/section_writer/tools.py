@@ -20,11 +20,24 @@ class UpdateSection(BaseTool):
     args_schema: Type[BaseModel] = UpdateSectionInput
     biography: Biography
 
-    async def _run(self, path: str, title: str, content: str, new_title: Optional[str] = None, run_manager: Optional[CallbackManagerForToolRun] = None) -> str:
-        section = await self.biography.update_section(path=path, title=title, content=content, new_title=new_title)
+    async def _run(
+        self,
+        content: str,
+        path: Optional[str] = None,
+        title: Optional[str] = None,
+        new_title: Optional[str] = None,
+        run_manager: Optional[CallbackManagerForToolRun] = None
+    ) -> str:
+        section = await self.biography.update_section(
+            path=path,
+            title=title,
+            content=content,
+            new_title=new_title
+        )
         if not section:
-            raise ToolException(f"Section at path '{path}' not found")
-        return f"Successfully updated section at path '{path}'"
+            identifier = path if path else title
+            raise ToolException(f"Section '{identifier}' not found")
+        return f"Successfully updated section '{path if path else title}'"
 
 
 class AddSectionInput(BaseModel):

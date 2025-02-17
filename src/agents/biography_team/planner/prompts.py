@@ -1,11 +1,9 @@
 from utils.llm.prompt_utils import format_prompt
 
-def get_prompt(prompt_type: str, include_warning: bool = False):
+def get_prompt(prompt_type: str):
     if prompt_type == "add_new_memory_planner":
         return format_prompt(ADD_NEW_MEMORY_PROMPT, {
             "NEW_MEMORY_MAIN_PROMPT": NEW_MEMORY_MAIN_PROMPT,
-            "MISSING_MEMORIES_WARNING": MISSING_MEMORIES_WARNING \
-                                        if include_warning else WARNING_PLACEHOLDER,
             "SECTION_PATH_FORMAT": SECTION_PATH_FORMAT
         })
     elif prompt_type == "user_add_planner":
@@ -27,26 +25,6 @@ ADD_NEW_MEMORY_PROMPT = """
 {NEW_MEMORY_MAIN_PROMPT}
 
 {SECTION_PATH_FORMAT}
-"""
-
-USER_ADD_PROMPT = """
-{USER_EDIT_PERSONA}
-
-{USER_ADD_CONTEXT}
-
-{USER_EDIT_INSTRUCTIONS}
-
-{USER_ADD_OUTPUT_FORMAT}
-"""
-
-USER_COMMENT_PROMPT = """
-{USER_EDIT_PERSONA}
-
-{USER_COMMENT_CONTEXT}
-
-{USER_EDIT_INSTRUCTIONS}
-
-{USER_COMMENT_OUTPUT_FORMAT}
 """
 
 SECTION_PATH_FORMAT = """\
@@ -82,36 +60,6 @@ SECTION_PATH_FORMAT = """\
 - Section titles must be the last part of the section path
 - Example: "1.1 Childhood" instead of full path
 </format_notes>
-"""
-
-MISSING_MEMORIES_WARNING = """\
-<missing_memories_warning>
-Warning: Some memories from the interview session are not yet incorporated into the biography.
-
-Previous Tool Calls:
-<previous_tool_call>
-{previous_tool_call}
-</previous_tool_call>
-
-Uncovered Memories:
-<missing_memory_ids>
-{missing_memory_ids}
-</missing_memory_ids>
-
-Action Required:
-1. Review the uncovered memories
-2. Either:
-a) Generate new tool calls from scratch to cover ALL memories, or
-b) Explain why some memories can be excluded in <thinking> tag and add <proceed>true</proceed> at the end of your response (outside of <thinking> and <tool_calls> tags)
-
-Note: Your explanation should be clear and specific about why certain memories don't need to be included.
-</missing_memories_warning>
-"""
-
-# Placeholder to prevent missing {previous_tool_call} and {missing_memory_ids} errors
-WARNING_PLACEHOLDER = """\
-{previous_tool_call}
-{missing_memory_ids}
 """
 
 NEW_MEMORY_MAIN_PROMPT = """\
@@ -176,10 +124,14 @@ You are a biography expert responsible for planning and organizing life stories.
 {tool_descriptions}
 </instructions>
 
+{missing_memories_warning}
+
 <output_format>
 First, provide reasoning for your plans and tool calls.
 <thinking>
-Your thoughts here
+Your thoughts here.
+
+{warning_output_format}
 </thinking>
 
 Then, provide your action using tool calls:
@@ -193,6 +145,53 @@ Then, provide your action using tool calls:
     </add_follow_up_question>
 </tool_calls>
 </output_format>
+"""
+
+MISSING_MEMORIES_WARNING = """\
+<missing_memories_warning>
+Warning: Some memories from the interview session are not yet incorporated into the biography.
+
+Previous Tool Calls:
+<previous_tool_call>
+{previous_tool_call}
+</previous_tool_call>
+
+Uncovered Memories:
+<missing_memory_ids>
+{missing_memory_ids}
+</missing_memory_ids>
+
+Choose ONE of these actions:
+a) Generate new tool calls from scratch to cover ALL memories, or
+b) Explain why some memories can be excluded in <thinking> </thinking> tag and add <proceed>true</proceed> at the end of your thinking.
+
+Note: Your explanation should be clear and specific about why certain memories don't need to be included.
+</missing_memories_warning>
+"""
+
+WARNING_OUTPUT_FORMAT = """
+If you decide to propose those follow-up questions after reviewing similar questions in warning, please include the following XML tag:
+<proceed>true</proceed>
+"""
+
+USER_ADD_PROMPT = """
+{USER_EDIT_PERSONA}
+
+{USER_ADD_CONTEXT}
+
+{USER_EDIT_INSTRUCTIONS}
+
+{USER_ADD_OUTPUT_FORMAT}
+"""
+
+USER_COMMENT_PROMPT = """
+{USER_EDIT_PERSONA}
+
+{USER_COMMENT_CONTEXT}
+
+{USER_EDIT_INSTRUCTIONS}
+
+{USER_COMMENT_OUTPUT_FORMAT}
 """
 
 USER_EDIT_PERSONA = """\

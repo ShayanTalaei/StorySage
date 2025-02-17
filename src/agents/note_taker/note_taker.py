@@ -6,11 +6,12 @@ import time
 
 
 from agents.base_agent import BaseAgent
-from agents.note_taker.prompts import get_prompt
+from agents.note_taker.prompts import WARNING_OUTPUT_FORMAT, get_prompt, format_similar_questions, SIMILAR_QUESTIONS_WARNING
 from agents.note_taker.tools import UpdateSessionNote, UpdateMemoryBank, AddHistoricalQuestion
 from agents.shared.memory_tools import Recall
 from agents.shared.note_tools import AddInterviewQuestion
 from utils.llm.prompt_utils import format_prompt
+from utils.llm.xml_formatter import extract_tool_arguments, extract_tool_calls_xml
 from utils.logger import SessionLogger
 from interview_session.session_models import Participant, Message
 from content.memory_bank.memory import Memory
@@ -156,41 +157,79 @@ class NoteTaker(BaseAgent, Participant):
         Determine if follow-up questions should be proposed 
         and propose them if appropriate.
         """
-        # Get prompt for considering and proposing followups
-
         iterations = 0
+        previous_tool_call = None
+        similar_questions = []
+        
         while iterations < self._max_consideration_iterations:
-            # Decide if to propose follow-ups and propose if needed
             prompt = self._get_formatted_prompt(
-                "consider_and_propose_followups")
+                "consider_and_propose_followups",
+                previous_tool_call=previous_tool_call,
+                similar_questions=similar_questions
+            )
+            
             self.add_event(
                 sender=self.name,
-                tag="consider_and_propose_followups_prompt",
+                tag=f"consider_and_propose_followups_prompt_{iterations}",
                 content=prompt
             )
 
-            tool_call = await self.call_engine_async(prompt)
+            response = await self.call_engine_async(prompt)
             self.add_event(
                 sender=self.name,
-                tag="consider_and_propose_followups_response",
-                content=tool_call
+                tag=f"consider_and_propose_followups_response_{iterations}",
+                content=response
             )
 
-            tool_responses = self.handle_tool_calls(tool_call)
-
-            if "add_interview_question" in tool_call:
-                SessionLogger.log_to_file(
-                    "chat_history", f"[PROPOSE_FOLLOWUPS]\n{tool_call}")
-                SessionLogger.log_to_file(
-                    "chat_history",
-                    f"{self.interview_session.session_note.visualize_topics()}"
-                )
-                break
-            elif "recall" in tool_call:
+            # Check if agent wants to proceed with similar questions
+            if "<proceed>true</proceed>" in response.lower():
                 self.add_event(
-                    sender=self.name, tag="recall_response", content=tool_responses)
-            else:
+                    sender=self.name,
+                    tag=f"feedback_loop_{iterations}",
+                    content="Agent chose to proceed with similar questions"
+                )
+                # Handle the tool calls to add questions
+                await self.handle_tool_calls_async(response)
                 break
+
+            # Extract proposed questions from add_interview_question tool calls
+            proposed_questions = extract_tool_arguments(
+                response, "add_interview_question", "question"
+            )
+            
+            if not proposed_questions:
+                if "recall" in response:
+                    # Handle recall response
+                    result = await self.handle_tool_calls_async(response)
+                    self.add_event(
+                        sender=self.name, 
+                        tag="recall_response", 
+                        content=result
+                    )
+                else:
+                    # No questions proposed and no recall needed
+                    break
+            else:
+                # Search for similar questions
+                similar_questions = []
+                for question in proposed_questions:
+                    results = self.interview_session.question_bank.search_questions(
+                        query=question, k=3
+                    )
+                    if results:
+                        similar_questions.append({
+                            "proposed": question,
+                            "similar": results
+                        })
+                
+                if not similar_questions:
+                    # No similar questions found, proceed with adding
+                    await self.handle_tool_calls_async(response)
+                    break
+                else:
+                    # Save tool calls for next iteration
+                    previous_tool_call = extract_tool_calls_xml(response)
+            
             iterations += 1
 
         if iterations >= self._max_consideration_iterations:
@@ -235,7 +274,7 @@ class NoteTaker(BaseAgent, Participant):
         )
         self.handle_tool_calls(response)
 
-    def _get_formatted_prompt(self, prompt_type: str) -> str:
+    def _get_formatted_prompt(self, prompt_type: str, **kwargs) -> str:
         '''Gets the formatted prompt for the NoteTaker agent.'''
         prompt = get_prompt(prompt_type)
         if prompt_type == "consider_and_propose_followups":
@@ -248,11 +287,26 @@ class NoteTaker(BaseAgent, Participant):
             recent_events = events[-self._max_events_len:] if len(
                 events) > self._max_events_len else events
 
+            # Format warning if needed
+            similar_questions = kwargs.get('similar_questions', [])
+            previous_tool_call = kwargs.get('previous_tool_call')
+            warning = (
+                SIMILAR_QUESTIONS_WARNING.format(
+                    previous_tool_call=previous_tool_call,
+                    similar_questions_formatted= \
+                        format_similar_questions(similar_questions)
+                ) if similar_questions and previous_tool_call 
+                else ""
+            )
+
             return format_prompt(prompt, {
                 "event_stream": "\n".join(recent_events),
                 "questions_and_notes": (
                     self.interview_session.session_note.get_questions_and_notes_str()
                 ),
+                "similar_questions_warning": warning,
+                "warning_output_format": WARNING_OUTPUT_FORMAT \
+                                         if similar_questions else "",
                 "tool_descriptions": self.get_tools_description(
                     selected_tools=["recall", "add_interview_question"]
                 )

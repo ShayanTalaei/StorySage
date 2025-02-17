@@ -25,7 +25,8 @@ class QuestionBankBase(ABC):
         Example: Q_03121423_X7K (March 12, 14:23)
         """
         timestamp = datetime.now().strftime("%m%d%H%M")
-        random_chars = ''.join(random.choices(string.ascii_uppercase + string.digits, k=3))
+        random_chars = ''.join(random.choices(
+            string.ascii_uppercase + string.digits, k=3))
         return f"Q_{timestamp}_{random_chars}"
     
     @abstractmethod
@@ -58,7 +59,7 @@ class QuestionBankBase(ABC):
             k: Number of results to return
             
         Returns:
-            List[Dict]: List of question dictionaries with similarity scores
+            List[Dict]: List of question dictionaries with similarity_score
         """
         pass
     
@@ -68,7 +69,8 @@ class QuestionBankBase(ABC):
             'questions': [question.to_dict() for question in self.questions]
         }
         
-        content_filepath = os.getenv("LOGS_DIR") + f"/{user_id}/question_bank_content.json"
+        content_filepath = os.getenv("LOGS_DIR") + \
+            f"/{user_id}/question_bank_content.json"
         os.makedirs(os.path.dirname(content_filepath), exist_ok=True)
         
         with open(content_filepath, 'w') as f:
@@ -86,7 +88,8 @@ class QuestionBankBase(ABC):
         """Load a question bank from file."""
         question_bank = cls()
         
-        content_filepath = os.getenv("LOGS_DIR") + f"/{user_id}/question_bank_content.json"
+        content_filepath = os.getenv("LOGS_DIR") + \
+            f"/{user_id}/question_bank_content.json"
         
         try:
             with open(content_filepath, 'r') as f:

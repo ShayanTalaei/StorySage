@@ -111,6 +111,14 @@ def call_tool_from_xml(tool_calls_xml_string: str, available_tools: Dict[str, Ba
     
     return "\n".join(results)
 
+def extract_tool_calls_xml(response: str) -> str:
+    """Extract the part of the response containing tool calls."""
+    tool_calls_start = response.find("<tool_calls>")
+    tool_calls_end = response.find("</tool_calls>")
+    if tool_calls_start == -1 or tool_calls_end == -1:
+        return ""
+    return response[tool_calls_start:tool_calls_end + len("</tool_calls>")]
+
 def extract_tool_arguments(response: str, tool_name: str, arg_name: str) -> List[Any]:
     """Extract specific argument values from tool calls in a response.
     

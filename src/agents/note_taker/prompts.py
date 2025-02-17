@@ -1,6 +1,7 @@
 from utils.llm.prompt_utils import format_prompt
+from typing import List, Dict
 
-def get_prompt(prompt_type: str):
+def get_prompt(prompt_type: str, include_warning: bool = False):
     if prompt_type == "update_memory_question_bank":
         return format_prompt(UPDATE_MEMORY_QUESTION_BANK_PROMPT, {
             "CONTEXT": UPDATE_MEMORY_QUESTION_BANK_CONTEXT,
@@ -28,7 +29,6 @@ def get_prompt(prompt_type: str):
             "OUTPUT_FORMAT": CONSIDER_AND_PROPOSE_FOLLOWUPS_OUTPUT_FORMAT
         })
 
-#### UPDATE_MEMORY_QUESTION_BANK_PROMPT ####
 
 UPDATE_MEMORY_QUESTION_BANK_PROMPT = """
 {CONTEXT}
@@ -309,6 +309,7 @@ For each piece of new information worth storing:
 
 UPDATE_SESSION_NOTE_OUTPUT_FORMAT = """
 <output_format>
+
 If you identify information worth storing, use the following format:
 <tool_calls>
     <update_session_note>
@@ -317,12 +318,13 @@ If you identify information worth storing, use the following format:
     </update_session_note>
     ...
 </tool_calls>
+
+Reminder:
 - You can make multiple tool calls at once if there are multiple pieces of information worth storing.
 - If there's no information worth storing, don't make any tool calls; i.e. return <tool_calls></tool_calls>.
+
 </output_format>
 """
-
-#### CONSIDER_AND_PROPOSE_FOLLOWUPS_PROMPT ####
 
 CONSIDER_AND_PROPOSE_FOLLOWUPS_PROMPT = """
 {CONTEXT}
@@ -330,6 +332,8 @@ CONSIDER_AND_PROPOSE_FOLLOWUPS_PROMPT = """
 {EVENT_STREAM}
 
 {QUESTIONS_AND_NOTES}
+
+{similar_questions_warning}
 
 {TOOL_DESCRIPTIONS}
 
@@ -484,20 +488,25 @@ Examples of Good Tangential Questions:
 """
 
 CONSIDER_AND_PROPOSE_FOLLOWUPS_OUTPUT_FORMAT = """
+Follow the output format below to return your response:
+
 <output_format>
+<thinking>
+Your reasoning process on reflecting on the available information and deciding on the action to take.
 
-Choose ONE of these actions:
+{warning_output_format}
+</thinking>
 
-1. Make recall tool calls to gather more information:
+
 <tool_calls>
+    <!-- Option 1: Use recall tool to gather more information -->
     <recall>
         <reasoning>...</reasoning>
         <query>...</query>
     </recall>
-</tool_calls>
+    ...
 
-2. Propose follow-up questions. For each follow-up question you want to add:
-<tool_calls>
+    <!-- Option 2: Propose follow-up questions; leave empty tags if not proposing any -->
     <add_interview_question>
         <topic>Topic name</topic>
         <parent_id>ID of the parent question</parent_id>
@@ -505,10 +514,49 @@ Choose ONE of these actions:
         <question_id>ID in proper parent-child format</question_id>
         <question>[FACT-GATHERING] or [DEEPER] or [TANGENTIAL] Your question here</question>
     </add_interview_question>
+    ...
 </tool_calls>
-
-3. No follow-up needed:
-<tool_calls></tool_calls>
-
 </output_format>
+
+Reminder:
+- If you decide not to propose any follow-up questions, just return <tool_calls></tool_calls> with empty tags
 """
+
+SIMILAR_QUESTIONS_WARNING = """\
+<similar_questions_warning>
+Warning: Some of your proposed questions are similar to previously asked questions.
+
+Previous Tool Calls:
+<previous_tool_call>
+{previous_tool_call}
+</previous_tool_call>
+
+Similar Questions Already Asked:
+<similar_questions>
+{similar_questions_formatted}
+</similar_questions>
+
+Choose ONE of these actions:
+1. Regenerate new tool calls with alternative questions
+   - Explain why these questions bring new insights besides the ones already captured in <thinking> </thinking>
+   - Add <proceed>true</proceed> at the end of your thinking tag to proceed with the regeneration
+2. Leave empty inside <tool_calls> </tool_calls> tags if you don't want to propose any follow-up questions
+
+</similar_questions_warning>
+"""
+
+WARNING_OUTPUT_FORMAT = """
+If you decide to propose those follow-up questions after reviewing similar questions in warning, please include the following XML tag:
+<proceed>true</proceed>
+"""
+
+def format_similar_questions(similar_questions: List[Dict]) -> str:
+    """Format similar questions for display in warning."""
+    formatted = []
+    for item in similar_questions:
+        formatted.append(f"Proposed Question: {item['proposed']}")
+        formatted.append("Similar Previously Asked Questions:")
+        for similar in item['similar']:
+            formatted.append(f"- {similar['content']} (similarity: {similar['similarity_score']})")
+        formatted.append("")
+    return "\n".join(formatted)
