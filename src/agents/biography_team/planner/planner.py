@@ -4,9 +4,9 @@ from typing import Dict, List, TYPE_CHECKING, Optional
 
 from agents.biography_team.base_biography_agent import BiographyConfig, BiographyTeamAgent
 from agents.biography_team.models import Plan, FollowUpQuestion
-from agents.biography_team.planner.prompts import MISSING_MEMORIES_WARNING, get_prompt
+from agents.biography_team.planner.prompts import get_prompt
 from agents.biography_team.planner.tools import AddPlan
-from agents.note_taker.prompts import WARNING_OUTPUT_FORMAT
+from agents.shared.feedback_prompts import MISSING_MEMORIES_WARNING, WARNING_OUTPUT_FORMAT
 from agents.shared.note_tools import AddFollowUpQuestion
 from content.biography.biography_styles import BIOGRAPHY_STYLE_PLANNER_INSTRUCTIONS
 from content.memory_bank.memory import Memory

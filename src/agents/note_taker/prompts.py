@@ -1,7 +1,7 @@
 from utils.llm.prompt_utils import format_prompt
 from typing import List, Dict
 
-def get_prompt(prompt_type: str, include_warning: bool = False):
+def get_prompt(prompt_type: str):
     if prompt_type == "update_memory_question_bank":
         return format_prompt(UPDATE_MEMORY_QUESTION_BANK_PROMPT, {
             "CONTEXT": UPDATE_MEMORY_QUESTION_BANK_CONTEXT,
@@ -107,7 +107,6 @@ UPDATE_MEMORY_QUESTION_BANK_INSTRUCTIONS = """
    - For EACH identified question:
      * Use add_historical_question to store it
      * Link it to ALL relevant memories using their temp_ids
-     * Make sure the question text is exact
 
 ## Memory-Question Relationship Rules:
 1. Coverage Requirements:
@@ -493,7 +492,6 @@ Follow the output format below to return your response:
 <output_format>
 <thinking>
 Your reasoning process on reflecting on the available information and deciding on the action to take.
-
 {warning_output_format}
 </thinking>
 
@@ -522,34 +520,6 @@ Reminder:
 - If you decide not to propose any follow-up questions, just return <tool_calls></tool_calls> with empty tags
 """
 
-SIMILAR_QUESTIONS_WARNING = """\
-<similar_questions_warning>
-Warning: Some of your proposed questions are similar to previously asked questions.
-
-Previous Tool Calls:
-<previous_tool_call>
-{previous_tool_call}
-</previous_tool_call>
-
-Similar Questions Already Asked:
-<similar_questions>
-{similar_questions_formatted}
-</similar_questions>
-
-Choose ONE of these actions:
-1. Regenerate new tool calls with alternative questions
-   - Explain why these questions bring new insights besides the ones already captured in <thinking> </thinking>
-   - Add <proceed>true</proceed> at the end of your thinking tag to proceed with the regeneration
-2. Leave empty inside <tool_calls> </tool_calls> tags if you don't want to propose any follow-up questions
-
-</similar_questions_warning>
-"""
-
-WARNING_OUTPUT_FORMAT = """
-If you decide to propose those follow-up questions after reviewing similar questions in warning, please include the following XML tag:
-<proceed>true</proceed>
-"""
-
 def format_similar_questions(similar_questions: List[Dict]) -> str:
     """Format similar questions for display in warning."""
     formatted = []
@@ -557,6 +527,6 @@ def format_similar_questions(similar_questions: List[Dict]) -> str:
         formatted.append(f"Proposed Question: {item['proposed']}")
         formatted.append("Similar Previously Asked Questions:")
         for similar in item['similar']:
-            formatted.append(f"- {similar['content']} (similarity: {similar['similarity_score']})")
+            formatted.append(f"- {similar['content']}")
         formatted.append("")
     return "\n".join(formatted)

@@ -30,15 +30,20 @@ Your task is to:
 ✓ General Guidelines:
 - Follow update plan
 - Adhere to style guidelines
+- Include memory citations using [memory_id] format at the end of relevant sentences
+- Each statement should be traceable to a source memory through citations
 
 For New Sections:
 - Use add_section tool
 - Write content from available memories
+- Cite memories for each piece of information
 
 For Existing Sections:
 - Use update_section tool
 - Integrate new memories with existing content
 - Maintain narrative coherence
+- Preserve existing memory citations
+- Add new citations for new content
 
 2. Follow-up Questions (Required)
 Generate 1-3 focused questions that:
@@ -54,10 +59,21 @@ Generate 1-3 focused questions that:
 - Do not speculate or embellish
 - Short sections are acceptable when information is limited
 
-2. User Voice Preservation
+2. Citation Format
+✓ Do:
+- Place memory citations at the end of sentences using [memory_id] format
+- Multiple citations can be used if a statement draws from multiple memories: [memory_1][memory_2]
+- Place citations before punctuation: "This happened [memory_1]."
+- Group related information from the same memory to avoid repetitive citations
+
+✗ Don't:
+- Omit citations for factual statements
+
+3. User Voice Preservation
 ✓ Do:
 - Use the user's own words from <source_interview_response> tags
 - Make minimal rephrasing to improve readability while preserving meaning
+- Include memory citations even for direct quotes
 
 ✗ Don't:
 - Condense or oversimplify user statements
@@ -66,7 +82,7 @@ Generate 1-3 focused questions that:
 - Add interpretative or abstract descriptions
   * Avoid statements like: "This experience had a big impact..." unless explicitly stated by user
 - Modify quoted speech or third-person retellings
-  * Keep exact quotes as spoken (e.g., "My mother told me, 'Don't accept gifts that don't belong to you'")
+  * Keep exact quotes as spoken (e.g., "My mother told me, 'Don't accept gifts that don't belong to you'" [memory_id])
   * Only fix grammatical errors if present
 
 ## Writing Style:
@@ -81,8 +97,16 @@ Generate 1-3 focused questions that:
 
 </instructions>
 
+{missing_memories_warning}
 
 <output_format>
+First, provide reasoning for tool calls.
+<thinking>
+Your thoughts here on how  to write the section content.
+{warning_output_format}
+</thinking>
+
+Then, provide your action using tool calls:
 <tool_calls>
     # First, update/create the section:
     <add_section>

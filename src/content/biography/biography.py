@@ -1,9 +1,10 @@
 from datetime import datetime
 import json
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 import uuid
 import os
 import asyncio
+import re
 
 class Section:
     def __init__(self, title: str, content: str = "", parent: Optional['Section'] = None):
@@ -13,6 +14,15 @@ class Section:
         self.created_at = datetime.now().isoformat()
         self.last_edit = datetime.now().isoformat()
         self.subsections: Dict[str, 'Section'] = {}
+        self.memory_ids: List[str] = []
+        self.update_memory_ids()
+
+    def update_memory_ids(self) -> None:
+        """Update memory_ids list by integrating IDs from content"""
+        found_ids = self.extract_memory_ids(self.content)
+        
+        # Add new IDs without removing existing ones
+        self.memory_ids.extend([id for id in found_ids if id not in self.memory_ids])
 
     def to_dict(self) -> Dict:
         return {
@@ -21,6 +31,7 @@ class Section:
             "content": self.content,
             "created_at": self.created_at,
             "last_edit": self.last_edit,
+            "memory_ids": self.memory_ids,
             "subsections": {k: v.to_dict() for k, v in self.subsections.items()}
         }
 
@@ -31,8 +42,33 @@ class Section:
         section.content = data["content"]
         section.created_at = data["created_at"]
         section.last_edit = data["last_edit"]
+        section.memory_ids = data.get("memory_ids", [])
         section.subsections = {k: cls.from_dict(v) for k, v in data["subsections"].items()}
         return section
+
+    @classmethod
+    def extract_memory_ids(cls, content: str) -> List[str]:
+        """Extract memory IDs from content text.
+        
+        Args:
+            content: Text content that may contain memory IDs in [MEM_ID] format
+            
+        Returns:
+            List[str]: List of unique memory IDs found in the content
+            
+        Example:
+            >>> Section.extract_memory_ids("Text with [MEM_123] and [MEM_456]")
+            ['MEM_123', 'MEM_456']
+        """
+        if not content:
+            return []
+            
+        # Find all memory IDs in content using regex pattern [memory_id]
+        pattern = r'\[(MEM_[\w-]+)\]'
+        found_ids = re.findall(pattern, content)
+        
+        # Return unique IDs only
+        return list(dict.fromkeys(found_ids))
 
 class Biography:
     def __init__(self, user_id):
@@ -50,10 +86,10 @@ class Biography:
 
         # Locks for write operations
         self._write_lock = asyncio.Lock()           # Lock for write operations
-        self._pending_writes = 0            # Counter for pending write operations
+        self._pending_writes = 0                    # Counter for pending write operations
         self._pending_writes_lock = asyncio.Lock()  # Lock for the counter
         self._all_writes_complete = asyncio.Event() # Event to track write completion
-        self._all_writes_complete.set()     # Initially set to True
+        self._all_writes_complete.set()             # Initially set to True
 
     async def _increment_pending_writes(self):
         """Increment the pending writes counter."""
@@ -267,8 +303,16 @@ class Biography:
         
         return _search(self.root)
     
-    def get_section(self, path: Optional[str] = None, title: Optional[str] = None) -> Optional[Section]:
-        """Get a section using either its path or title."""
+    def get_section(self, path: Optional[str] = None, title: Optional[str] = None, 
+                   hide_memory_links: bool = True) -> Optional[Section]:
+        """Get a section using either its path or title.
+        
+        Args:
+            path: Path to the section
+            title: Title of the section
+            hide_memory_links: If True, removes memory ID brackets from content
+        """
+        section = None
         if path is None and title is None:
             raise ValueError("Must provide either path or title to get a section")
         elif path and title and not path.endswith(title):
@@ -276,12 +320,16 @@ class Biography:
 
         if path is not None:
             if not self.is_valid_path_format(path):
-                raise ValueError(f"Invalid path format: {path}. "
-                                 "Path must follow the required format rules.")
-            return self._get_section_by_path(path)
+                raise ValueError(f"Invalid path format: {path}")
+            section = self._get_section_by_path(path)
         else:
-            return self._get_section_by_title(title)
-    
+            section = self._get_section_by_title(title)
+
+        if section and hide_memory_links:
+            section.content = re.sub(r'\[([\w-]+)\]', '', section.content)
+        
+        return section
+
     def get_sections(self) -> Dict[str, Dict]:
         """Get a dictionary of all sections with their titles only"""
         def _build_section_dict(section: Section) -> Dict:
@@ -331,7 +379,8 @@ class Biography:
         finally:
             await self._decrement_pending_writes()
 
-    async def update_section(self, path: Optional[str] = None, title: Optional[str] = None, content: Optional[str] = None, new_title: Optional[str] = None) -> Optional[Section]:
+    async def update_section(self, path: Optional[str] = None, title: Optional[str] = None, 
+        content: Optional[str] = None, new_title: Optional[str] = None) -> Optional[Section]:
         """Update the content and optionally the title of a section by path or title."""
         await self._increment_pending_writes()
         try:
@@ -350,14 +399,14 @@ class Biography:
                         self.root.title = new_title
                     return self.root
                 
-                # Get section by path or title
-                section = None
-                section = self.get_section(path=path, title=title)
+                # Get section without hiding memory links to modify the original
+                section = self.get_section(path=path, title=title, hide_memory_links=False)
                 
                 if section:
                     if content is not None:
                         section.content = content
                         section.last_edit = datetime.now().isoformat()
+                        section.update_memory_ids()
                     
                     # Handle title update if provided
                     if new_title and new_title != section.title:
@@ -365,9 +414,9 @@ class Biography:
                         if parent:
                             # Update the key in parent's subsections
                             subsections = parent.subsections
-                            subsections[new_title] = subsections.pop(section.title)
-                            # Update the title
-                            section.title = new_title
+                            section = subsections.pop(section.title)
+                            section.title = new_title  # Update the title
+                            subsections[new_title] = section  # Add back with new title
                             # Sort the parent's subsections
                             parent.subsections = self._sort_sections(parent.subsections)
                         else:
@@ -413,20 +462,25 @@ class Biography:
         finally:
             await self._decrement_pending_writes()
 
-    def export_to_markdown(self, save_to_file: bool = False) -> str:
+    def export_to_markdown(self, save_to_file: bool = False, 
+                         hide_memory_links: bool = True) -> str:
         """Convert the biography to markdown format and optionally save to file.
         
         Args:
-            save_to_file: Whether to save the markdown to a file (default: False)
-            
-        Returns:
-            The markdown string
+            save_to_file: Whether to save the markdown to a file
+            hide_memory_links: If True, removes memory ID brackets from content
         """
         def _section_to_markdown(section: Section, level: int = 1) -> str:
             # Convert section to markdown with appropriate heading level
             md = f"{'#' * level} {section.title}\n\n"
-            if section.content:
-                md += f"{section.content}\n\n"
+            
+            content = section.content
+            if hide_memory_links:
+                # Remove memory ID brackets from content
+                content = re.sub(r'\[([\w-]+)\]', '', content)
+                
+            if content:
+                md += f"{content}\n\n"
             
             # Process subsections recursively
             for subsection in section.subsections.values():

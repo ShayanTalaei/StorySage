@@ -130,7 +130,6 @@ You are a biography expert responsible for planning and organizing life stories.
 First, provide reasoning for your plans and tool calls.
 <thinking>
 Your thoughts here.
-
 {warning_output_format}
 </thinking>
 
@@ -145,33 +144,6 @@ Then, provide your action using tool calls:
     </add_follow_up_question>
 </tool_calls>
 </output_format>
-"""
-
-MISSING_MEMORIES_WARNING = """\
-<missing_memories_warning>
-Warning: Some memories from the interview session are not yet incorporated into the biography.
-
-Previous Tool Calls:
-<previous_tool_call>
-{previous_tool_call}
-</previous_tool_call>
-
-Uncovered Memories:
-<missing_memory_ids>
-{missing_memory_ids}
-</missing_memory_ids>
-
-Choose ONE of these actions:
-a) Generate new tool calls from scratch to cover ALL memories, or
-b) Explain why some memories can be excluded in <thinking> </thinking> tag and add <proceed>true</proceed> at the end of your thinking.
-
-Note: Your explanation should be clear and specific about why certain memories don't need to be included.
-</missing_memories_warning>
-"""
-
-WARNING_OUTPUT_FORMAT = """
-If you decide to propose those follow-up questions after reviewing similar questions in warning, please include the following XML tag:
-<proceed>true</proceed>
 """
 
 USER_ADD_PROMPT = """

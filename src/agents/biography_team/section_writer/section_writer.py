@@ -6,12 +6,15 @@ from dataclasses import dataclass
 from agents.biography_team.base_biography_agent import BiographyConfig, BiographyTeamAgent
 from agents.biography_team.models import Plan, FollowUpQuestion
 from agents.biography_team.section_writer.prompts import SECTION_WRITER_PROMPT, USER_ADD_SECTION_PROMPT, USER_COMMENT_EDIT_PROMPT
+from content.biography.biography import Section
 from content.biography.biography_styles import BIOGRAPHY_STYLE_WRITER_INSTRUCTIONS
 from agents.biography_team.section_writer.tools import (
     UpdateSection, AddSection
 )
 from agents.shared.note_tools import AddFollowUpQuestion
 from agents.shared.memory_tools import Recall
+from agents.shared.feedback_prompts import MISSING_MEMORIES_WARNING, WARNING_OUTPUT_FORMAT
+from utils.llm.xml_formatter import extract_tool_calls_xml
 
 if TYPE_CHECKING:
     from interview_session.interview_session import InterviewSession
@@ -50,45 +53,110 @@ class SectionWriter(BiographyTeamAgent):
         try:
             max_iterations = int(os.getenv("MAX_CONSIDERATION_ITERATIONS", "3"))
             iterations = 0
+            all_memory_ids = set(todo_item.memory_ids)
+            covered_memory_ids = set()
+            previous_tool_call = None
             
             while iterations < max_iterations:
                 try:
-                    prompt = self._get_prompt(todo_item)
-                    self.add_event(sender=self.name, 
-                                   tag="section_write_prompt", content=prompt)
+                    prompt = self._get_prompt(
+                        todo_item,
+                        previous_tool_call=previous_tool_call,
+                        missing_memory_ids="\n".join(
+                            sorted(list(all_memory_ids - covered_memory_ids))
+                        ) if previous_tool_call else ""
+                    )
+                    
+                    self.add_event(
+                        sender=self.name, 
+                        tag=f"section_write_prompt_{iterations}", 
+                        content=prompt
+                    )
                     
                     response = await self.call_engine_async(prompt)
-                    self.add_event(sender=self.name, 
-                                   tag="section_write_response", content=response)
+                    self.add_event(
+                        sender=self.name, 
+                        tag=f"section_write_response_{iterations}", 
+                        content=response
+                    )
                     
+                    # Check if agent wants to proceed with missing memories
+                    if "<proceed>yes</proceed>" in response.lower():
+                        self.add_event(
+                            sender=self.name,
+                            tag=f"feedback_loop_{iterations}",
+                            content="Agent chose to proceed with missing memories"
+                        )
+                        await self.handle_tool_calls_async(response)
+                        return UpdateResult(success=True, 
+                                         message="Section updated successfully")
+
                     if "<recall>" in response:
                         # Handle recall response
                         result = await self.handle_tool_calls_async(response)
-                        self.add_event(sender=self.name, 
-                                       tag="recall_response", content=result)
+                        self.add_event(
+                            sender=self.name, 
+                            tag="recall_response", 
+                            content=result
+                        )
                         iterations += 1
-                    else:
-                        # Handle section update
+                        continue
+
+                    # Extract memory IDs from section content in tool calls
+                    current_memory_ids = set(
+                        Section.extract_memory_ids(response)
+                    )
+                    covered_memory_ids.update(current_memory_ids)
+                        
+                    # Save tool calls for next iteration if needed
+                    previous_tool_call = extract_tool_calls_xml(response)
+
+                    # Check if all memories are covered
+                    if covered_memory_ids >= all_memory_ids:
+                        self.add_event(
+                            sender=self.name,
+                            tag=f"feedback_loop_{iterations}",
+                            content="All memories covered in section"
+                        )
                         await self.handle_tool_calls_async(response)
                         return UpdateResult(success=True, 
-                                            message="Section updated successfully")
-                        
-                except Exception as e:
-                    self.add_event(sender=self.name, tag="error", 
-                                   content=f"Error in iteration {iterations}: {str(e)}")
-                    return UpdateResult(success=False, message=str(e))
+                                         message="Section updated successfully")
                     
-            return UpdateResult(success=False, 
-                                message="Max iterations reached when updating section.")
+                    iterations += 1
+                    
+                except Exception as e:
+                    self.add_event(
+                        sender=self.name, 
+                        tag="error", 
+                        content=f"Error in iteration {iterations}: {str(e)}"
+                    )
+                    return UpdateResult(success=False, message=str(e))
+
+            return UpdateResult(
+                success=False, 
+                message="Max iterations reached without covering all memories"
+            )
             
         except Exception as e:
-            self.add_event(sender=self.name, tag="error", 
-                           content=f"Error in update_section: {str(e)}")
+            self.add_event(
+                sender=self.name, 
+                tag="error", 
+                content=f"Error in update_section: {str(e)}"
+            )
             return UpdateResult(success=False, message=str(e))
 
-    def _get_prompt(self, todo_item: Plan) -> str:
+    def _get_prompt(self, todo_item: Plan, **kwargs) -> str:
         """Create a prompt for the section writer to update a biography section."""
         try:
+            # Format warning if needed
+            missing_memory_ids = kwargs.get('missing_memory_ids', "")
+            warning = (
+                MISSING_MEMORIES_WARNING.format(
+                    previous_tool_call=kwargs.get('previous_tool_call', ""),
+                    missing_memory_ids=missing_memory_ids
+                ) if missing_memory_ids else ""
+            )
+
             if todo_item.action_type == "user_add":
                 events_str = self.get_event_stream_str(
                     filter=[{"sender": self.name, "tag": "recall_response"}]
@@ -156,6 +224,9 @@ class SectionWriter(BiographyTeamAgent):
                                 include_source=True
                             )
                     ),
+                    missing_memories_warning=warning,
+                    warning_output_format=WARNING_OUTPUT_FORMAT \
+                                         if missing_memory_ids else "",
                     style_instructions=BIOGRAPHY_STYLE_WRITER_INSTRUCTIONS.get(
                         self.config.get("biography_style", "chronological")
                     ),
@@ -164,8 +235,11 @@ class SectionWriter(BiographyTeamAgent):
                     )
                 )
         except Exception as e:
-            self.add_event(sender=self.name, tag="error", 
-                           content=f"Error in _get_prompt: {str(e)}")
+            self.add_event(
+                sender=self.name, 
+                tag="error", 
+                content=f"Error in _get_prompt: {str(e)}"
+            )
             raise
 
     async def save_biography(self, save_markdown: bool = False) -> str:
