@@ -18,7 +18,7 @@ from utils.logger import SessionLogger, setup_logger
 from interview_session.user.user import User
 from agents.biography_team.orchestrator import BiographyOrchestrator
 from agents.biography_team.base_biography_agent import BiographyConfig
-from content.memory_bank.memory_bank_vector_db import MemoryBankVectorDB
+from content.memory_bank.memory_bank_vector_db import VectorMemoryBank
 from content.memory_bank.memory import Memory
 from content.question_bank.question_bank_vector_db import QuestionBankVectorDB
 
@@ -76,7 +76,7 @@ class InterviewSession:
         # Memory bank setup
         memory_bank_type = bank_config.get("memory_bank_type", "vector_db")
         if memory_bank_type == "vector_db":
-            self.memory_bank = MemoryBankVectorDB.load_from_file(self.user_id)
+            self.memory_bank = VectorMemoryBank.load_from_file(self.user_id)
         else:
             raise ValueError(f"Unknown memory bank type: {memory_bank_type}")
 

@@ -102,3 +102,16 @@ Run the interviewer in server mode with:
 ```bash
 python src/main.py --mode server --port 8000
 ```
+
+### Commands for Evaluations
+
+```bash
+# Evaluate biography completeness
+python evaluations/biography.py --user_id ellie
+```
+
+### Commands for Testing
+
+```bash
+pytest tests/[folder_name]/[test_file_name].py
+```

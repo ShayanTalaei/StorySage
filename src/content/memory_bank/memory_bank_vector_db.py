@@ -17,7 +17,7 @@ from content.memory_bank.memory import Memory, MemorySearchResult
 # Load environment variables
 dotenv.load_dotenv(override=True)
 
-class MemoryBankVectorDB(MemoryBankBase):
+class VectorMemoryBank(MemoryBankBase):
     """Vector database implementation of memory bank using FAISS and OpenAI embeddings."""
     
     def __init__(self, embedding_dimension: int = 1536):
