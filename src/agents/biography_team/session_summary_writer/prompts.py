@@ -106,20 +106,12 @@ Available tools you can use:
 Your task is to create a two-level question structure that makes it easier for users to engage and share their stories. 
 Reminder: While user-selected topics have priority, you should maintain a balance - don't automatically drop unrelated questions if they are valuable for the biography.
 
-## 1. Gather Information (Required)
-- You MUST perform recall searches before making decisions if:
-  * No memory searches appear in the event stream
-  * You're evaluating questions about topics not covered in recent searches
+## 1. Gather Information (Optional)
+If you need more context before making decisions if:
+- Use the recall tool to search for relevant information
+- Make multiple recall searches if needed
 
-- Use recall strategically:
-  * Group and search for related topics together
-  * Each recall search should be a separate tool call and focused on a single topic
-
-- The recall search results help you:
-  * Prevents redundant questions by checking existing memories
-  * Provides access to the user's complete history beyond current conversation
-
-## 2. Build Fresh Question List
+## 2. Build Fresh Question List (Required)
 Create a balanced list with:
 - Total questions around 15-20
 - Group related topics together
@@ -176,22 +168,13 @@ Don't include questions that are:
 
 </instructions>
 
-<output_format_requirements>
-Check the event stream for recent memory searches:
+{similar_questions_warning}
 
-1. If NO recent memory searches, you MUST make recall searches first:
-<output_format_option_1>
-<tool_calls>
-    <recall>
-        <reasoning>...</reasoning>
-        <query>...</query>
-    </recall>
-</tool_calls>
-</output_format_option_1>
+<output_format>
 
-2. If recent memory searches exist, proceed with building the new question list:
-<output_format_option_2>
-<plan>
+<thinking>
+Think step by step and write your thoughts here:
+
 Questions to include:
 1. For user-selected topics:
    - [Question text] - Source: New creation to explore topic
@@ -206,15 +189,24 @@ Questions to include:
    - [Question text] - Source: New creation to help start conversation
   - [Question text] - Source: Previous unanswered, highly relevant
    - [Question text] - Source: Follow-up, connects multiple topics
-</plan>
+
+{warning_output_format}
+</thinking>
 
 <tool_calls>
+    <recall>
+        <reasoning>...</reasoning>
+        <query>...</query>
+   </recall>
+   ...
+   <!-- Repeat for each recall search -->
+
     <add_interview_question>
         <topic>...</topic>
         <question_id>1</question_id>
         <question>Main question text...</question>
     </add_interview_question>
-    
+    ...
     <add_interview_question>
         <topic>...</topic>
         <question_id>1.1</question_id>
@@ -223,11 +215,10 @@ Questions to include:
     
     <!-- Repeat for each question to add -->
 </tool_calls>
-</output_format_option_2>
 
 Don't use other output format like markdown, json, code block, etc.
 
-</output_format_requirements>
+</output_format>
 """
 
 TOPIC_EXTRACTION_PROMPT = """\

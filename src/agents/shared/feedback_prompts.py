@@ -9,7 +9,7 @@ Previous Tool Calls:
 
 Similar Questions Already Asked:
 <similar_questions>
-{similar_questions_formatted}
+{similar_questions}
 </similar_questions>
 
 Choose ONE of these actions:
@@ -49,6 +49,9 @@ If you believe some memories can be excluded, explain why within the `<thinking>
 """
 
 WARNING_OUTPUT_FORMAT = """
+**About the warning:**
+
 If you decide to proceed with the warning, please include the following XML tag after providing your explanation:
+
 <proceed>true</proceed>
 """

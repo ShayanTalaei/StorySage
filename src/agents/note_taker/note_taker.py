@@ -6,7 +6,7 @@ import time
 
 
 from agents.base_agent import BaseAgent
-from agents.note_taker.prompts import get_prompt, format_similar_questions
+from agents.note_taker.prompts import get_prompt
 from agents.note_taker.tools import UpdateSessionNote, UpdateMemoryBank, AddHistoricalQuestion
 from agents.shared.memory_tools import Recall
 from agents.shared.note_tools import AddInterviewQuestion
@@ -15,6 +15,7 @@ from content.question_bank.question import SimilarQuestionsGroup
 from utils.llm.prompt_utils import format_prompt
 from utils.llm.xml_formatter import extract_tool_arguments, extract_tool_calls_xml
 from utils.logger import SessionLogger
+from utils.formatter import format_similar_questions
 from interview_session.session_models import Participant, Message
 from content.memory_bank.memory import Memory
 
@@ -295,7 +296,7 @@ class NoteTaker(BaseAgent, Participant):
             warning = (
                 SIMILAR_QUESTIONS_WARNING.format(
                     previous_tool_call=previous_tool_call,
-                    similar_questions_formatted= \
+                    similar_questions= \
                         format_similar_questions(similar_questions)
                 ) if similar_questions and previous_tool_call 
                 else ""
@@ -355,7 +356,7 @@ class NoteTaker(BaseAgent, Participant):
             })
 
     async def get_session_memories(self) -> List[Memory]:
-        """Get all memories added during current session.
+        """Get all memories added by note taker during current session.
         Waits for all pending memory updates to complete before returning."""
         start_time = time.time()
 

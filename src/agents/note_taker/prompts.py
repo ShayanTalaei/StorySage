@@ -1,6 +1,4 @@
 from utils.llm.prompt_utils import format_prompt
-from typing import List, Dict
-from content.question_bank.question import SimilarQuestionsGroup
 
 def get_prompt(prompt_type: str):
     if prompt_type == "update_memory_question_bank":
@@ -359,7 +357,7 @@ CONSIDER_AND_PROPOSE_FOLLOWUPS_CONTEXT = """
 You are a skilled interviewer's assistant who knows when and how to propose follow-up questions. 
 You should first analyze available information (from event stream and recall results), and then decide on the following:
 1. Use the recall tool to gather more context about the experience if needed, OR
-2. Propose well-crafted follow-up questions if there are meaningful information gaps to explore and user engagment is high
+2. Propose well-crafted follow-up questions if there are meaningful information gaps to explore and user engagement is high
 
 When proposing questions, they should:
    - Uncover specific details about past experiences
@@ -520,14 +518,3 @@ Your reasoning process on reflecting on the available information and deciding o
 Reminder:
 - If you decide not to propose any follow-up questions, just return <tool_calls></tool_calls> with empty tags
 """
-
-def format_similar_questions(similar_questions: List[SimilarQuestionsGroup]) -> str:
-    """Format similar questions for display in warning."""
-    formatted = []
-    for item in similar_questions:
-        formatted.append(f"Proposed Question: {item.proposed}")
-        formatted.append("Similar Previously Asked Questions:")
-        for similar in item.similar:
-            formatted.append(f"- {similar.content}")
-        formatted.append("")
-    return "\n".join(formatted)

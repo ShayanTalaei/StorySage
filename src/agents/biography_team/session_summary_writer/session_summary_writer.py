@@ -8,10 +8,14 @@ from agents.biography_team.session_summary_writer.prompts import (
     TOPIC_EXTRACTION_PROMPT
 )
 from agents.biography_team.session_summary_writer.tools import UpdateLastMeetingSummary, UpdateUserPortrait, DeleteInterviewQuestion
+from agents.shared.feedback_prompts import SIMILAR_QUESTIONS_WARNING, WARNING_OUTPUT_FORMAT
 from content.memory_bank.memory import Memory
 from agents.biography_team.models import FollowUpQuestion
 from agents.shared.memory_tools import Recall
 from agents.shared.note_tools import AddInterviewQuestion
+from content.question_bank.question import SimilarQuestionsGroup
+from utils.llm.xml_formatter import extract_tool_arguments, extract_tool_calls_xml
+from utils.formatter import format_similar_questions
 
 if TYPE_CHECKING:
     from interview_session.interview_session import InterviewSession
@@ -95,7 +99,7 @@ class SessionSummaryWriter(BiographyTeamAgent):
 
         # Wait for selected topics before managing interview questions
         selected_topics = await self.wait_for_selected_topics()
-        await self._manage_interview_questions(follow_up_questions, selected_topics)
+        await self._rebuild_interview_questions(follow_up_questions, selected_topics)
 
     async def _update_session_summary(self, new_memories: List[Memory]):
         """Update session summary and user portrait."""
@@ -108,65 +112,94 @@ class SessionSummaryWriter(BiographyTeamAgent):
 
         self.handle_tool_calls(response)
 
-    async def _manage_interview_questions(self, follow_up_questions: List[Dict], selected_topics: Optional[List[str]] = None):
+    async def _rebuild_interview_questions(self, follow_up_questions: List[Dict], selected_topics: Optional[List[str]] = None):
         """Rebuild interview questions list with only essential questions."""
         # Store old questions and notes and clear them
         old_questions_and_notes = self._session_note.get_questions_and_notes_str()
         self._session_note.clear_questions()
 
         iterations = 0
+        previous_tool_call = None
+        similar_questions: List[SimilarQuestionsGroup] = []
+        
         while iterations < self._max_consideration_iterations:
             prompt = self._get_questions_prompt(
-                follow_up_questions, old_questions_and_notes, selected_topics)
-            self.add_event(sender=self.name,
-                           tag="questions_prompt", content=prompt)
+                follow_up_questions, 
+                old_questions_and_notes, 
+                selected_topics,
+                previous_tool_call=previous_tool_call,
+                similar_questions=similar_questions
+            )
+            self.add_event(
+                sender=self.name,
+                tag=f"questions_prompt_{iterations}", 
+                content=prompt
+            )
 
-            tool_calls = await self.call_engine_async(prompt)
-            self.add_event(sender=self.name,
-                           tag="questions_response", content=tool_calls)
+            response = await self.call_engine_async(prompt)
+            self.add_event(
+                sender=self.name,
+                tag=f"questions_response_{iterations}",
+                content=response
+            )
 
-            try:
-                # Check if this is a recall or action response
-                is_recall = (
-                    "<recall>" in tool_calls and
-                    not "<add_interview_question>" in tool_calls
+            # Check if agent wants to proceed with similar questions
+            if "<proceed>true</proceed>" in response.lower():
+                self.add_event(
+                    sender=self.name,
+                    tag=f"feedback_loop_{iterations}",
+                    content="Agent chose to proceed with similar questions"
                 )
+                await self.handle_tool_calls_async(response)
+                break
 
-                tool_response = self.handle_tool_calls(tool_calls)
-
-                if is_recall:
-                    # If it's a recall, add the response to events and continue
+            # Extract proposed questions from add_interview_question tool calls
+            proposed_questions = extract_tool_arguments(
+                response, "add_interview_question", "question"
+            )
+            
+            if not proposed_questions:
+                if "recall" in response:
+                    # Handle recall response
+                    result = await self.handle_tool_calls_async(response)
                     self.add_event(
-                        sender=self.name,
-                        tag="recall_response",
-                        content=tool_response
+                        sender=self.name, 
+                        tag="recall_response", 
+                        content=result
                     )
-                    iterations += 1
                 else:
-                    # If it's actions, log success and break
-                    self.add_event(
-                        sender=self.name,
-                        tag="question_actions",
-                        content="Successfully rebuilt interview questions list"
-                    )
+                    # No questions proposed and no recall needed
                     break
-
-            except Exception as e:
-                error_msg = (
-                    f"Error rebuilding interview questions: {str(e)}\n"
-                    f"Response: {tool_calls}"
-                )
-                self.add_event(sender=self.name, tag="error",
-                               content=error_msg)
-                raise
+            else:
+                # Search for similar questions
+                similar_questions = []
+                for question in proposed_questions:
+                    results = self.interview_session.question_bank.search_questions(
+                        query=question, k=3
+                    )
+                    if results:
+                        similar_questions.append(SimilarQuestionsGroup(
+                            proposed=question,
+                            similar=results
+                        ))
+                
+                if not similar_questions:
+                    # No similar questions found, proceed with adding
+                    await self.handle_tool_calls_async(response)
+                    break
+                else:
+                    # Save tool calls for next iteration
+                    previous_tool_call = extract_tool_calls_xml(response)
+            
+            iterations += 1
 
         if iterations >= self._max_consideration_iterations:
             self.add_event(
                 sender=self.name,
                 tag="warning",
                 content=(
-                    f"Reached maximum iterations ({self._max_consideration_iterations}) "
-                    f"without taking actions"
+                    f"Reached max iterations "
+                    f"without completing question updates"
                 )
             )
 
@@ -179,13 +212,30 @@ class SessionSummaryWriter(BiographyTeamAgent):
             tool_descriptions=self.get_tools_description(summary_tool_names)
         )
 
-    def _get_questions_prompt(self, follow_up_questions: List[FollowUpQuestion], old_questions_and_notes: str, selected_topics: Optional[List[str]] = None) -> str:
+    def _get_questions_prompt(
+        self, 
+        follow_up_questions: List[FollowUpQuestion], 
+        old_questions_and_notes: str, 
+        selected_topics: Optional[List[str]] = None,
+        previous_tool_call: Optional[str] = None,
+        similar_questions: Optional[List[SimilarQuestionsGroup]] = None
+    ) -> str:
         question_tool_names = ["add_interview_question", "recall"]
         events = self.get_event_stream_str(
             filter=[
                 {"sender": self.name, "tag": "recall_response"}
             ],
             as_list=True
+        )
+
+        # Format warning if needed
+        warning = (
+            SIMILAR_QUESTIONS_WARNING.format(
+                previous_tool_call=previous_tool_call,
+                similar_questions=format_similar_questions(
+                    similar_questions)
+            ) if similar_questions and previous_tool_call 
+            else ""
         )
 
         return INTERVIEW_QUESTIONS_PROMPT.format(
@@ -196,5 +246,7 @@ class SessionSummaryWriter(BiographyTeamAgent):
                 q.to_xml() for q in follow_up_questions
             ]),
             event_stream="\n".join(events[-10:]),
+            similar_questions_warning=warning,
+            warning_output_format=WARNING_OUTPUT_FORMAT if similar_questions else "",
             tool_descriptions=self.get_tools_description(question_tool_names)
         )
