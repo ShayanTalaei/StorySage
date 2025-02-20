@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import List
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class Memory(BaseModel):
@@ -64,4 +64,23 @@ class Memory(BaseModel):
             timestamp=datetime.fromisoformat(memory_dict['timestamp']),
             source_interview_response=memory_dict['source_interview_response'],
             question_ids=memory_dict.get('question_ids', [])
+        )
+
+class MemorySearchResult(Memory):
+    """Model for memory search results that includes similarity score."""
+    similarity_score: float = Field(ge=0, le=1)  # Score between 0 and 1
+
+    @classmethod
+    def from_memory(cls, memory: Memory, similarity_score: float) -> 'MemorySearchResult':
+        """Create a search result from a Memory object and similarity score."""
+        return cls(
+            id=memory.id,
+            title=memory.title,
+            text=memory.text,
+            metadata=memory.metadata,
+            importance_score=memory.importance_score,
+            timestamp=memory.timestamp,
+            source_interview_response=memory.source_interview_response,
+            question_ids=memory.question_ids,
+            similarity_score=similarity_score
         )

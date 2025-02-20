@@ -1,5 +1,6 @@
 from utils.llm.prompt_utils import format_prompt
 from typing import List, Dict
+from content.question_bank.question import SimilarQuestionsGroup
 
 def get_prompt(prompt_type: str):
     if prompt_type == "update_memory_question_bank":
@@ -520,13 +521,13 @@ Reminder:
 - If you decide not to propose any follow-up questions, just return <tool_calls></tool_calls> with empty tags
 """
 
-def format_similar_questions(similar_questions: List[Dict]) -> str:
+def format_similar_questions(similar_questions: List[SimilarQuestionsGroup]) -> str:
     """Format similar questions for display in warning."""
     formatted = []
     for item in similar_questions:
-        formatted.append(f"Proposed Question: {item['proposed']}")
+        formatted.append(f"Proposed Question: {item.proposed}")
         formatted.append("Similar Previously Asked Questions:")
-        for similar in item['similar']:
-            formatted.append(f"- {similar['content']}")
+        for similar in item.similar:
+            formatted.append(f"- {similar.content}")
         formatted.append("")
     return "\n".join(formatted)

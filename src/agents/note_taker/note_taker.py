@@ -11,6 +11,7 @@ from agents.note_taker.tools import UpdateSessionNote, UpdateMemoryBank, AddHist
 from agents.shared.memory_tools import Recall
 from agents.shared.note_tools import AddInterviewQuestion
 from agents.shared.feedback_prompts import SIMILAR_QUESTIONS_WARNING, WARNING_OUTPUT_FORMAT
+from content.question_bank.question import SimilarQuestionsGroup
 from utils.llm.prompt_utils import format_prompt
 from utils.llm.xml_formatter import extract_tool_arguments, extract_tool_calls_xml
 from utils.logger import SessionLogger
@@ -160,7 +161,7 @@ class NoteTaker(BaseAgent, Participant):
         """
         iterations = 0
         previous_tool_call = None
-        similar_questions = []
+        similar_questions: List[SimilarQuestionsGroup] = []
         
         while iterations < self._max_consideration_iterations:
             prompt = self._get_formatted_prompt(
@@ -212,16 +213,16 @@ class NoteTaker(BaseAgent, Participant):
                     break
             else:
                 # Search for similar questions
-                similar_questions = []
+                similar_questions: List[SimilarQuestionsGroup] = []
                 for question in proposed_questions:
                     results = self.interview_session.question_bank.search_questions(
                         query=question, k=3
                     )
                     if results:
-                        similar_questions.append({
-                            "proposed": question,
-                            "similar": results
-                        })
+                        similar_questions.append(SimilarQuestionsGroup(
+                            proposed=question,
+                            similar=results
+                        ))
                 
                 if not similar_questions:
                     # No similar questions found, proceed with adding

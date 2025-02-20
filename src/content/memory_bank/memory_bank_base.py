@@ -6,7 +6,7 @@ import random
 import string
 from datetime import datetime
 
-from content.memory_bank.memory import Memory
+from content.memory_bank.memory import Memory, MemorySearchResult
 
 class MemoryBankBase(ABC):
     """Abstract base class for memory bank implementations.
@@ -54,7 +54,7 @@ class MemoryBankBase(ABC):
         pass
     
     @abstractmethod
-    def search_memories(self, query: str, k: int = 5) -> List[Dict]:
+    def search_memories(self, query: str, k: int = 5) -> List[MemorySearchResult]:
         """Search for similar memories using the query text.
         
         Args:
@@ -62,7 +62,7 @@ class MemoryBankBase(ABC):
             k: Number of results to return
             
         Returns:
-            List[Dict]: List of memory dictionaries with similarity_score
+            List[MemorySearchResult]: List of memory search results with similarity scores
         """
         pass
     

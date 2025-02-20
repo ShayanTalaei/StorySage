@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict, List, Optional
 import os
 import json
 from datetime import datetime
@@ -8,7 +8,7 @@ import faiss
 import dotenv
 
 from content.question_bank.question_bank_base import QuestionBankBase
-from content.question_bank.question import Question
+from content.question_bank.question import Question, QuestionSearchResult
 
 # Load environment variables
 dotenv.load_dotenv(override=True)
@@ -34,7 +34,7 @@ class QuestionBankVectorDB(QuestionBankBase):
     def add_question(
         self,
         content: str,
-        memory_ids: List[str] = None,
+        memory_ids: Optional[List[str]] = None,
     ) -> Question:
         """Add a new question to the vector database."""
         if memory_ids is None:
@@ -56,7 +56,7 @@ class QuestionBankVectorDB(QuestionBankBase):
 
         return question
 
-    def search_questions(self, query: str, k: int = 5) -> List[Dict]:
+    def search_questions(self, query: str, k: int = 5) -> List[QuestionSearchResult]:
         """Search for similar questions using the query text."""
         if not self.questions:
             return []
@@ -76,9 +76,11 @@ class QuestionBankVectorDB(QuestionBankBase):
         for distance, idx in zip(distances[0], indices[0]):
             if idx >= 0 and idx < len(self.questions):
                 question = self.questions[idx]
-                result = question.to_dict()
-                result['similarity_score'] = float(1 / (1 + distance))
-                results.append(result)
+                similarity_score = float(1 / (1 + distance))
+                results.append(QuestionSearchResult.from_question(
+                    question=question,
+                    similarity_score=similarity_score
+                ))
         
         return results
 

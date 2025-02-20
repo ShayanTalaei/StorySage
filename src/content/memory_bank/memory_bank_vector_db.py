@@ -12,7 +12,7 @@ from openai import OpenAI
 import dotenv
 
 from content.memory_bank.memory_bank_base import MemoryBankBase
-from content.memory_bank.memory import Memory
+from content.memory_bank.memory import Memory, MemorySearchResult
 
 # Load environment variables
 dotenv.load_dotenv(override=True)
@@ -71,7 +71,7 @@ class MemoryBankVectorDB(MemoryBankBase):
 
         return memory
 
-    def search_memories(self, query: str, k: int = 5) -> List[Dict]:
+    def search_memories(self, query: str, k: int = 5) -> List[MemorySearchResult]:
         """Search for similar memories using the query text."""
         if not self.memories:
             return []
@@ -91,9 +91,11 @@ class MemoryBankVectorDB(MemoryBankBase):
         for distance, idx in zip(distances[0], indices[0]):
             if idx >= 0 and idx < len(self.memories):
                 memory = self.memories[idx]
-                result = memory.to_dict()
-                result['similarity_score'] = float(1 / (1 + distance))
-                results.append(result)
+                similarity_score = float(1 / (1 + distance))
+                results.append(MemorySearchResult.from_memory(
+                    memory=memory,
+                    similarity_score=similarity_score
+                ))
         
         return results
 

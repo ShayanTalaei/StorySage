@@ -1,9 +1,10 @@
-from typing import Optional, Type
+from typing import List, Optional, Type
 from pydantic import BaseModel, Field
 from langchain_core.callbacks.manager import CallbackManagerForToolRun
 from langchain_core.tools import BaseTool, ToolException
 
 
+from content.memory_bank.memory import MemorySearchResult
 from content.memory_bank.memory_bank_base import MemoryBankBase
 
 
@@ -37,8 +38,8 @@ class Recall(BaseTool):
             if self.memory_bank is None:
                 raise ToolException("No memory bank available")
 
-            memories = self.memory_bank.search_memories(query)
-            memories_str = "\n".join([f"<memory>{memory['text']}</memory>" for memory in memories])
+            memories: List[MemorySearchResult] = self.memory_bank.search_memories(query)
+            memories_str = "\n".join([f"<memory>{memory.text}</memory>" for memory in memories])
             return f"""\
 <memory_search>
 <query>{query}</query>

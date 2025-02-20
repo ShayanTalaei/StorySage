@@ -1,5 +1,6 @@
 from datetime import datetime
-from pydantic import BaseModel
+from typing import List
+from pydantic import BaseModel, Field
 
 class Question(BaseModel):
     """Model for storing interview questions with their associated memories."""
@@ -25,4 +26,24 @@ class Question(BaseModel):
             content=question_dict['content'],
             memory_ids=question_dict['memory_ids'],
             timestamp=datetime.fromisoformat(question_dict['timestamp'])
-        ) 
+        )
+
+class QuestionSearchResult(Question):
+    """Model for question search results that includes similarity score."""
+    similarity_score: float = Field(ge=0, le=1)  # Score between 0 and 1
+
+    @classmethod
+    def from_question(cls, question: Question, similarity_score: float) -> 'QuestionSearchResult':
+        """Create a search result from a Question object and similarity score."""
+        return cls(
+            id=question.id,
+            content=question.content,
+            memory_ids=question.memory_ids,
+            timestamp=question.timestamp,
+            similarity_score=similarity_score
+        )
+
+class SimilarQuestionsGroup(BaseModel):
+    """Model for grouping a proposed question with its similar existing questions."""
+    proposed: str
+    similar: List[QuestionSearchResult] 

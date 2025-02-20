@@ -6,7 +6,7 @@ import random
 import string
 from datetime import datetime
 
-from content.question_bank.question import Question
+from content.question_bank.question import Question, QuestionSearchResult
 
 class QuestionBankBase(ABC):
     """Abstract base class for question bank implementations.
@@ -51,7 +51,7 @@ class QuestionBankBase(ABC):
         self, 
         query: str, 
         k: int = 5
-    ) -> List[Dict]:
+    ) -> List[QuestionSearchResult]:
         """Search for similar questions.
         
         Args:
@@ -59,7 +59,7 @@ class QuestionBankBase(ABC):
             k: Number of results to return
             
         Returns:
-            List[Dict]: List of question dictionaries with similarity_score
+            List[QuestionSearchResult]: List of question search results with similarity scores
         """
         pass
     
