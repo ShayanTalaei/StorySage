@@ -113,8 +113,7 @@ class BiographyOrchestrator:
             await session_note_task
 
             # Save session note after all updates are complete
-            self._interview_session.session_note.increment_session_id()
-            self._interview_session.session_note.save()
+            self._interview_session.session_note.save(increment_session_id=True)
 
         finally:
             self.update_in_progress = False

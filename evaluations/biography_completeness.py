@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import List, Set
 import argparse
 import sys
+import csv
 
 # Add the src directory to Python path
 src_dir = str(Path(__file__).parent.parent / "src")
@@ -73,17 +74,7 @@ def calculate_biography_completeness(user_id: str) -> dict:
     }
 
 def get_unreferenced_memory_details(user_id: str) -> List[dict]:
-    """Get details of memories not referenced in the biography.
-    
-    Args:
-        user_id: ID of the user whose biography to evaluate
-        
-    Returns:
-        List[dict]: List of dictionaries containing details of unreferenced memories:
-            - id: Memory ID
-            - title: Memory title
-            - importance_score: Memory importance score
-    """
+    """Get details of memories not referenced in the biography."""
     # Get unreferenced memory IDs
     completeness_metrics = calculate_biography_completeness(user_id)
     unreferenced_ids = completeness_metrics["unreferenced_memories"]
@@ -107,32 +98,50 @@ def get_unreferenced_memory_details(user_id: str) -> List[dict]:
                  key=lambda x: x["importance_score"], 
                  reverse=True)
 
-def print_completeness_report(user_id: str) -> None:
-    """Print a detailed report of biography completeness.
+def save_results_to_csv(metrics: dict, unreferenced_details: List[dict], filename: str):
+    """Save evaluation results to CSV file."""
     
-    Args:
-        user_id: ID of the user whose biography to evaluate
-    """
-    # Get metrics
+    # Ensure results directory exists
+    Path(filename).parent.mkdir(parents=True, exist_ok=True)
+    
+    with open(filename, 'w', newline='') as f:
+        writer = csv.writer(f)
+        
+        # Write overall metrics
+        writer.writerow(['Metric', 'Value'])
+        writer.writerow(['Memory Coverage', f"{metrics['memory_recall']}%"])
+        writer.writerow(['Total Memories', metrics['total_memories']])
+        writer.writerow(['Referenced Memories', metrics['referenced_memories']])
+        writer.writerow(['Unreferenced Memories Count',
+                          len(metrics['unreferenced_memories'])])
+        
+        # Write unreferenced memory details
+        if unreferenced_details:
+            writer.writerow([])  # Empty row for separation
+            writer.writerow(['Unreferenced Memory ID', 'Title', 
+                             'Importance Score'])
+            for memory in unreferenced_details:
+                writer.writerow([
+                    memory['id'],
+                    memory['title'],
+                    memory['importance_score']
+                ])
+    
+    print(f"Results saved to: {filename}")
+
+def print_completeness_report(user_id: str) -> None:
+    """Print a detailed report of biography completeness."""
+    # Load biography for version number
+    biography = Biography.load_from_file(user_id)
+    
+    # Get metrics and details
     metrics = calculate_biography_completeness(user_id)
     unreferenced_details = get_unreferenced_memory_details(user_id)
     
-    # Print report
-    print(f"Biography Completeness Report for User: {user_id}")
-    print("-" * 50)
-    print(f"Memory Coverage: {metrics['memory_recall']}%")
-    print(f"Total Memories: {metrics['total_memories']}")
-    print(f"Referenced Memories: {metrics['referenced_memories']}")
-    print(f"Unreferenced Memories: {len(metrics['unreferenced_memories'])}")
-    
-    if unreferenced_details:
-        print("\nUnreferenced Memories (sorted by importance):")
-        print("-" * 50)
-        for memory in unreferenced_details:
-            print(f"ID: {memory['id']}")
-            print(f"Title: {memory['title']}")
-            print(f"Importance Score: {memory['importance_score']}")
-            print("-" * 30)
+    # Save results to CSV
+    filename = f"logs/{user_id}/evaluations/completeness_{biography.version}.csv"
+    save_results_to_csv(metrics, unreferenced_details, 
+                        filename)
 
 def main():
     """Main function to run the biography completeness evaluation."""
@@ -143,11 +152,10 @@ def main():
         '--user_id',
         type=str,
         help='ID of the user whose biography to evaluate',
-        default=None
+        required=True
     )
     
     args = parser.parse_args()
-    
     print_completeness_report(args.user_id)
 
 if __name__ == "__main__":

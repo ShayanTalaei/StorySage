@@ -245,7 +245,8 @@ class SectionWriter(BiographyTeamAgent):
     async def save_biography(self, save_markdown: bool = False) -> str:
         """Save the current state of the biography to file."""
         try:
-            await self.biography.save(save_markdown=save_markdown)
+            await self.biography.save(save_markdown=save_markdown,
+                                       increment_version=True)
             return "Biography saved successfully"
         except Exception as e:
             error_msg = f"Error saving biography: {str(e)}"

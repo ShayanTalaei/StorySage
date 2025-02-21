@@ -78,8 +78,8 @@ class Biography:
         os.makedirs(self.base_path, exist_ok=True)
 
         # Version information
-        self.version = self._get_next_version()
-        self.file_name = f"{self.base_path}/biography_{self.version}"
+        self.version = self._get_latest_version()
+        print(f"Loading biography version {self.version}")
 
         # Root section
         self.root = Section(f"Biography of {self.user_id}")
@@ -104,34 +104,36 @@ class Biography:
             if self._pending_writes == 0:
                 self._all_writes_complete.set()
 
-    def _get_next_version(self) -> int:
-        """Get the next available version number for the biography file.
+    def _get_file_name(self) -> str:
+        return f"{self.base_path}/biography_{self.version}"
+
+    def _get_latest_version(self) -> int:
+        """Get the latest available version number for the biography file.
         
         Scans the directory for existing biography files and returns
-        the next available version number.
+        the latest available version number.
         
         Example:
             If directory contains: biography_1.json, biography_2.json
-            Returns: 3
+            Returns: 2
         """
         # List all biography JSON files
         files = [f for f in os.listdir(self.base_path) 
                 if f.startswith('biography_') and f.endswith('.json')]
         
         if not files:
-            return 1
+            return 0
             
         # Extract version numbers from filenames
         versions = []
         for file in files:
             try:
-                version = int(file.replace('biography_', '').replace('.json', ''))
+                version = int(file.replace('biography_', '')
+                              .replace('.json', ''))
                 versions.append(version)
             except ValueError:
                 continue
-                
-        next_version = max(versions) + 1 if versions else 1
-        return next_version
+        return max(versions) if versions else 0
 
     @classmethod
     def load_from_file(cls, user_id: str, version: int = -1) -> 'Biography':
@@ -147,8 +149,8 @@ class Biography:
             # Load specific version
             file_path = f"{biography.base_path}/biography_{version}.json"
         else:
-            # Use latest version (next version - 1)
-            latest_version = biography._get_next_version() - 1
+            # Use latest version
+            latest_version = biography._get_latest_version()
             if latest_version < 1:
                 return biography
             file_path = f"{biography.base_path}/biography_{latest_version}.json"
@@ -163,8 +165,11 @@ class Biography:
         
         return biography
     
-    async def save(self, save_markdown: bool = False) -> None:
+    async def save(self, save_markdown: bool = False, increment_version: bool = True) -> None:
         """Save the biography to a JSON file using user_id."""
+        if increment_version:
+            self.version += 1
+                
         try:
             # Wait for all pending writes with timeout
             await asyncio.wait_for(self._all_writes_complete.wait(), timeout=30)
@@ -175,7 +180,7 @@ class Biography:
             os.makedirs(self.base_path, exist_ok=True)
             
             # Save JSON
-            with open(f'{self.file_name}.json', 'w', encoding='utf-8') as f:
+            with open(f'{self._get_file_name()}.json', 'w', encoding='utf-8') as f:
                 json.dump(self.root.to_dict(), f, indent=4, ensure_ascii=False)
 
             # Save markdown if requested
@@ -493,7 +498,8 @@ class Biography:
 
         # Save to markdown file if requested
         if save_to_file:
-            output_path = f"{self.file_name}.md"
+            output_path = f"{self._get_file_name()}.md"
+            print(f"Saving markdown to {output_path}")
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
             with open(output_path, 'w', encoding='utf-8') as f:
                 f.write(markdown_content)

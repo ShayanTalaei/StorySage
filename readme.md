@@ -107,7 +107,7 @@ python src/main.py --mode server --port 8000
 
 ```bash
 # Evaluate biography completeness
-python evaluations/biography.py --user_id ellie
+python evaluations/file_name.py --user_id ellie
 ```
 
 ### Commands for Testing

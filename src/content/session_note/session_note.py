@@ -15,12 +15,14 @@ class SessionNote:
         self.session_id = session_id
         self.user_portrait: dict = data.get("user_portrait", {})
         self.last_meeting_summary: str = data.get("last_meeting_summary", "")
-        # Convert raw topic->questions dict into InterviewQuestion objects
+        
+        # Set up topics and notes from data
         self.topics: dict[str, list[InterviewQuestion]] = {}
         topics = data.get("topics", {})
         if topics:
             def load_question(item):
-                question = InterviewQuestion(item["topic"], item["question_id"], item["question"])
+                question = InterviewQuestion(
+                    item["topic"], item["question_id"], item["question"])
                 question.notes = item.get("notes", [])
                 for sub_q in item.get("sub_questions", []):
                     question.sub_questions.append(load_question(sub_q))
@@ -32,7 +34,8 @@ class SessionNote:
             question_id = 1
             for topic, questions in raw_topics.items():
                 for question in questions:
-                    self.add_interview_question(topic, question, question_id=str(question_id))
+                    self.add_interview_question(
+                        topic, question, question_id=str(question_id))
                     question_id += 1
         self.additional_notes: list[str] = data.get("additional_notes", [])
     
@@ -64,7 +67,9 @@ class SessionNote:
                 "Background": "",
                 "Characteristics": ""
             },
-            "last_meeting_summary": "This is the first session with the user. We will start by getting to know them and understanding their background.",
+            "last_meeting_summary": ("This is the first session with the user. "
+                                      "We will start by getting to know them and "
+                                      "understanding their background."),
             "question_strings": {
                 "General": [
                     "What is your name?",
@@ -102,7 +107,6 @@ class SessionNote:
             }
         }
         session_note = cls(user_id, session_id, data)
-        session_note.save()
         return session_note
     
     @classmethod
@@ -112,18 +116,14 @@ class SessionNote:
         if not os.path.exists(base_path):
             os.makedirs(base_path)
             
-        files = [f for f in os.listdir(base_path) if f.startswith('session_') and f.endswith('.json')]
+        files = [f for f in os.listdir(base_path) \
+                  if f.startswith('session_') and f.endswith('.json')]
         if not files:
             return cls.initialize_session_note(user_id)
         
         files.sort(key=lambda x: int(x.split('_')[1].split('.')[0]), reverse=True)
         latest_file = os.path.join(base_path, files[0])
         return cls.load_from_file(latest_file)
-    
-    def increment_session_id(self):
-        """Safely increments the session ID and returns the new value."""
-        self.session_id += 1
-        return self.session_id
     
     def add_interview_question(self, topic: str, question: str, question_id: str):
         """Adds a new interview question to the session notes.
@@ -138,7 +138,6 @@ class SessionNote:
         
         Example:
             add_interview_question("family", "Tell me about your parents", "1")
-            add_interview_question("father_relationship", "How was your relationship with your father?", "1.1")
             add_interview_question("mother_relationship", "What about your mother?", "1.2")
         """
         if not question_id:
@@ -172,7 +171,8 @@ class SessionNote:
         - Removes the question completely
         
         Args:
-            question_id: The ID of the question to delete (e.g. "1", "1.1", "2.3")
+            question_id: The ID of the question to delete 
+            (e.g. "1", "1.1", "2.3")
             
         Raises:
             ValueError: If question_id or parent is not found
@@ -182,7 +182,8 @@ class SessionNote:
             parent_id = question_id.rsplit('.', 1)[0]
             parent = self.get_question(parent_id)
             if not parent:
-                raise ValueError(f"Parent question with id {parent_id} not found")
+                raise ValueError(f"Parent question with id "
+                                 f"{parent_id} not found")
         
         # Then check if the question exists
         question = self.get_question(question_id)
@@ -251,11 +252,13 @@ class SessionNote:
             
         if '.' not in question_id:
             # Top-level question
-            return next((q for q in self.topics[topic] if q.question_id == question_id), None)
+            return next((q for q in self.topics[topic] \
+                          if q.question_id == question_id), None)
             
         # Navigate through sub-questions
         parts = question_id.split('.')
-        current = next((q for q in self.topics[topic] if q.question_id == parts[0]), None)
+        current = next((q for q in self.topics[topic] \
+                          if q.question_id == parts[0]), None)
         
         for part in parts[1:]:
             if not current:
@@ -264,8 +267,15 @@ class SessionNote:
             
         return current
         
-    def save(self):
-        """Saves the SessionNote to a JSON file."""
+    def save(self, increment_session_id: bool = False):
+        """Saves the SessionNote to a JSON file.
+        
+        Args:
+            increment_session_id: If True, increments the session_id before saving
+        """
+        if increment_session_id:
+            self.session_id += 1
+        
         base_path = os.path.join(LOGS_DIR, self.user_id, "session_notes")
         file_path = os.path.join(base_path, f"session_{self.session_id}.json")
         
@@ -377,7 +387,8 @@ class SessionNote:
         return "\n".join(self.additional_notes)
 
     def clear_questions(self):
-        """Clears all questions from the session note, resetting it to an empty state."""
+        """Clears all questions from the session note, 
+        resetting it to an empty state."""
         # Clear all topics and questions
         self.topics = {}
         
@@ -404,7 +415,8 @@ class SessionNote:
         lines = ["Topics"]
         topics = list(self.topics.items())
         
-        def add_question(question: InterviewQuestion, prefix: str, is_last: bool) -> None:
+        def add_question(question: InterviewQuestion, 
+                         prefix: str, is_last: bool) -> None:
             # Add the current question
             connector = "└── " if is_last else "├── "
             lines.append(f"{prefix}{connector}{question.question}")

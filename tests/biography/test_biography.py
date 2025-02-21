@@ -56,7 +56,7 @@ async def test_export_to_markdown():
     assert "Childhood content" in markdown
     
     # Verify markdown file was created
-    assert os.path.exists(f"{TEST_DATA_DIR}/biography_1.md")
+    assert os.path.exists(f"{TEST_DATA_DIR}/biography_0.md")
 
 def test_path_validation():
     bio = Biography(USER_ID)
