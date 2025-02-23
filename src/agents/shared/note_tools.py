@@ -1,3 +1,4 @@
+import os
 from pydantic import BaseModel, Field
 from langchain_core.tools import BaseTool, ToolException
 from typing import Type, Optional, Callable
@@ -5,6 +6,7 @@ from langchain_core.callbacks.manager import CallbackManagerForToolRun
 from pydantic import BaseModel, Field, SkipValidation
 
 
+from content.question_bank.question_bank_base import QuestionBankBase
 from content.session_note.session_note import SessionNote
 from agents.biography_team.models import FollowUpQuestion
 
@@ -29,6 +31,8 @@ class AddInterviewQuestion(BaseTool):
     )
     args_schema: Type[BaseModel] = AddInterviewQuestionInput
     session_note: SessionNote = Field(...)
+    question_bank: QuestionBankBase = Field(...)
+    proposer: str = Field(...)
 
     def _run(
         self,
@@ -40,7 +44,10 @@ class AddInterviewQuestion(BaseTool):
         run_manager: Optional[CallbackManagerForToolRun] = None,
     ) -> str:
         try:
+            if os.getenv("EVAL_MODE", "FALSE").lower() == "true":
+                self.question_bank.evaluate_question_duplicate(question, self.proposer)
 
+            # If not duplicate, add to session notes
             self.session_note.add_interview_question(
                 topic=str(topic),
                 question=str(question).strip(),

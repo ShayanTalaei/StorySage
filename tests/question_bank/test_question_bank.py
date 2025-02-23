@@ -212,7 +212,7 @@ def test_question_similarity_evaluation(question_bank: QuestionBankBase, sample_
             print(f"- {result.content} (similarity: {result.similarity_score:.2f})")
         
         # Check if it's a duplicate
-        is_duplicate = question_bank.is_duplicate_question(test_question)
+        is_duplicate = question_bank.evaluate_question_duplicate(test_question)
         print(f"\nIs duplicate: {is_duplicate}")
         print("-" * 30)
     

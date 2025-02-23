@@ -11,6 +11,7 @@ from pathlib import Path
 
 from content.question_bank.question import Question, QuestionSearchResult
 from utils.llm.engines import get_engine, invoke_engine
+from utils.logger.evaluation_logger import EvaluationLogger
 
 class QuestionBankBase(ABC):
     """Abstract base class for question bank implementations.
@@ -130,15 +131,8 @@ class QuestionBankBase(ABC):
         """Get all questions linked to a specific memory."""
         return [q for q in self.questions if memory_id in q.memory_ids]
     
-    def is_duplicate_question(self, target_question: str) -> bool:
-        """Check if a question is semantically equivalent to existing questions.
-        
-        Args:
-            target_question: Question text to evaluate
-            
-        Returns:
-            bool: True if the question is a duplicate, False otherwise
-        """
+    def evaluate_question_duplicate(self, target_question: str, proposer: str = "unknown") -> bool:
+        """Check if a question is semantically equivalent to existing questions."""
         # Get similar questions
         similar_results = self.search_questions(target_question)
         
@@ -159,9 +153,8 @@ class QuestionBankBase(ABC):
             similar_questions=similar_questions
         )
         
-        # Get evaluation from LLM
+        # Get evaluation from LLM and parse response
         output = invoke_engine(self.engine, prompt)
-        print(output)
         
         # Parse XML response
         root = ET.fromstring(output)
@@ -169,33 +162,18 @@ class QuestionBankBase(ABC):
         matching_id = root.find('matching_question_id').text
         explanation = root.find('explanation').text
         
-        # Save evaluation results
-        eval_dir = Path(os.getenv("LOGS_DIR", "logs")) / "evaluations"
-        eval_dir.mkdir(parents=True, exist_ok=True)
-        
-        filename = eval_dir / "question_similarity_evaluations.csv"
-        file_exists = filename.exists()
-        print(file_exists)
-        with open(filename, 'a', newline='') as f:
-            writer = csv.writer(f)
-            if not file_exists:
-                writer.writerow([
-                    'Target Question',
-                    'Similar Questions',
-                    'Similarity Scores',
-                    'Is Duplicate',
-                    'Matching Question ID',
-                    'Explanation'
-                ])
-            
-            writer.writerow([
-                target_question,
-                '; '.join(r.content for r in similar_results),
-                '; '.join(f"{r.similarity_score:.2f}" for r in similar_results),
-                is_duplicate,
-                matching_id if matching_id != 'null' else '',
-                explanation
-            ])
+        # Log evaluation results using current logger
+        logger = EvaluationLogger.get_current_logger()
+        if logger:
+            logger.log_question_similarity(
+                target_question=target_question,
+                similar_questions=[r.content for r in similar_results],
+                similarity_scores=[r.similarity_score for r in similar_results],
+                is_duplicate=is_duplicate,
+                matching_id=matching_id if matching_id != 'null' else '',
+                explanation=explanation,
+                proposer=proposer
+            )
         
         return is_duplicate
 

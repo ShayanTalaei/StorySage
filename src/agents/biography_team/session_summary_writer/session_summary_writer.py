@@ -48,7 +48,9 @@ class SessionSummaryWriter(BiographyTeamAgent):
             ),
             # Question tools
             "add_interview_question": AddInterviewQuestion(
-                session_note=self._session_note
+                session_note=self._session_note,
+                question_bank=self.interview_session.question_bank,
+                proposer="SessionSummaryWriter"
             ),
             "delete_interview_question": DeleteInterviewQuestion(
                 session_note=self._session_note

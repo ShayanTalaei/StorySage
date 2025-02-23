@@ -11,7 +11,7 @@ from pydantic import BaseModel
 # Local imports
 from utils.llm.engines import get_engine, invoke_engine
 from utils.llm.xml_formatter import format_tool_as_xml_v2, parse_tool_calls
-from utils.logger import SessionLogger
+from utils.logger.session_logger import SessionLogger
 
 # Load environment variables
 load_dotenv(override=True)

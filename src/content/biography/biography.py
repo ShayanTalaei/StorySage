@@ -498,7 +498,6 @@ class Biography:
         # Save to markdown file if requested
         if save_to_file:
             output_path = f"{self._get_file_name()}.md"
-            print(f"Saving markdown to {output_path}")
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
             with open(output_path, 'w', encoding='utf-8') as f:
                 f.write(markdown_content)

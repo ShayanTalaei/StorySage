@@ -10,7 +10,7 @@ from agents.interviewer.tools import EndConversation, RespondToUser
 from agents.shared.memory_tools import Recall
 from utils.llm.prompt_utils import format_prompt
 from interview_session.session_models import Participant, Message
-from utils.logger import SessionLogger
+from utils.logger.session_logger import SessionLogger
 from utils.constants.colors import GREEN, RESET
 
 if TYPE_CHECKING:
@@ -86,9 +86,6 @@ class Interviewer(BaseAgent, Participant):
             )
             self.add_event(sender=message.role, tag="message",
                            content=message.content)
-        
-        if not self.interview_session.session_in_progress:
-            return
         
         self._turn_to_respond = True
         iterations = 0

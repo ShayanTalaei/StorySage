@@ -14,13 +14,14 @@ from agents.note_taker.note_taker import NoteTaker, NoteTakerConfig
 from agents.user.user_agent import UserAgent
 from content.session_note.session_note import SessionNote
 from utils.data_process import save_feedback_to_csv
-from utils.logger import SessionLogger, setup_logger
+from utils.logger.session_logger import SessionLogger, setup_logger
 from interview_session.user.user import User
 from agents.biography_team.orchestrator import BiographyOrchestrator
 from agents.biography_team.base_biography_agent import BiographyConfig
 from content.memory_bank.memory_bank_vector_db import VectorMemoryBank
 from content.memory_bank.memory import Memory
 from content.question_bank.question_bank_vector_db import QuestionBankVectorDB
+from utils.logger.evaluation_logger import EvaluationLogger
 
 
 load_dotenv(override=True)
@@ -92,6 +93,8 @@ class InterviewSession:
         # Logger setup
         setup_logger(self.user_id, self.session_id,
                      console_output_files=["execution_log"])
+        EvaluationLogger.setup_logger(self.user_id, self.session_id)
+        
         SessionLogger.log_to_file(
             "execution_log", f"[INIT] Interview session initialized")
         SessionLogger.log_to_file(
@@ -186,8 +189,9 @@ class InterviewSession:
         # Create independent tasks for each subscriber
         tasks = []
         for sub in subscribers:
-            task = asyncio.create_task(sub.on_message(message))
-            tasks.append(task)
+            if self.session_in_progress:
+                task = asyncio.create_task(sub.on_message(message))
+                tasks.append(task)
         # Allow tasks to run concurrently without waiting for each other
         await asyncio.sleep(0)  # Explicitly yield control
 

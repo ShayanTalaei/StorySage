@@ -14,7 +14,7 @@ from agents.shared.feedback_prompts import SIMILAR_QUESTIONS_WARNING, WARNING_OU
 from content.question_bank.question import SimilarQuestionsGroup
 from utils.llm.prompt_utils import format_prompt
 from utils.llm.xml_formatter import extract_tool_arguments, extract_tool_calls_xml
-from utils.logger import SessionLogger
+from utils.logger.session_logger import SessionLogger
 from utils.formatter import format_similar_questions
 from interview_session.session_models import Participant, Message
 from content.memory_bank.memory import Memory
@@ -84,7 +84,9 @@ class NoteTaker(BaseAgent, Participant):
                 session_note=self.interview_session.session_note
             ),
             "add_interview_question": AddInterviewQuestion(
-                session_note=self.interview_session.session_note
+                session_note=self.interview_session.session_note,
+                question_bank=self.interview_session.question_bank,
+                proposer="NoteTaker"
             ),
             "recall": Recall(
                 memory_bank=self.interview_session.memory_bank
