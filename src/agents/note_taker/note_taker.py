@@ -285,6 +285,8 @@ class NoteTaker(BaseAgent, Participant):
             events = self.get_event_stream_str(filter=[
                 {"tag": "notes_lock_message"},
                 {"sender": self.name, "tag": "recall_response"},
+                *[{"tag": f"consider_and_propose_followups_response_{i}"} \
+                   for i in range(self._max_consideration_iterations)]
             ], as_list=True)
 
             recent_events = events[-self._max_events_len:] if len(
@@ -305,7 +307,8 @@ class NoteTaker(BaseAgent, Participant):
             return format_prompt(prompt, {
                 "event_stream": "\n".join(recent_events),
                 "questions_and_notes": (
-                    self.interview_session.session_note.get_questions_and_notes_str()
+                    self.interview_session.session_note \
+                        .get_questions_and_notes_str()
                 ),
                 "similar_questions_warning": warning,
                 "warning_output_format": WARNING_OUTPUT_FORMAT \

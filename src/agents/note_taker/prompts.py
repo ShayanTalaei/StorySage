@@ -345,7 +345,7 @@ FOLLOWUPS_EVENTS = """
 The following events include the most recent:
 - Messages exchanged between the interviewer and user
 - Results from memory recalls (showing what information we already have)
-- Decisions on whether to propose follow-ups and the reasoning behind them
+- Your previous decisions on whether to propose follow-ups and the reasoning behind them
 <event_stream>
 {event_stream}
 </event_stream>
@@ -466,6 +466,7 @@ Examples of Good Tangential Questions:
    ✓ "What was life like in that neighborhood during your school years?"
 
 ## Question Guidelines:
+1. Writing and Content:
 - Builds naturally on the current conversation
 - Use direct "you/your" address
 - Focus on specific experiences
@@ -482,7 +483,21 @@ Examples of Good Tangential Questions:
   * Multiple questions at once
   * Redundant questions
 
-  </instructions>
+## Duplicate Question Prevention
+
+**Do Not Propose Questions That Are:**
+1. Similar to Existing Questions
+   - Check current session notes in `<questions_and_notes>`
+   - Review for similar content or intent
+
+2. Already Asked in Conversation
+   - Review conversation history in `<event_stream>`
+   - Check for questions with similar meaning or focus
+
+3. Previously Considered and Rejected
+   - Review your past decisions in `<event_stream>`
+   - Avoid questions you previously determined were not suitable
+</instructions>
 """
 
 CONSIDER_AND_PROPOSE_FOLLOWUPS_OUTPUT_FORMAT = """
