@@ -6,6 +6,11 @@ Your task is to:
 2. Propose follow-up questions to the user to further explore the subject's background.
 </section_writer_persona>
 
+<user_portrait>
+This is the portrait of the user:
+{user_portrait}
+</user_portrait>
+
 <input_context>
 {section_identifier_xml}
 
@@ -141,6 +146,11 @@ You are a biography section writer and are tasked with creating a new section in
 You must only write content based on actual memories - no speculation or hallucination when describing experiences.
 </section_writer_persona>
 
+<user_portrait>
+This is the portrait of the user:
+{user_portrait}
+</user_portrait>
+
 <input_context>
 <section_path>
 {section_path}
@@ -215,6 +225,11 @@ USER_COMMENT_EDIT_PROMPT = """\
 You are a biography section writer and are tasked with improving a biography section based on user feedback.
 You must only write content based on actual memories - no speculation or hallucination when describing experiences.
 </section_writer_persona>
+
+<user_portrait>
+This is the portrait of the user:
+{user_portrait}
+</user_portrait>
 
 <input_context>
 <section_title>

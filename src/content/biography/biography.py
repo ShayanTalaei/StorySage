@@ -79,7 +79,6 @@ class Biography:
 
         # Version information
         self.version = self._get_latest_version()
-        print(f"Loading biography version {self.version}")
 
         # Root section
         self.root = Section(f"Biography of {self.user_id}")

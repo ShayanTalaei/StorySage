@@ -52,6 +52,11 @@ Your job is to:
 <context>
 Right now, you are observing a conversation between the interviewer and the user.
 </context>
+
+<user_portrait>
+This is the portrait of the user:
+{user_portrait}
+</user_portrait>
 """
 
 UPDATE_MEMORY_QUESTION_BANK_EVENT = """
@@ -236,6 +241,11 @@ Right now, you are in an interview session with the interviewer and the user.
 Your task is to process ONLY the most recent user message and update session notes with any new, relevant information.
 You have access to the session notes containing topics and questions to be discussed.
 </context>
+
+<user_portrait>
+This is the portrait of the user:
+{user_portrait}
+</user_portrait>
 """
 
 UPDATE_SESSION_NOTE_EVENT = """
@@ -379,6 +389,11 @@ For each interaction, choose ONE of these actions:
    - There are meaningful information gaps to explore
    If the conditions are not met, it's fine to not propose additional questions
 </context>
+
+<user_portrait>
+This is the portrait of the user:
+{user_portrait}
+</user_portrait>
 """
 
 CONSIDER_AND_PROPOSE_FOLLOWUPS_INSTRUCTIONS = """

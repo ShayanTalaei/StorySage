@@ -152,6 +152,7 @@ class BiographyPlanner(BiographyTeamAgent):
             **kwargs: Additional parameters specific to the prompt type
         """
         base_params = {
+            "user_portrait": self.interview_session.session_note.get_user_portrait_str(),
             "biography_structure": json.dumps(self.get_biography_structure(), indent=2),
             "biography_content": self.biography.export_to_markdown(),
             "style_instructions": BIOGRAPHY_STYLE_PLANNER_INSTRUCTIONS.get(

@@ -305,6 +305,8 @@ class NoteTaker(BaseAgent, Participant):
             )
 
             return format_prompt(prompt, {
+                "user_portrait": self.interview_session.session_note \
+                    .get_user_portrait_str(),
                 "event_stream": "\n".join(recent_events),
                 "questions_and_notes": (
                     self.interview_session.session_note \
@@ -328,6 +330,7 @@ class NoteTaker(BaseAgent, Participant):
                 previous_events = previous_events[-self._max_events_len:]
 
             return format_prompt(prompt, {
+                "user_portrait": self.interview_session.session_note.user_portrait,
                 "previous_events": "\n".join(previous_events),
                 "current_qa": "\n".join(current_qa),
                 "tool_descriptions": self.get_tools_description(
@@ -345,6 +348,7 @@ class NoteTaker(BaseAgent, Participant):
                 previous_events = previous_events[-self._max_events_len:]
 
             return format_prompt(prompt, {
+                "user_portrait": self.interview_session.session_note.user_portrait,
                 "previous_events": "\n".join(previous_events),
                 "current_qa": "\n".join(current_qa),
                 "questions_and_notes": (

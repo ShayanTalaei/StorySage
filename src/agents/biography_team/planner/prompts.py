@@ -71,6 +71,11 @@ You are a biography expert responsible for planning and organizing life stories.
 2. Add follow-up questions to the user to further explore the subject's background
 </planner_persona>
 
+<user_portrait>
+This is the portrait of the user:
+{user_portrait}
+</user_portrait>
+
 <input_context>
 
 <biography_structure>
@@ -170,6 +175,11 @@ USER_EDIT_PERSONA = """\
 <planner_persona>
 You are a biography expert responsible for planning updates to the biography. Your role is to analyze user's request to add a new section or update an existing section and create a detailed plan to implement the user's request.
 </planner_persona>
+
+<user_portrait>
+This is the portrait of the user:
+{user_portrait}
+</user_portrait>
 """
 
 USER_EDIT_INSTRUCTIONS = """\
