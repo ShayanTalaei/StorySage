@@ -441,6 +441,52 @@ class SessionNote:
         
         return "\n".join(lines)
 
+    @classmethod
+    def get_historical_session_summaries(cls, user_id: str) -> str:
+        """Returns formatted string of all historical session summaries.
+        
+        Traverses all session note files for the user and compiles their
+        last_meeting_summary fields in chronological order.
+        
+        Args:
+            user_id: The user ID to get session summaries for
+            
+        Returns:
+            String containing all session summaries formatted as:
+            Session 1:
+            <summary>
+            
+            Session 2:
+            <summary>
+            ...
+        """
+        base_path = os.path.join(LOGS_DIR, user_id, "session_notes")
+        if not os.path.exists(base_path):
+            return ""
+            
+        # Get all session note files
+        files = [f for f in os.listdir(base_path) \
+                  if f.startswith('session_') and f.endswith('.json')]
+        if not files:
+            return ""
+            
+        # Sort files by session number
+        files.sort(key=lambda x: int(x.split('_')[1].split('.')[0]))
+        
+        summaries = []
+        for file in files:
+            session_id = int(file.split('_')[1].split('.')[0])
+            file_path = os.path.join(base_path, file)
+            
+            # Load the session note
+            with open(file_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                summary = data.get('last_meeting_summary', '')
+                if summary:
+                    summaries.append(f"Session {session_id}:\n{summary}")
+        
+        return "\n\n".join(summaries)
+
 
 
 

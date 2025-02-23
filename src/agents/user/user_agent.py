@@ -5,6 +5,7 @@ from agents.base_agent import BaseAgent
 from interview_session.user.user import User
 from interview_session.session_models import Message
 from interview_session.session_models import MessageType
+from content.session_note.session_note import SessionNote
 dotenv.load_dotenv(override=True)
 
 
@@ -20,6 +21,9 @@ class UserAgent(BaseAgent, User):
             os.getenv("USER_AGENT_PROFILES_DIR"), f"{user_id}/{user_id}.md")
         with open(profile_path, 'r') as f:
             self.profile_background = f.read()
+        
+        # Get historical session summaries
+        self.session_history = SessionNote.get_historical_session_summaries(user_id)
 
         # Load conversational style
         conv_style_path = os.path.join(
@@ -86,12 +90,14 @@ class UserAgent(BaseAgent, User):
             return get_prompt(prompt_type).format(
                 profile_background=self.profile_background,
                 conversational_style=self.conversational_style,
+                session_history=self.session_history,
                 chat_history=self.get_event_stream_str([{"tag": "message"}])
             )
         elif prompt_type == "respond_to_question":
             return get_prompt(prompt_type).format(
                 profile_background=self.profile_background,
                 conversational_style=self.conversational_style,
+                session_history=self.session_history,
                 score=self.question_score,
                 score_reasoning=self.question_score_reasoning,
                 chat_history=self.get_event_stream_str([{"tag": "message"}])

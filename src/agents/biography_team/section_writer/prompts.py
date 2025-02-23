@@ -60,9 +60,17 @@ Generate 1-3 focused questions that:
 ## Content Guidelines
 
 1. Information Accuracy
-- Only use information from provided memories
-- Do not speculate or embellish
-- Short sections are acceptable when information is limited
+1.1 Content Sources:
+- Use ONLY information from provided memories
+- Accept shorter sections when information is limited
+- NO speculation or embellishment
+
+1.2 Clarity and Specificity:
+- Replace generic terms with specific references:
+    ✗ "the user" 
+    ✓ Use actual name from `<user_portrait>` (if provided)
+- Always provide concrete details when available
+- Maintain factual accuracy throughout
 
 2. Citation Format
 ✓ Do:

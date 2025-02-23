@@ -183,7 +183,8 @@ class SectionWriter(BiographyTeamAgent):
                     title=todo_item.section_title
                 )
                 return USER_COMMENT_EDIT_PROMPT.format(
-                    user_portrait=self.interview_session.session_note.user_portrait,
+                    user_portrait=self.interview_session.session_note \
+                        .get_user_portrait_str(),
                     section_title=todo_item.section_title,
                     current_content=current_content,
                     update_plan=todo_item.update_plan,
@@ -217,7 +218,8 @@ class SectionWriter(BiographyTeamAgent):
                         f"</section_title>"
                     )
                 return SECTION_WRITER_PROMPT.format(
-                    user_portrait=self.interview_session.session_note.user_portrait,
+                    user_portrait=self.interview_session.session_note \
+                        .get_user_portrait_str(),
                     section_identifier_xml=section_identifier,
                     update_plan=todo_item.update_plan,
                     current_content=current_content,

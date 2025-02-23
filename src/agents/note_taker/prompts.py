@@ -126,6 +126,7 @@ UPDATE_MEMORY_QUESTION_BANK_INSTRUCTIONS = """
 ## Content Quality Guidelines:
 1. Avoid Ambiguity:
    - NO generic references like:
+     * "the user" → Use the user's name if provided in <user_portrait>
      * "the project" → Use "Google's LLM project"
      * "the company" → Use "Microsoft"
      * "the team" → Use "AI Research team"

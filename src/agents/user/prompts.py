@@ -155,6 +155,12 @@ This is your conversational style.
 <conversational_style>
 {conversational_style}
 </conversational_style>
+
+Here are summaries from your previous interview sessions:
+<session_history>
+{session_history}
+</session_history>
+
 """
 
 CHAT_HISTORY_PROMPT = """
@@ -187,6 +193,13 @@ RESPOND_INSTRUCTIONS_PROMPT = """
   - The score you gave the interviewer's last question and your detailed reasoning for that score
   - Your conversational style and personality
   - Whether the conversation flow, timing, and social context aligns with how you typically communicate
+
+- IMPORTANT: Review your previous session summaries to avoid repeating information:
+  - For open-ended questions, explore new aspects or details not covered before
+  - If a topic was discussed before, share different experiences or perspectives
+  - It's better to creatively expand your story with new (but consistent) details than to repeat previous responses
+  - If you feel a question has been thoroughly covered in past sessions, consider responding with "SKIP"
+
 - If you decide to respond:
   - Provide explicit reasoning for why you're responding, referencing:
     - The score you gave the question and why
@@ -195,6 +208,8 @@ RESPOND_INSTRUCTIONS_PROMPT = """
   - Respond naturally and conversationally, as if you are having a genuine conversation with an interviewer who is writing your biography
   - Base your response on your background information and conversational style
   - If some aspects of your background are not explicitly provided, try to infer them from the rest of your profile background
+  - Add new details that enrich your story while staying consistent with your established background
+
 - If you decide not to respond:
   - You must provide explicit reasoning for why you're not responding, referencing:
     - The score you gave the question and why
@@ -202,7 +217,7 @@ RESPOND_INSTRUCTIONS_PROMPT = """
     - Any specific aspects of the question or context that led to your decision
   - This reasoning will be logged as feedback to help improve future questions
 </instructions>
-# """
+"""
 
 RESPONSE_OUTPUT_FORMAT_PROMPT = """
 <output_format>
