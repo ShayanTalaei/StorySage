@@ -33,7 +33,7 @@ class BaseAgent:
         self.config = config
         
         # Initialize the LLM engine
-        self.engine = get_engine(model_name="gpt-4o-mini",
+        self.engine = get_engine(model_name="gpt-4o",
                                  temperature=0.0)
         self.tools = {}
 

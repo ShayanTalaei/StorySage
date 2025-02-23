@@ -1,12 +1,16 @@
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional
+from typing import List, Optional
 import os
 import json
 import random
 import string
 from datetime import datetime
+import xml.etree.ElementTree as ET
+import csv
+from pathlib import Path
 
 from content.question_bank.question import Question, QuestionSearchResult
+from utils.llm.engines import get_engine, invoke_engine
 
 class QuestionBankBase(ABC):
     """Abstract base class for question bank implementations.
@@ -18,6 +22,7 @@ class QuestionBankBase(ABC):
     
     def __init__(self):
         self.questions: List[Question] = []
+        self.engine = get_engine("gpt-4o-mini")
     
     def generate_question_id(self) -> str:
         """Generate a short, unique question ID.
@@ -50,7 +55,7 @@ class QuestionBankBase(ABC):
     def search_questions(
         self, 
         query: str, 
-        k: int = 5
+        k: int = 3
     ) -> List[QuestionSearchResult]:
         """Search for similar questions.
         
@@ -124,3 +129,98 @@ class QuestionBankBase(ABC):
     def get_questions_by_memory(self, memory_id: str) -> List[Question]:
         """Get all questions linked to a specific memory."""
         return [q for q in self.questions if memory_id in q.memory_ids]
+    
+    def is_duplicate_question(self, target_question: str) -> bool:
+        """Check if a question is semantically equivalent to existing questions.
+        
+        Args:
+            target_question: Question text to evaluate
+            
+        Returns:
+            bool: True if the question is a duplicate, False otherwise
+        """
+        # Get similar questions
+        similar_results = self.search_questions(target_question)
+        
+        if not similar_results:
+            return False
+            
+        # Format similar questions for prompt
+        similar_questions = "\n\n".join([
+            f"Question ID: {result.id}\n"
+            f"Content: {result.content}\n"
+            f"Similarity Score: {result.similarity_score:.2f}"
+            for result in similar_results
+        ])
+        
+        # Prepare prompt
+        prompt = QUESTION_SIMILARITY_PROMPT.format(
+            target_question=target_question,
+            similar_questions=similar_questions
+        )
+        
+        # Get evaluation from LLM
+        output = invoke_engine(self.engine, prompt)
+        print(output)
+        
+        # Parse XML response
+        root = ET.fromstring(output)
+        is_duplicate = root.find('is_duplicate').text.lower() == 'true'
+        matching_id = root.find('matching_question_id').text
+        explanation = root.find('explanation').text
+        
+        # Save evaluation results
+        eval_dir = Path(os.getenv("LOGS_DIR", "logs")) / "evaluations"
+        eval_dir.mkdir(parents=True, exist_ok=True)
+        
+        filename = eval_dir / "question_similarity_evaluations.csv"
+        file_exists = filename.exists()
+        print(file_exists)
+        with open(filename, 'a', newline='') as f:
+            writer = csv.writer(f)
+            if not file_exists:
+                writer.writerow([
+                    'Target Question',
+                    'Similar Questions',
+                    'Similarity Scores',
+                    'Is Duplicate',
+                    'Matching Question ID',
+                    'Explanation'
+                ])
+            
+            writer.writerow([
+                target_question,
+                '; '.join(r.content for r in similar_results),
+                '; '.join(f"{r.similarity_score:.2f}" for r in similar_results),
+                is_duplicate,
+                matching_id if matching_id != 'null' else '',
+                explanation
+            ])
+        
+        return is_duplicate
+
+
+QUESTION_SIMILARITY_PROMPT = """\
+You are an expert at evaluating question similarity.
+
+Target Question:
+{target_question}
+
+Similar Questions:
+{similar_questions}
+
+Please determine if the target question is semantically equivalent to any of the similar questions.
+Consider:
+- Questions asking for the same information in different ways are equivalent
+- Questions with minor wording differences but same intent are equivalent
+
+<output_format>
+Return your evaluation in following format:
+
+<evaluation>
+    <is_duplicate>true/false</is_duplicate>
+    <matching_question_id>ID of matching question or null if no match</matching_question_id>
+    <explanation>Your detailed explanation of the similarity analysis</explanation>
+</evaluation>
+</output_format>
+"""
