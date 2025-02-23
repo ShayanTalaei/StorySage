@@ -10,6 +10,7 @@ sys.path.append(src_dir)
 
 from content.biography.biography import Biography, Section
 from content.memory_bank.memory_bank_vector_db import VectorMemoryBank
+from utils.logger.evaluation_logger import EvaluationLogger
 
 def extract_memory_ids_from_biography(biography: Biography) -> Set[str]:
     """Extract all unique memory IDs referenced in the biography.
@@ -33,19 +34,8 @@ def extract_memory_ids_from_biography(biography: Biography) -> Set[str]:
     process_section(biography.root)
     return memory_ids
 
-def calculate_biography_completeness(user_id: str) -> dict:
-    """Calculate biography completeness metrics based on memory coverage.
-    
-    Args:
-        user_id: ID of the user whose biography to evaluate
-        
-    Returns:
-        dict: Dictionary containing completeness metrics:
-            - memory_recall: Percentage of memories covered
-            - total_memories: Total number of memories in bank
-            - referenced_memories: Number of memories referenced in biography
-            - unreferenced_memories: List of memory IDs not referenced in biography
-    """
+def calculate_biography_completeness(user_id: str, logger: EvaluationLogger, biography_version: int) -> dict:
+    """Calculate biography completeness metrics based on memory coverage."""
     # Load latest biography and memory bank
     biography = Biography.load_from_file(user_id)
     memory_bank = VectorMemoryBank.load_from_file(user_id)
@@ -66,21 +56,34 @@ def calculate_biography_completeness(user_id: str) -> dict:
     # Find memories not referenced in biography
     unreferenced_memories = all_memory_ids - biography_memory_ids
     
-    return {
+    metrics = {
         "memory_recall": round(recall * 100, 2),  # Convert to percentage
         "total_memories": total_memories,
         "referenced_memories": referenced_count,
         "unreferenced_memories": list(unreferenced_memories)
     }
+    
+    # Get details for unreferenced memories
+    unreferenced_details = get_unreferenced_memory_details(user_id)
+    
+    # Log evaluation results
+    if logger:  # Allow None logger for testing/reuse
+        logger.log_biography_completeness(
+            metrics=metrics,
+            unreferenced_details=unreferenced_details,
+            biography_version=biography_version
+        )
+    
+    return metrics
 
 def get_unreferenced_memory_details(user_id: str) -> List[dict]:
     """Get details of memories not referenced in the biography."""
     # Get unreferenced memory IDs
-    completeness_metrics = calculate_biography_completeness(user_id)
-    unreferenced_ids = completeness_metrics["unreferenced_memories"]
-    
-    # Load memory bank
+    biography = Biography.load_from_file(user_id)
+    biography_memory_ids = extract_memory_ids_from_biography(biography)
     memory_bank = VectorMemoryBank.load_from_file(user_id)
+    all_memory_ids = {memory.id for memory in memory_bank.memories}
+    unreferenced_ids = all_memory_ids - biography_memory_ids
     
     # Get details for each unreferenced memory
     unreferenced_details = []
@@ -98,51 +101,6 @@ def get_unreferenced_memory_details(user_id: str) -> List[dict]:
                  key=lambda x: x["importance_score"], 
                  reverse=True)
 
-def save_results_to_csv(metrics: dict, unreferenced_details: List[dict], filename: str):
-    """Save evaluation results to CSV file."""
-    
-    # Ensure results directory exists
-    Path(filename).parent.mkdir(parents=True, exist_ok=True)
-    
-    with open(filename, 'w', newline='') as f:
-        writer = csv.writer(f)
-        
-        # Write overall metrics
-        writer.writerow(['Metric', 'Value'])
-        writer.writerow(['Memory Coverage', f"{metrics['memory_recall']}%"])
-        writer.writerow(['Total Memories', metrics['total_memories']])
-        writer.writerow(['Referenced Memories', metrics['referenced_memories']])
-        writer.writerow(['Unreferenced Memories Count',
-                          len(metrics['unreferenced_memories'])])
-        
-        # Write unreferenced memory details
-        if unreferenced_details:
-            writer.writerow([])  # Empty row for separation
-            writer.writerow(['Unreferenced Memory ID', 'Title', 
-                             'Importance Score'])
-            for memory in unreferenced_details:
-                writer.writerow([
-                    memory['id'],
-                    memory['title'],
-                    memory['importance_score']
-                ])
-    
-    print(f"Results saved to: {filename}")
-
-def print_completeness_report(user_id: str) -> None:
-    """Print a detailed report of biography completeness."""
-    # Load biography for version number
-    biography = Biography.load_from_file(user_id)
-    
-    # Get metrics and details
-    metrics = calculate_biography_completeness(user_id)
-    unreferenced_details = get_unreferenced_memory_details(user_id)
-    
-    # Save results to CSV
-    filename = f"logs/{user_id}/evaluations/completeness_{biography.version}.csv"
-    save_results_to_csv(metrics, unreferenced_details, 
-                        filename)
-
 def main():
     """Main function to run the biography completeness evaluation."""
     parser = argparse.ArgumentParser(
@@ -156,7 +114,17 @@ def main():
     )
     
     args = parser.parse_args()
-    print_completeness_report(args.user_id)
+    
+    # Load biography to get version
+    biography = Biography.load_from_file(args.user_id)
+    
+    # Initialize logger
+    logger = EvaluationLogger(user_id=args.user_id)
+    
+    # Run evaluation
+    print(f"Evaluating biography completeness for user: {args.user_id}")
+    calculate_biography_completeness(args.user_id, logger, biography.version)
+    print("Evaluation complete. Results saved to logs directory.")
 
 if __name__ == "__main__":
     main()

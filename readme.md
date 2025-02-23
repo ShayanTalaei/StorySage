@@ -105,9 +105,22 @@ python src/main.py --mode server --port 8000
 
 ### Commands for Evaluations
 
+For offline evaluations, you can run the evaluation scripts directly.
+
 ```bash
 # Evaluate biography completeness
-python evaluations/file_name.py --user_id ellie
+python evaluations/biography_completeness.py --user_id ellie
+
+# Evaluate biography groundness
+python evaluations/biography_groundness.py --user_id ellie
+```
+
+For online evaluations, set the `EVAL_MODE` environment variable to `true` in the `.env` file. Please check `.env.example` for more details.
+
+Reminder: it will make the program slower.
+
+```text
+EVAL_MODE="true"
 ```
 
 ### Commands for Testing

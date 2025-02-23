@@ -1,9 +1,7 @@
 from pathlib import Path
 import sys
 import argparse
-import csv
 from typing import List, Dict
-import json
 
 # Add the src directory to Python path
 src_dir = str(Path(__file__).parent.parent / "src")
@@ -12,6 +10,8 @@ sys.path.append(src_dir)
 from content.biography.biography import Biography, Section
 from content.memory_bank.memory_bank_vector_db import VectorMemoryBank
 from utils.llm.engines import get_engine, invoke_engine
+from utils.logger.evaluation_logger import EvaluationLogger
+from utils.llm.xml_formatter import extract_tool_arguments
 
 GROUNDNESS_PROMPT = """\
 You are an expert at evaluating if biographical text is grounded in source memories.
@@ -30,23 +30,30 @@ Source Memories:
 
 Please analyze if each statement in the biography section is supported by the source memories.
 Return your evaluation in this format:
-- Groundness Score (0-100): A score indicating what percentage of the biographical content is substantiated by the memories
+- Groundness Score (0-100): A score indicating what percentage of the biographical content is 
+substantiated by the memories
 - Unsubstantiated Claims: List any claims or statements that aren't supported by the memories
 - Missing Details: List any important details from the memories that should be included
 - Overall Assessment: A brief explanation of your evaluation
 
-Format your response as a JSON object with these exact keys:
-{{
-    "groundness_score": number,
-    "unsubstantiated_claims": list of strings,
-    "missing_details": list of strings,
-    "overall_assessment": string
-}}"""
+Return your evaluation using the following tool call format:
+
+<tool_calls>
+    <evaluate_groundness>
+        <groundness_score>number between 0-100</groundness_score>
+        <unsubstantiated_claims>["claim 1", "claim 2", ...]</unsubstantiated_claims>
+        <missing_details>["detail 1", "detail 2", ...]</missing_details>
+        <overall_assessment>Your brief explanation of the evaluation</overall_assessment>
+    </evaluate_groundness>
+</tool_calls>
+"""
 
 def evaluate_section_groundness(
     section: Section,
     memory_bank: VectorMemoryBank,
-    engine
+    engine,
+    logger: EvaluationLogger,
+    biography_version: int
 ) -> Dict:
     """Evaluate how well a section's content is grounded in its source memories."""
     # Get formatted memories
@@ -63,14 +70,58 @@ def evaluate_section_groundness(
     
     # Get evaluation using the engine
     output = invoke_engine(engine, prompt)
+    print(output)
+
+    # Parse response using XML formatter with error handling
+    try:
+        groundness_scores = extract_tool_arguments(
+            output, "evaluate_groundness", "groundness_score")
+        groundness_score = groundness_scores[0] if groundness_scores else 0
+
+        claims = extract_tool_arguments(
+            output, "evaluate_groundness", "unsubstantiated_claims")
+        unsubstantiated_claims = claims[0] if claims else []
+
+        details = extract_tool_arguments(
+            output, "evaluate_groundness", "missing_details")
+        missing_details = details[0] if details else []
+
+        assessments = extract_tool_arguments(
+            output, "evaluate_groundness", "overall_assessment")
+        overall_assessment = assessments[0] if assessments else "No assessment provided"
+
+    except Exception as e:
+        print(f"Error parsing evaluation response: {str(e)}")
+        # Provide default values if parsing fails
+        groundness_score = 0
+        unsubstantiated_claims = []
+        missing_details = []
+        overall_assessment = "Failed to parse evaluation response"
     
-    # Parse response
-    evaluation = json.loads(output)
-    return {
+    result = {
         "section_id": section.id,
         "section_title": section.title,
-        "evaluation": evaluation
+        "evaluation": {
+            "groundness_score": groundness_score,
+            "unsubstantiated_claims": unsubstantiated_claims,
+            "missing_details": missing_details,
+            "overall_assessment": overall_assessment
+        }
     }
+    
+    # Log evaluation results
+    if logger:  # Allow None logger for testing/reuse
+        logger.log_biography_groundness(
+            section_id=section.id,
+            section_title=section.title,
+            groundness_score=groundness_score,
+            unsubstantiated_claims=unsubstantiated_claims,
+            missing_details=missing_details,
+            overall_assessment=overall_assessment,
+            biography_version=biography_version
+        )
+    
+    return result
 
 def evaluate_biography_groundness(
     biography: Biography,
@@ -79,11 +130,18 @@ def evaluate_biography_groundness(
 ) -> List[Dict]:
     """Evaluate groundness for all sections in a biography."""
     results = []
+    logger = EvaluationLogger(user_id=biography.user_id)
     
     def process_section(section: Section):
         # Evaluate current section
         if section.content and section.memory_ids:
-            result = evaluate_section_groundness(section, memory_bank, engine)
+            result = evaluate_section_groundness(
+                section, 
+                memory_bank, 
+                engine, 
+                logger,
+                biography.version
+            )
             results.append(result)
         
         # Process subsections
@@ -92,36 +150,6 @@ def evaluate_biography_groundness(
     
     process_section(biography.root)
     return results
-
-def save_results_to_csv(results: List[Dict], filename: str):
-    """Save evaluation results to CSV file."""
-    
-    # Ensure results directory exists
-    Path(filename).parent.mkdir(parents=True, exist_ok=True)
-    
-    with open(filename, 'w', newline='') as f:
-        writer = csv.writer(f)
-        writer.writerow([
-            'Section ID',
-            'Section Title',
-            'Groundness Score',
-            'Unsubstantiated Claims',
-            'Missing Details',
-            'Overall Assessment'
-        ])
-        
-        for result in results:
-            eval_dict = result['evaluation']  # Already parsed JSON
-            writer.writerow([
-                result['section_id'],
-                result['section_title'],
-                eval_dict['groundness_score'],
-                '; '.join(eval_dict['unsubstantiated_claims']),
-                '; '.join(eval_dict['missing_details']),
-                eval_dict['overall_assessment']
-            ])
-    
-    print(f"Results saved to: {filename}")
 
 def main():
     """Main function to run the biography groundness evaluation."""
@@ -138,7 +166,7 @@ def main():
     args = parser.parse_args()
     
     # Initialize LLM engine
-    engine = get_engine("gpt-4o-mini")
+    engine = get_engine("gpt-4o")
     
     # Load biography and memory bank
     biography = Biography.load_from_file(args.user_id)
@@ -146,11 +174,8 @@ def main():
     
     # Run evaluation
     print(f"Evaluating biography groundness for user: {args.user_id}")
-    results = evaluate_biography_groundness(biography, memory_bank, engine)
-    
-    # Save results
-    filename = f"logs/{args.user_id}/evaluations/groundness_{biography.version}.csv"
-    save_results_to_csv(results, filename)
+    evaluate_biography_groundness(biography, memory_bank, engine)
+    print("Evaluation complete. Results saved to logs directory.")
 
 if __name__ == "__main__":
     main() 

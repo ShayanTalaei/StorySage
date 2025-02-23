@@ -243,6 +243,7 @@ class InterviewSession:
             "execution_log", f"[RUN] Starting interview session")
         self.session_in_progress = True
 
+        # In-interview Processing
         try:
             # Interviewer initiate the conversation (if not in API mode)
             if self.user is not None:
@@ -270,8 +271,11 @@ class InterviewSession:
                 "execution_log", f"[RUN] Unexpected error: {str(e)}")
             raise e
 
+        # Post-interview Processing
         finally:
             try:
+                self.session_in_progress = False
+
                 # Update biography (API mode handles this separately)
                 if self._interaction_mode != 'api':
                     with contextlib.suppress(KeyboardInterrupt):

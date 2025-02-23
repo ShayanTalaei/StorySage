@@ -133,18 +133,18 @@ class EvaluationLogger:
                     'Section ID',
                     'Section Title',
                     'Groundness Score',
+                    'Overall Assessment',
                     'Unsubstantiated Claims',
                     'Missing Details',
-                    'Overall Assessment'
                 ])
             
             writer.writerow([
                 section_id,
                 section_title,
                 groundness_score,
+                overall_assessment,
                 '; '.join(unsubstantiated_claims),
                 '; '.join(missing_details),
-                overall_assessment
             ])
 
     def log_biography_completeness(
