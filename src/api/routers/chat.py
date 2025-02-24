@@ -16,7 +16,7 @@ from interview_session.interview_session import InterviewSession
 from api.core.auth import get_current_user
 from api.core.session_manager import session_manager
 from interview_session.session_models import MessageType
-from utils.colors import RESET, RED
+from utils.constants.colors import RESET, RED
 
 router = APIRouter(
     tags=["chat"]
@@ -269,9 +269,8 @@ async def prepare_end_session(
         while session.note_taker.processing_in_progress:
             await asyncio.sleep(0.1)
         
-        # Start biography update in background (without topics)
-        asyncio.create_task(session.biography_orchestrator.update_biography())
-        session.mark_biography_updated()
+        # Start biography update in background
+        asyncio.create_task(session.biography_orchestrator.update_biography_and_notes())
         
         # Get topics from new memories
         topics = await session.biography_orchestrator.get_session_topics()
@@ -304,7 +303,7 @@ async def end_session(
         # Set selected topics to unblock session note update
         await session.biography_orchestrator.set_selected_topics(feedback.selected_topics)
         
-        # Store session feedback if provided
+        # Store general session feedback if provided
         if feedback.feedback:
             # Create feedback directory if it doesn't exist
             logs_dir = Path(os.getenv("LOGS_DIR", "logs"))
@@ -327,12 +326,11 @@ async def end_session(
         # End session without triggering another biography update
         session.end_session()
         
-        # Wait for completion
-        timeout = 120
+        # Wait for completion with timeout
         start_time = time.time()
         while not session.session_completed:
             await asyncio.sleep(0.1)
-            if time.time() - start_time > timeout:
+            if time.time() - start_time > 300: # 5 minutes timeout
                 raise HTTPException(
                     status_code=408,
                     detail="Timeout waiting for session to complete."

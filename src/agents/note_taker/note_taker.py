@@ -1,260 +1,426 @@
-# Python standard library imports
-from typing import Dict, List, TYPE_CHECKING, Optional, Type, TypedDict
+from typing import List, TYPE_CHECKING, TypedDict
 import os
 from dotenv import load_dotenv
 import asyncio
-from datetime import datetime
-
-from pydantic import BaseModel, Field
-from langchain_core.tools import BaseTool, ToolException
-from langchain_core.callbacks.manager import CallbackManagerForToolRun
+import time
 
 
 from agents.base_agent import BaseAgent
-from agents.interviewer.interviewer import Recall
 from agents.note_taker.prompts import get_prompt
-from agents.note_taker.tools import AddInterviewQuestion, DecideFollowups, UpdateSessionNote
-from agents.prompt_utils import format_prompt
-from content.memory_bank.memory_bank_base import MemoryBankBase
+from agents.note_taker.tools import UpdateSessionNote, UpdateMemoryBank, AddHistoricalQuestion
+from agents.shared.memory_tools import Recall
+from agents.shared.note_tools import AddInterviewQuestion
+from agents.shared.feedback_prompts import SIMILAR_QUESTIONS_WARNING, WARNING_OUTPUT_FORMAT
+from content.question_bank.question import SimilarQuestionsGroup
+from utils.llm.prompt_utils import format_prompt
+from utils.llm.xml_formatter import extract_tool_arguments, extract_tool_calls_xml
+from utils.logger.session_logger import SessionLogger
+from utils.formatter import format_similar_questions
 from interview_session.session_models import Participant, Message
-from utils.logger import SessionLogger
+from content.memory_bank.memory import Memory
 
 if TYPE_CHECKING:
     from interview_session.interview_session import InterviewSession
-    
+
 
 load_dotenv()
+
 
 class NoteTakerConfig(TypedDict, total=False):
     """Configuration for the NoteTaker agent."""
     user_id: str
 
+
 class NoteTaker(BaseAgent, Participant):
     def __init__(self, config: NoteTakerConfig, interview_session: 'InterviewSession'):
         BaseAgent.__init__(
-            self,name="NoteTaker",
+            self, name="NoteTaker",
             description="Agent that takes notes and manages the user's memory bank",
             config=config
         )
-        Participant.__init__(self, title="NoteTaker", interview_session=interview_session)
-        
+        Participant.__init__(self, title="NoteTaker",
+                             interview_session=interview_session)
+
         # Config variables
-        self.user_id = config.get("user_id")
-        self.max_events_len = int(os.getenv("MAX_EVENTS_LEN", 40))
-        self.max_consideration_iterations = int(os.getenv("MAX_CONSIDERATION_ITERATIONS", 3))
+        self._max_events_len = int(os.getenv("MAX_EVENTS_LEN", 30))
+        self._max_consideration_iterations = int(
+            os.getenv("MAX_CONSIDERATION_ITERATIONS", 3))
 
         # New memories added in current session
-        self.new_memories = []  
+        self._new_memories: List[Memory] = []
+        # Mapping from temporary memory IDs to real IDs
+        self._memory_id_map = {}
+
+        # Track last interviewer message
+        self._last_interviewer_message = None
 
         # Locks and processing flags
-        self._notes_lock = asyncio.Lock()   # Lock for write_session_notes
+        self.processing_in_progress = False # If processing is in progress
+        self._pending_tasks = 0             # Track number of pending tasks
+        self._notes_lock = asyncio.Lock()   # Lock for _write_notes_and_questions
         self._memory_lock = asyncio.Lock()  # Lock for update_memory_bank
-        self.processing_in_progress = False # Signal to indicate if processing is in progress
-        
+        self._tasks_lock = asyncio.Lock()   # Lock for updating task counter
+
+        # Tools agent can use
         self.tools = {
             "update_memory_bank": UpdateMemoryBank(
                 memory_bank=self.interview_session.memory_bank,
-                note_taker=self
+                on_memory_added=self._add_new_memory,
+                update_memory_map=self._update_memory_map,
+                get_current_response=lambda: (
+                    self.get_event_stream_str(filter=[
+                        {"tag": "memory_lock_message", "sender": "User"}
+                    ], as_list=True)[-1]
+                    .removeprefix("<User>\n")
+                    .removesuffix("\n</User>")
+                )
             ),
-            "update_session_note": UpdateSessionNote(session_note=self.interview_session.session_note),
-            "add_interview_question": AddInterviewQuestion(session_note=self.interview_session.session_note),
-            "recall": Recall(memory_bank=self.interview_session.memory_bank),
-            "decide_followups": DecideFollowups()
+            "add_historical_question": AddHistoricalQuestion(
+                question_bank=self.interview_session.question_bank,
+                memory_bank=self.interview_session.memory_bank,
+                get_real_memory_ids=self._get_real_memory_ids
+            ),
+            "update_session_note": UpdateSessionNote(
+                session_note=self.interview_session.session_note
+            ),
+            "add_interview_question": AddInterviewQuestion(
+                session_note=self.interview_session.session_note,
+                question_bank=self.interview_session.question_bank,
+                proposer="NoteTaker"
+            ),
+            "recall": Recall(
+                memory_bank=self.interview_session.memory_bank
+            ),
         }
-            
+
     async def on_message(self, message: Message):
         '''Handle incoming messages'''
-        if not self.interview_session.session_in_progress:
-            return  # Ignore messages after session ended
-        
-        print(f"{datetime.now()} ✅ Note taker received message from {message.role}")
-        self.add_event(sender=message.role, tag="message", content=message.content)
-        
-        if message.role == "User" and self.interview_session.session_in_progress:
-            asyncio.create_task(self._process_user_message())
+        SessionLogger.log_to_file(
+            "execution_log",
+            f"[NOTIFY] Note taker received message from {message.role}"
+        )
 
-    async def _process_user_message(self):
-        self.processing_in_progress = True
+        if message.role == "Interviewer":
+            self._last_interviewer_message = message
+        elif message.role == "User":
+            if self._last_interviewer_message:
+                asyncio.create_task(self._process_qa_pair(
+                    interviewer_message=self._last_interviewer_message,
+                    user_message=message
+                ))
+                self._last_interviewer_message = None
+
+    async def _process_qa_pair(self, interviewer_message: Message, user_message: Message):
+        """Process a Q&A pair with task tracking"""
+        await self._increment_pending_tasks()
         try:
             # Run both updates concurrently, each with their own lock
             await asyncio.gather(
-                self._locked_write_session_notes(),
-                self._locked_update_memory_bank()
+                self._locked_write_notes_and_questions(
+                    interviewer_message, user_message),
+                self._locked_write_memory_and_question_bank(
+                    interviewer_message, user_message)
             )
         finally:
-            self.processing_in_progress = False
+            await self._decrement_pending_tasks()
 
-    async def _locked_write_session_notes(self) -> None:
-        """Wrapper to handle write_session_notes with lock"""
+    async def _locked_write_notes_and_questions(self, interviewer_message: Message, user_message: Message) -> None:
+        """Wrapper to handle _write_notes_and_questions with lock"""
         async with self._notes_lock:
-            await self.write_session_notes()
+            self.add_event(sender=interviewer_message.role,
+                           tag="notes_lock_message", 
+                           content=interviewer_message.content)
+            self.add_event(sender=user_message.role,
+                           tag="notes_lock_message", 
+                           content=user_message.content)
+            await self._write_notes_and_questions()
 
-    async def _locked_update_memory_bank(self) -> None:
+    async def _locked_write_memory_and_question_bank(self, interviewer_message: Message, user_message: Message) -> None:
         """Wrapper to handle update_memory_bank with lock"""
         async with self._memory_lock:
-            await self.update_memory_bank()
+            self.add_event(sender=interviewer_message.role,
+                           tag="memory_lock_message", 
+                           content=interviewer_message.content)
+            self.add_event(sender=user_message.role,
+                           tag="memory_lock_message", 
+                           content=user_message.content)
+            await self._write_memory_and_question_bank()
 
-    async def write_session_notes(self) -> None:
-        """Process user's response by updating session notes and considering follow-up questions."""
+    async def _write_notes_and_questions(self) -> None:
+        """
+        Process user's response by updating session notes 
+        and considering follow-up questions.
+        """
         # First update the direct response in session notes
-        await self.update_session_note()
-        
+        await self._update_session_note()
+
         # Then consider and propose follow-up questions if appropriate
-        await self.consider_and_propose_followups()
+        await self._propose_followups()
 
-    async def consider_and_propose_followups(self) -> None:
-        """Determine if follow-up questions should be proposed and propose them if appropriate."""
-        # Get prompt for considering and proposing followups
-
+    async def _propose_followups(self) -> None:
+        """
+        Determine if follow-up questions should be proposed 
+        and propose them if appropriate.
+        """
         iterations = 0
-        while iterations < self.max_consideration_iterations:
-            ## Decide if we need to propose follow-ups + propose follow-ups if needed
-            prompt = self._get_formatted_prompt("consider_and_propose_followups")
-            self.add_event(sender=self.name, tag="consider_and_propose_followups_prompt", content=prompt)
-
-            tool_call = await self.call_engine_async(prompt)
-            self.add_event(sender=self.name, tag="consider_and_propose_followups_response", content=tool_call)
-
-            tool_responses = self.handle_tool_calls(tool_call)
-
-            if "add_interview_question" in tool_call:
-                SessionLogger.log_to_file("chat_history", f"[PROPOSE_FOLLOWUPS]\n{tool_call}")
-                SessionLogger.log_to_file("chat_history", f"{self.interview_session.session_note.visualize_topics()}")
-                break
-            elif "recall" in tool_call:
-                # Get recall response and confidence level
-                self.add_event(sender=self.name, tag="recall_response", content=tool_responses)
-            else:
-                break
-            iterations += 1
+        previous_tool_call = None
+        similar_questions: List[SimilarQuestionsGroup] = []
         
-        if iterations >= self.max_consideration_iterations:
+        while iterations < self._max_consideration_iterations:
+            prompt = self._get_formatted_prompt(
+                "consider_and_propose_followups",
+                previous_tool_call=previous_tool_call,
+                similar_questions=similar_questions
+            )
+            
+            self.add_event(
+                sender=self.name,
+                tag=f"consider_and_propose_followups_prompt_{iterations}",
+                content=prompt
+            )
+
+            response = await self.call_engine_async(prompt)
+            self.add_event(
+                sender=self.name,
+                tag=f"consider_and_propose_followups_response_{iterations}",
+                content=response
+            )
+
+            # Check if agent wants to proceed with similar questions
+            if "<proceed>true</proceed>" in response.lower():
+                self.add_event(
+                    sender=self.name,
+                    tag=f"feedback_loop_{iterations}",
+                    content="Agent chose to proceed with similar questions"
+                )
+                # Handle the tool calls to add questions
+                await self.handle_tool_calls_async(response)
+                break
+
+            # Extract proposed questions from add_interview_question tool calls
+            proposed_questions = extract_tool_arguments(
+                response, "add_interview_question", "question"
+            )
+            
+            if not proposed_questions:
+                if "recall" in response:
+                    # Handle recall response
+                    result = await self.handle_tool_calls_async(response)
+                    self.add_event(
+                        sender=self.name, 
+                        tag="recall_response", 
+                        content=result
+                    )
+                else:
+                    # No questions proposed and no recall needed
+                    break
+            else:
+                # Search for similar questions
+                similar_questions: List[SimilarQuestionsGroup] = []
+                for question in proposed_questions:
+                    results = self.interview_session.question_bank.search_questions(
+                        query=question, k=3
+                    )
+                    if results:
+                        similar_questions.append(SimilarQuestionsGroup(
+                            proposed=question,
+                            similar=results
+                        ))
+                
+                if not similar_questions:
+                    # No similar questions found, proceed with adding
+                    await self.handle_tool_calls_async(response)
+                    break
+                else:
+                    # Save tool calls for next iteration
+                    previous_tool_call = extract_tool_calls_xml(response)
+            
+            iterations += 1
+
+        if iterations >= self._max_consideration_iterations:
             self.add_event(
                 sender="system",
                 tag="error",
-                content=f"Exceeded maximum number of consideration iterations ({self.max_consideration_iterations})"
+                content=(
+                    f"Exceeded maximum number of consideration iterations "
+                    f"({self._max_consideration_iterations})"
+                )
             )
 
-    async def update_memory_bank(self) -> None:
-        """Process the latest conversation and update the memory bank if needed."""
-        prompt = self._get_formatted_prompt("update_memory_bank")
-        self.add_event(sender=self.name, tag="update_memory_bank_prompt", content=prompt)
+    async def _write_memory_and_question_bank(self) -> None:
+        """Process the latest conversation and update both memory and question banks."""
+        prompt = self._get_formatted_prompt("update_memory_question_bank")
+        self.add_event(
+            sender=self.name, 
+            tag="update_memory_question_bank_prompt", 
+            content=prompt
+        )
         response = await self.call_engine_async(prompt)
-        self.add_event(sender=self.name, tag="update_memory_bank_response", content=response)
+        self.add_event(
+            sender=self.name, 
+            tag="update_memory_question_bank_response", 
+            content=response
+        )
         self.handle_tool_calls(response)
 
-    async def update_session_note(self) -> None:
+    async def _update_session_note(self) -> None:
+        """Update session note with user's response"""
         prompt = self._get_formatted_prompt("update_session_note")
-        self.add_event(sender=self.name, tag="update_session_note_prompt", content=prompt)
+        self.add_event(
+            sender=self.name,
+            tag="update_session_note_prompt",
+            content=prompt
+        )
         response = await self.call_engine_async(prompt)
-        self.add_event(sender=self.name, tag="update_session_note_response", content=response)
+        self.add_event(
+            sender=self.name,
+            tag="update_session_note_response",
+            content=response
+        )
         self.handle_tool_calls(response)
-    
-    def _get_formatted_prompt(self, prompt_type: str) -> str:
+
+    def _get_formatted_prompt(self, prompt_type: str, **kwargs) -> str:
         '''Gets the formatted prompt for the NoteTaker agent.'''
         prompt = get_prompt(prompt_type)
         if prompt_type == "consider_and_propose_followups":
             # Get all message events
             events = self.get_event_stream_str(filter=[
-                {"tag": "message"},
+                {"tag": "notes_lock_message"},
                 {"sender": self.name, "tag": "recall_response"},
+                *[{"tag": f"consider_and_propose_followups_response_{i}"} \
+                   for i in range(self._max_consideration_iterations)]
             ], as_list=True)
-            
-            recent_events = events[-self.max_events_len:] if len(events) > self.max_events_len else events
-            
+
+            recent_events = events[-self._max_events_len:] if len(
+                events) > self._max_events_len else events
+
+            # Format warning if needed
+            similar_questions = kwargs.get('similar_questions', [])
+            previous_tool_call = kwargs.get('previous_tool_call')
+            warning = (
+                SIMILAR_QUESTIONS_WARNING.format(
+                    previous_tool_call=previous_tool_call,
+                    similar_questions= \
+                        format_similar_questions(similar_questions)
+                ) if similar_questions and previous_tool_call 
+                else ""
+            )
+
             return format_prompt(prompt, {
+                "user_portrait": self.interview_session.session_note \
+                    .get_user_portrait_str(),
                 "event_stream": "\n".join(recent_events),
-                "questions_and_notes": self.interview_session.session_note.get_questions_and_notes_str(),
+                "questions_and_notes": (
+                    self.interview_session.session_note \
+                        .get_questions_and_notes_str()
+                ),
+                "similar_questions_warning": warning,
+                "warning_output_format": WARNING_OUTPUT_FORMAT \
+                                         if similar_questions else "",
                 "tool_descriptions": self.get_tools_description(
                     selected_tools=["recall", "add_interview_question"]
                 )
             })
-        elif prompt_type == "update_memory_bank":
+        elif prompt_type == "update_memory_question_bank":
             events = self.get_event_stream_str(filter=[
-                {"tag": "message"}, 
-                {"sender": self.name, "tag": "update_memory_bank_response"},
+                {"tag": "memory_lock_message"},
             ], as_list=True)
             current_qa = events[-2:] if len(events) >= 2 else []
             previous_events = events[:-2] if len(events) >= 2 else events
-            
-            if len(previous_events) > self.max_events_len:
-                previous_events = previous_events[-self.max_events_len:]
-            
+
+            if len(previous_events) > self._max_events_len:
+                previous_events = previous_events[-self._max_events_len:]
+
             return format_prompt(prompt, {
+                "user_portrait": self.interview_session.session_note.user_portrait,
                 "previous_events": "\n".join(previous_events),
                 "current_qa": "\n".join(current_qa),
-                "tool_descriptions": self.get_tools_description(selected_tools=["update_memory_bank"])
+                "tool_descriptions": self.get_tools_description(
+                    selected_tools=["update_memory_bank",
+                                    "add_historical_question"]
+                )
             })
         elif prompt_type == "update_session_note":
-            events = self.get_event_stream_str(filter=[{"tag": "message"}], as_list=True)
+            events = self.get_event_stream_str(
+                filter=[{"tag": "notes_lock_message"}], as_list=True)
             current_qa = events[-2:] if len(events) >= 2 else []
             previous_events = events[:-2] if len(events) >= 2 else events
-            
-            if len(previous_events) > self.max_events_len:
-                previous_events = previous_events[-self.max_events_len:]
-            
+
+            if len(previous_events) > self._max_events_len:
+                previous_events = previous_events[-self._max_events_len:]
+
             return format_prompt(prompt, {
+                "user_portrait": self.interview_session.session_note.user_portrait,
                 "previous_events": "\n".join(previous_events),
                 "current_qa": "\n".join(current_qa),
-                "questions_and_notes": self.interview_session.session_note.get_questions_and_notes_str(hide_answered="qa"),
-                "tool_descriptions": self.get_tools_description(selected_tools=["update_session_note"])
+                "questions_and_notes": (
+                    self.interview_session.session_note \
+                        .get_questions_and_notes_str(
+                            hide_answered="qa"
+                        )
+                ),
+                "tool_descriptions": self.get_tools_description(
+                    selected_tools=["update_session_note"]
+                )
             })
-    
-    def add_new_memory(self, memory: Dict):
-        """Track newly added memory"""
-        self.new_memories.append(memory)
 
-    def get_session_memories(self) -> List[Dict]:
-        """Get all memories added during current session"""
-        return self.new_memories
+    async def get_session_memories(self) -> List[Memory]:
+        """Get all memories added by note taker during current session.
+        Waits for all pending memory updates to complete before returning."""
+        start_time = time.time()
 
+        SessionLogger.log_to_file(
+            "execution_log",
+            f"[MEMORY] Waiting for memory updates to complete..."
+        )
+        
+        while self.processing_in_progress:
+            await asyncio.sleep(0.1)
+            if time.time() - start_time > 300:  # 5 minutes timeout
+                SessionLogger.log_to_file(
+                    "execution_log",
+                    f"[MEMORY] Timeout waiting for memory updates"
+                )
+                break
 
-
-class UpdateMemoryBankInput(BaseModel):
-    title: str = Field(description="A concise but descriptive title for the memory")
-    text: str = Field(description="A clear summary of the information")
-    metadata: dict = Field(description=(
-        "Additional metadata about the memory. "
-        "This can include topics, people mentioned, emotions, locations, dates, relationships, life events, achievements, goals, aspirations, beliefs, values, preferences, hobbies, interests, education, work experience, skills, challenges, fears, dreams, etc. "
-        "Of course, you don't need to include all of these in the metadata, just the most relevant ones."
-    ))
-    importance_score: int = Field(description=(
-        "This field represents the importance of the memory on a scale from 1 to 10. "
-        "A score of 1 indicates everyday routine activities like brushing teeth or making the bed. "
-        "A score of 10 indicates major life events like a relationship ending or getting accepted to college. "
-        "Use this scale to rate how significant this memory is likely to be."
-    ))
-    source_interview_response: str = Field(description=(
-        "The original user response from the interview that this memory is derived from. "
-        "This should be the exact message from the user that contains this information."
-    ))
-
-class UpdateMemoryBank(BaseTool):
-    """Tool for updating the memory bank."""
-    name: str = "update_memory_bank"
-    description: str = "A tool for storing new memories in the memory bank."
-    args_schema: Type[BaseModel] = UpdateMemoryBankInput
-    memory_bank: MemoryBankBase = Field(...)  # Use the base class for type hint
-    note_taker: NoteTaker = Field(...)
-
-    def _run(
-        self,
-        title: str,
-        text: str,
-        metadata: dict,
-        importance_score: int,
-        source_interview_response: str,
-        run_manager: Optional[CallbackManagerForToolRun] = None,
-    ) -> str:
-        try:
-            memory = self.memory_bank.add_memory(
-                title=title, 
-                text=text, 
-                metadata=metadata, 
-                importance_score=importance_score,
-                source_interview_response=source_interview_response
+        SessionLogger.log_to_file(
+            "execution_log",
+            (
+                f"[MEMORY] Collected {len(self._new_memories)} memories "
+                f"from current session"
             )
-            self.note_taker.add_new_memory(memory.to_dict())
-            return f"Successfully stored memory: {title}"
-        except Exception as e:
-            raise ToolException(f"Error storing memory: {e}")
+        )
+        return self._new_memories
+
+    def _add_new_memory(self, memory: Memory):
+        """Callback to track newly added memory in the session"""
+        self._new_memories.append(memory)
+
+    def _update_memory_map(self, temp_id: str, real_id: str) -> None:
+        """Callback to update the memory ID mapping"""
+        self._memory_id_map[temp_id] = real_id
+        SessionLogger.log_to_file("execution_log",
+                                  f"[MEMORY] Write a new memory with {real_id}")
+
+    def _get_real_memory_ids(self, temp_ids: List[str]) -> List[str]:
+        """Callback to get real memory IDs from temporary IDs"""
+        real_ids = [
+            self._memory_id_map[temp_id]
+            for temp_id in temp_ids
+            if temp_id in self._memory_id_map
+        ]
+        return real_ids
+
+    async def _increment_pending_tasks(self):
+        """Increment the pending tasks counter"""
+        async with self._tasks_lock:
+            self._pending_tasks += 1
+            self.processing_in_progress = True
+
+    async def _decrement_pending_tasks(self):
+        """Decrement the pending tasks counter"""
+        async with self._tasks_lock:
+            self._pending_tasks -= 1
+            if self._pending_tasks <= 0:
+                self._pending_tasks = 0
+                self.processing_in_progress = False

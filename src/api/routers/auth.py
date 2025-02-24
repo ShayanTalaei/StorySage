@@ -19,9 +19,8 @@ async def login(request: LoginRequest, db: Session = Depends(get_db)):
     
     # Verify user exists and password matches
     if not user or not pwd_context.verify(request.password, user.password_hash):
-        print("Hello")
         raise HTTPException(
-            status_code=401,
+            status_code=403,
             detail="Incorrect username or password."
         )
     

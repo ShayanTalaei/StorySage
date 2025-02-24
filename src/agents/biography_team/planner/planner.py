@@ -1,14 +1,16 @@
 import json
-from typing import Dict, List, TYPE_CHECKING, Optional, Type
-from pydantic import BaseModel, Field
-from langchain_core.callbacks.manager import CallbackManagerForToolRun
-from langchain_core.tools import BaseTool, ToolException
+import os
+from typing import Dict, List, TYPE_CHECKING, Optional
 
 from agents.biography_team.base_biography_agent import BiographyConfig, BiographyTeamAgent
-from agents.biography_team.models import TodoItem
+from agents.biography_team.models import Plan, FollowUpQuestion
 from agents.biography_team.planner.prompts import get_prompt
-from content.biography.biography import Section
+from agents.biography_team.planner.tools import AddPlan
+from agents.shared.feedback_prompts import MISSING_MEMORIES_WARNING, WARNING_OUTPUT_FORMAT
+from agents.shared.note_tools import AddFollowUpQuestion
 from content.biography.biography_styles import BIOGRAPHY_STYLE_PLANNER_INSTRUCTIONS
+from content.memory_bank.memory import Memory
+from utils.llm.xml_formatter import extract_tool_arguments, extract_tool_calls_xml
 
 if TYPE_CHECKING:
     from interview_session.interview_session import InterviewSession
@@ -22,84 +24,113 @@ class BiographyPlanner(BiographyTeamAgent):
             config=config,
             interview_session=interview_session
         )
-        self.follow_up_questions = []
-        self.plans: List[TodoItem] = []
+        self.follow_up_questions: List[FollowUpQuestion] = []
+        self.plans: List[Plan] = []
         
-        # Initialize tools
         self.tools = {
-            "add_plan": AddPlan(planner=self),
-            "add_follow_up_question": AddFollowUpQuestion(planner=self)
-        }
-    
-    def _get_full_biography_content(self) -> str:
-        """
-        Get the full content of the biography in a structured format.
-        """
-        def format_section(section: Section):
-            content = []
-            content.append(f"[{section.title}]")
-            if section.content:
-                content.append(section.content)
-            for subsection in section.subsections.values():
-                content.extend(format_section(subsection))
-            return content
-
-        sections = []
-        for section in self.biography.root.subsections.values():
-            sections.extend(format_section(section))
-        return "\n".join(sections)
-
-    async def create_adding_new_memory_plans(self, new_memories: List[Dict]) -> List[Dict]:
-        """
-        Create update plans for the biography based on new memories.
-        """
-        prompt = get_prompt("add_new_memory_planner").format(
-            biography_structure=json.dumps(self.get_biography_structure(), indent=2),
-            biography_content=self._get_full_biography_content(),
-            new_information="\n".join([
-                "<memory>\n"
-                f"<title>{m['title']}</title>\n"
-                f"<content>{m['text']}</content>\n"
-                "</memory>\n"
-                for m in new_memories
-            ]),
-            style_instructions=BIOGRAPHY_STYLE_PLANNER_INSTRUCTIONS.get(
-                self.config.get("biography_style")
+            "add_plan": AddPlan(
+                on_plan_added=lambda p: self.plans.append(p)
             ),
-            tool_descriptions=self.get_tools_description()
-        )
-        self.add_event(sender=self.name, tag="prompt", content=prompt)
-        response = await self.call_engine_async(prompt)
-        self.add_event(sender=self.name, tag="llm_response", content=response)
+            "add_follow_up_question": AddFollowUpQuestion(
+                on_question_added=lambda q: self.follow_up_questions.append(q)
+            )
+        }
 
+    async def create_adding_new_memory_plans(self, new_memories: List[Memory]) -> List[Plan]:
+        """Create update plans for the biography based on new memories."""
+        max_iterations = int(os.getenv("MAX_CONSIDERATION_ITERATIONS", "3"))
+        iterations = 0
+        all_memory_ids = set(memory.id for memory in new_memories)
+        covered_memory_ids = set()
+        previous_tool_call = None
+        
+        while iterations < max_iterations:
+            prompt = self._get_formatted_prompt(
+                "add_new_memory_planner",
+                new_memories=new_memories,
+                previous_tool_call=previous_tool_call,
+                missing_memory_ids="\n".join(
+                    sorted(list(all_memory_ids - covered_memory_ids))
+                ) if previous_tool_call else ""
+            )
+            
+            self.add_event(
+                sender=self.name,
+                tag=f"add_new_memory_prompt_{iterations}", 
+                content=prompt
+            )
+            
+            response = await self.call_engine_async(prompt)
+            self.add_event(
+                sender=self.name,
+                tag=f"add_new_memory_response_{iterations}",
+                content=response
+            )
+
+            # Check if agent wants to proceed with missing memories
+            if "<proceed>true</proceed>" in response.lower():
+                self.add_event(
+                    sender=self.name,
+                    tag=f"feedback_loop_{iterations}",
+                    content="Agent chose to proceed with missing memories"
+                )
+                break
+                
+            # Extract memory IDs from add_plan tool calls
+            memory_ids = extract_tool_arguments(
+                response, "add_plan", "memory_ids"
+            )
+            current_memory_ids = set()
+            for ids in memory_ids:
+                if isinstance(ids, (list, set)):
+                    current_memory_ids.update(ids)
+                else:
+                    current_memory_ids.add(ids)
+            
+            # Update covered memories
+            covered_memory_ids.update(current_memory_ids)
+            
+            # Save tool calls for next iteration
+            previous_tool_call = extract_tool_calls_xml(response)
+            
+            # Check if all memories are covered
+            if covered_memory_ids >= all_memory_ids:
+                self.add_event(
+                    sender=self.name,
+                    tag=f"feedback_loop_{iterations}",
+                    content="All memories covered in plans"
+                )
+                break
+            
+            iterations += 1
+            
+            if iterations == max_iterations:
+                self.add_event(
+                    sender=self.name,
+                    tag=f"warning_{iterations}",
+                    content=f"Reached max iterations ({max_iterations}) "
+                            "without covering all memories"
+                )
+
+        # Handle the final tool calls
         self.handle_tool_calls(response)
         
         return self.plans
 
-    async def create_user_edit_plan(self, edit: Dict) -> Dict:
+    async def create_user_edit_plan(self, edit: Dict) -> Plan:
         """Create a detailed plan for user-requested edits."""
-        if edit["type"] == "ADD":
-            prompt = get_prompt("user_add_planner").format(
-                biography_structure=json.dumps(self.get_biography_structure(), indent=2),
-                biography_content=self._get_full_biography_content(),
+        if edit["type"] == "ADD":   # ADD
+            prompt = self._get_formatted_prompt(
+                "user_add_planner",
                 section_path=edit['data']['newPath'],
-                section_prompt=edit['data']['sectionPrompt'],
-                style_instructions=BIOGRAPHY_STYLE_PLANNER_INSTRUCTIONS.get(
-                    self.config.get("biography_style")
-                ),
-                tool_descriptions=self.get_tools_description(["add_plan"])
+                section_prompt=edit['data']['sectionPrompt']
             )
         else:  # COMMENT
-            prompt = get_prompt("user_comment_planner").format(
-                biography_structure=json.dumps(self.get_biography_structure(), indent=2),
-                biography_content=self._get_full_biography_content(),
+            prompt = self._get_formatted_prompt(
+                "user_comment_planner",
                 section_title=edit['title'],
                 selected_text=edit['data']['comment']['text'],
-                user_comment=edit['data']['comment']['comment'],
-                style_instructions=BIOGRAPHY_STYLE_PLANNER_INSTRUCTIONS.get(
-                    self.config.get("biography_style")
-                ),
-                tool_descriptions=self.get_tools_description(["add_plan"])
+                user_comment=edit['data']['comment']['comment']
             )
 
         self.add_event(sender=self.name, tag="user_edit_prompt", content=prompt)
@@ -112,75 +143,56 @@ class BiographyPlanner(BiographyTeamAgent):
         # Return just the latest plan
         return self.plans[-1] if self.plans else None
 
-class AddPlanInput(BaseModel):
-    action_type: str = Field(description="Type of action (create/update)")
-    section_path: Optional[str] = Field(
-        default=None,
-        description="Optional: Full original path to the section"
-    )
-    section_title: Optional[str] = Field(
-        default=None,
-        description="Optional: Title of the section to update"
-    )
-    relevant_memories: Optional[str] = Field(
-        default=None, 
-        description="Optional: List of memories in bullet points format, e.g. '- Memory 1\n- Memory 2'"
-    )
-    update_plan: str = Field(description="Detailed plan for updating/creating the section")
+    def _get_formatted_prompt(self, prompt_type: str, **kwargs) -> str:
+        """
+        Format prompt with the appropriate parameters based on prompt type.
+        
+        Args:
+            prompt_type: Type of prompt to format
+            **kwargs: Additional parameters specific to the prompt type
+        """
+        base_params = {
+            "user_portrait": self.interview_session.session_note.get_user_portrait_str(),
+            "biography_structure": json.dumps(self.get_biography_structure(), indent=2),
+            "biography_content": self.biography.export_to_markdown(),
+            "style_instructions": BIOGRAPHY_STYLE_PLANNER_INSTRUCTIONS.get(
+                self.config.get("biography_style")
+            )
+        }
 
-class AddPlan(BaseTool):
-    """Tool for adding a biography update plan."""
-    name: str = "add_plan"
-    description: str = "Add a plan for updating or creating a biography section"
-    args_schema: Type[BaseModel] = AddPlanInput
-    planner: BiographyPlanner = Field(...)
+        missing_memory_ids = kwargs.get('missing_memory_ids', "")
+        warning = (
+            MISSING_MEMORIES_WARNING.format(
+                previous_tool_call=kwargs.get('previous_tool_call', ""),
+                missing_memory_ids=missing_memory_ids
+            ) if missing_memory_ids else ""
+        )
 
-    def _run(
-        self,
-        action_type: str,
-        update_plan: str,
-        section_path: Optional[str] = None,
-        section_title: Optional[str] = None,
-        relevant_memories: Optional[str] = None,
-        run_manager: Optional[CallbackManagerForToolRun] = None,
-    ) -> str:
-        try:
-            self.planner.plans.append({
-                "action_type": action_type,
-                "section_path": section_path,
-                "section_title": section_title,
-                "relevant_memories": relevant_memories.strip() if relevant_memories else None,
-                "update_plan": update_plan
-            })
-            return f"Successfully added plan for {section_path}"
-        except Exception as e:
-            raise ToolException(f"Error adding plan: {str(e)}")
+        prompt_params = {
+            "add_new_memory_planner": {
+                **base_params,
+                "new_information": '\n\n'.join(
+                    [memory.to_xml() for memory in kwargs.get('new_memories', [])]
+                ),
+                "missing_memories_warning": warning,
+                "warning_output_format": WARNING_OUTPUT_FORMAT \
+                                         if missing_memory_ids else "",
+                "tool_descriptions": self.get_tools_description(
+                    ["add_plan", "add_follow_up_question"]),
+            },
+            "user_add_planner": {
+                **base_params,
+                "section_path": kwargs.get('section_path'),
+                "section_prompt": kwargs.get('section_prompt'),
+                "tool_descriptions": self.get_tools_description(["add_plan"])
+            },
+            "user_comment_planner": {
+                **base_params,
+                "section_title": kwargs.get('section_title'),
+                "selected_text": kwargs.get('selected_text'),
+                "user_comment": kwargs.get('user_comment'),
+                "tool_descriptions": self.get_tools_description(["add_plan"])
+            }
+        }
 
-class AddFollowUpQuestionInput(BaseModel):
-    content: str = Field(description="The question to ask")
-    context: str = Field(description="Context explaining why this question is important")
-
-class AddFollowUpQuestion(BaseTool):
-    """Tool for adding follow-up questions."""
-    name: str = "add_follow_up_question"
-    description: str = (
-        "Add a follow-up question that needs to be asked to gather more information for the biography. "
-        "Include both the question and context explaining why this information is needed."
-    )
-    args_schema: Type[BaseModel] = AddFollowUpQuestionInput
-    planner: BiographyPlanner = Field(...)
-
-    def _run(
-        self,
-        content: str,
-        context: str,
-        run_manager: Optional[CallbackManagerForToolRun] = None,
-    ) -> str:
-        try:
-            self.planner.follow_up_questions.append({
-                "content": content.strip(),
-                "context": context.strip()
-            })
-            return f"Successfully added follow-up question: {content}"
-        except Exception as e:
-            raise ToolException(f"Error adding follow-up question: {str(e)}")
+        return get_prompt(prompt_type).format(**prompt_params[prompt_type])

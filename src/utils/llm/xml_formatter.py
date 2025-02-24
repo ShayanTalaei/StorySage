@@ -1,10 +1,10 @@
-from typing import Type, Dict, Any
+from typing import Type, Dict, Any, List
 from langchain_core.tools import BaseTool
 from pydantic import BaseModel
 import xml.etree.ElementTree as ET
 import json
 
-from utils.colors import ORANGE, RESET
+from utils.constants.colors import ORANGE, RESET
 
 def format_tool_as_xml_v2(tool: Type[BaseTool]) -> str:
     """
@@ -50,6 +50,27 @@ def parse_tool_calls(xml_string: str) -> Dict[str, Any]:
     root = ET.fromstring(xml_string)
     result = []
     
+    def parse_value(text: str) -> Any:
+        """Parse a value that might be a list or other data type."""
+        if not text:
+            return ""
+        text = text.strip()
+        
+        # Try to parse as a list if it looks like one
+        if text.startswith('[') and text.endswith(']'):
+            try:
+                import ast
+                return ast.literal_eval(text)
+            except:
+                pass
+                
+        # Try to parse as JSON
+        try:
+            return json.loads(text)
+        except (json.JSONDecodeError, TypeError):
+            # If not valid JSON, return as string
+            return text
+    
     # Iterate through each direct child of tool_calls (each is a tool name)
     for tool_element in root:
         tool_name = tool_element.tag
@@ -57,12 +78,7 @@ def parse_tool_calls(xml_string: str) -> Dict[str, Any]:
         
         # Each child of the tool element is an argument
         for arg in tool_element:
-            try:
-                # Try to parse as JSON
-                arguments[arg.tag] = json.loads(arg.text)
-            except (json.JSONDecodeError, TypeError):
-                # If not valid JSON or None, treat as a simple string
-                arguments[arg.tag] = arg.text.strip() if arg.text else ""
+            arguments[arg.tag] = parse_value(arg.text)
                 
         result.append({
             'tool_name': tool_name,
@@ -87,62 +103,66 @@ def call_tool_from_xml(tool_calls_xml_string: str, available_tools: Dict[str, Ba
         tool = available_tools[tool_name]
         try:
             result = tool._run(**arguments)
-            results.append(f"Tool '{tool_name}' executed successfully. Result: {result}")
+            results.append(f"Tool '{tool_name}' executed successfully."
+                           f" Result: {result}")
         except Exception as e:
             print(f"Error calling tool '{tool_name}': {str(e)}")
             results.append(f"Error calling tool '{tool_name}': {str(e)}")
     
     return "\n".join(results)
 
-# # Example usage:
-# if __name__ == "__main__":
-#     from src.workflow.toolkits.sql.insert_row_tool import InsertRowTool
-#     from src.workflow.toolkits.python.python_repl_tool import PythonREPLTool
+def extract_tool_calls_xml(response: str) -> str:
+    """Extract the part of the response containing tool calls."""
+    tool_calls_start = response.find("<tool_calls>")
+    tool_calls_end = response.find("</tool_calls>")
+    if tool_calls_start == -1 or tool_calls_end == -1:
+        return ""
+    return response[tool_calls_start:tool_calls_end + len("</tool_calls>")]
+
+def extract_tool_arguments(response: str, tool_name: str, arg_name: str) -> List[Any]:
+    """Extract specific argument values from tool calls in a response.
     
-#     insert_row_xml = format_tool_as_xml(InsertRowTool)
-#     print(insert_row_xml)
-#     print("\n" + "="*50 + "\n")
-#     python_repl_xml = format_tool_as_xml(PythonREPLTool)
-#     print(python_repl_xml)
-
-# # Example usage:
-# if __name__ == "__main__":
-#     from src.workflow.toolkits.sql.insert_row_tool import InsertRowTool
-#     from src.workflow.toolkits.python.python_repl_tool import PythonREPLTool
-
-#     # Set up available tools
-#     available_tools = {
-#         "InsertRowIntoDB": InsertRowTool(db_path="path/to/your/database.db"),
-#         "Python_REPL": PythonREPLTool()
-#     }
-
-#     # Example XML with comma in list item
-#     xml_call = """
-#     <tool_call>
-#       <tool_name>InsertRowIntoDB</tool_name>
-#       <arguments>
-#         <table_name>users</table_name>
-#         <data>["John Doe, Jr.",30,"john@example.com"]</data>
-#       </arguments>
-#     </tool_call>
-#     """
-
-#     result = call_tool_from_xml(xml_call, available_tools)
-#     print(result)
-
-#     # Example with Python_REPL
-#     xml_call_python = """
-#     <tool_call>
-#       <tool_name>Python_REPL</tool_name>
-#       <arguments>
-#         <python_code>
-# print("Hello, world!")
-# data = ["item1", "item2, with comma", "item3"]
-# print(f"The data is: {data}")
-#         </python_code>
-#       </arguments>
-#     </tool_call>
-#     """
-
-#     result_python = call_tool_from_xml(xml_call_python, available_tools)
-#     print(result_python)
+    Args:
+        response: The full response containing tool calls
+        tool_name: Name of the tool to extract arguments from
+        arg_name: Name of the argument to extract
+        
+    Returns:
+        List[Any]: List of argument values from matching tool calls
+    
+    Example:
+        >>> response = '''<tool_calls>
+        ...     <add_plan>
+        ...         <memory_ids>["MEM_123", "MEM_456"]</memory_ids>
+        ...     </add_plan>
+        ... </tool_calls>'''
+        >>> extract_tool_arguments(response, "add_plan", "memory_ids")
+        >>> ["MEM_123", "MEM_456"]
+    """
+    if "<tool_calls>" not in response:
+        return []
+        
+    tool_calls_start = response.find("<tool_calls>")
+    tool_calls_end = response.find("</tool_calls>")
+    if tool_calls_start == -1 or tool_calls_end == -1:
+        return []
+        
+    tool_calls_xml = response[
+        tool_calls_start:tool_calls_end + len("</tool_calls>")
+    ]
+    
+    values = []
+    for call in parse_tool_calls(tool_calls_xml):
+        if call["tool_name"] == tool_name:
+            value = call["arguments"].get(arg_name)
+            if value:
+                # Handle string representation of lists/dicts
+                if isinstance(value, str) and value.strip() \
+                    .startswith(('[', '{', '"')):
+                    try:
+                        value = eval(value)
+                    except:
+                        pass
+                values.append(value)
+    
+    return values

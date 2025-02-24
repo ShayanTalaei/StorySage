@@ -1,13 +1,13 @@
-from agents.prompt_utils import format_prompt
+from utils.llm.prompt_utils import format_prompt
 
 def get_prompt(prompt_type: str):
-    if prompt_type == "update_memory_bank":
-        return format_prompt(UPDATE_MEMORY_BANK_PROMPT, {
-            "CONTEXT": UPDATE_MEMORY_BANK_CONTEXT,
-            "EVENT_STREAM": UPDATE_MEMORY_BANK_EVENT,
-            "TOOL_DESCRIPTIONS": UPDATE_MEMORY_BANK_TOOL,
-            "INSTRUCTIONS": UPDATE_MEMORY_BANK_INSTRUCTIONS,
-            "OUTPUT_FORMAT": UPDATE_MEMORY_BANK_OUTPUT_FORMAT
+    if prompt_type == "update_memory_question_bank":
+        return format_prompt(UPDATE_MEMORY_QUESTION_BANK_PROMPT, {
+            "CONTEXT": UPDATE_MEMORY_QUESTION_BANK_CONTEXT,
+            "EVENT_STREAM": UPDATE_MEMORY_QUESTION_BANK_EVENT,
+            "TOOL_DESCRIPTIONS": UPDATE_MEMORY_QUESTION_BANK_TOOL,
+            "INSTRUCTIONS": UPDATE_MEMORY_QUESTION_BANK_INSTRUCTIONS,
+            "OUTPUT_FORMAT": UPDATE_MEMORY_QUESTION_BANK_OUTPUT_FORMAT
         })
     elif prompt_type == "update_session_note":
         return format_prompt(UPDATE_SESSION_NOTE_PROMPT, {
@@ -28,9 +28,8 @@ def get_prompt(prompt_type: str):
             "OUTPUT_FORMAT": CONSIDER_AND_PROPOSE_FOLLOWUPS_OUTPUT_FORMAT
         })
 
-#### UPDATE_MEMORY_BANK_PROMPT ####
 
-UPDATE_MEMORY_BANK_PROMPT = """
+UPDATE_MEMORY_QUESTION_BANK_PROMPT = """
 {CONTEXT}
 
 {EVENT_STREAM}
@@ -42,19 +41,26 @@ UPDATE_MEMORY_BANK_PROMPT = """
 {OUTPUT_FORMAT}
 """
 
-UPDATE_MEMORY_BANK_CONTEXT = """
+UPDATE_MEMORY_QUESTION_BANK_CONTEXT = """
 <note_taker_persona>
 You are a note taker who works as the assistant of the interviewer. You observe conversations between the interviewer and the user. 
-Your job is to identify important information shared by the user and store it in the memory bank.
-You should be thorough and precise in identifying and storing relevant information, but avoid storing redundant or trivial details.
+Your job is to:
+1. Identify important information shared by the user and store it in the memory bank
+2. Store the interviewer's questions in the question bank and link them to relevant memories
 </note_taker_persona>
 
 <context>
 Right now, you are observing a conversation between the interviewer and the user.
 </context>
+
+<user_portrait>
+This is the portrait of the user:
+{user_portrait}
+</user_portrait>
 """
 
-UPDATE_MEMORY_BANK_EVENT = """
+UPDATE_MEMORY_QUESTION_BANK_EVENT = """
+<input_context>
 Here is the stream of previous events for context:
 <previous_events>
 {previous_events}
@@ -65,66 +71,141 @@ Here is the current question-answer exchange you need to process:
 {current_qa}
 </current_qa>
 
+Reminder:
 - The external tag of each event indicates the role of the sender of the event.
 - Focus ONLY on processing the content within the current Q&A exchange above.
 - Previous messages are shown only for context, not for reprocessing.
+</input_context>
 """
 
-UPDATE_MEMORY_BANK_TOOL = """
-Here are the tools that you can use to manage memories:
+UPDATE_MEMORY_QUESTION_BANK_TOOL = """
+Here are the tools that you can use to manage memories and questions:
 <tool_descriptions>
 {tool_descriptions}
 </tool_descriptions>
 """
 
-UPDATE_MEMORY_BANK_INSTRUCTIONS = """
+UPDATE_MEMORY_QUESTION_BANK_INSTRUCTIONS = """
 <instructions>
-# Memory Bank Update
 
 ## Process:
-- Analyze the conversation history to identify important information about the user
-- For each piece of information worth storing:
-  1. Use the update_memory_bank tool to store the information
-  2. Create a concise but descriptive title
-  3. Summarize the information clearly
-  4. Add relevant metadata (e.g., topics, people mentioned, emotions, etc.)
-  5. Rate the importance of the memory on a scale from 1 to 10
-  6. Include the exact user message that contains this information as the source
+1. First, analyze the user's response to identify important information:
+   - Consider splitting long responses into MULTIPLE sequential parts
+     * Each memory should cover one part of the user's direct response
+     * Together, all memories should cover the ENTIRE user's response
+   - For EACH piece of information worth storing:
+     * Use the update_memory_bank tool with a unique temporary ID (e.g., MEM_TEMP_1)
+     * Create a concise but descriptive title
+     * Summarize the information clearly
+     * Add relevant metadata (e.g., topics, emotions, when, where, who, etc.)
+     * Rate the importance (1-10)
 
-## Topics to focus on:
-- Information about the user's life
-- Personal experiences
-- Preferences and opinions
-- Important life events
-- Relationships
-- Goals and aspirations
-- Emotional moments
-- Anything else that you think is important
+2. Then, analyze and store questions:
+   - Consider MULTIPLE questions that this response answers:
+     * The direct question that was asked
+     * Derived questions from the response content
+       Example: 
+       Direct question: "How do you like your job?"
+       User response: "I started working here at 18 because I was fascinated by robotics..."
+       Derived question: "What drew you to this field at such a young age?"
+   - For EACH identified question:
+     * Use add_historical_question to store it
+     * Link it to ALL relevant memories using their temp_ids
 
-## Source Interview Response:
-- Always include the exact user message that contains the information
-- If the information spans multiple messages, include the most relevant one
-- The source should be traceable back to the original conversation
+## Memory-Question Relationship Rules:
+1. Coverage Requirements:
+   - Every temp_memory_id MUST be linked to at least one question
+   - Each question MUST be linked to at least one memory
+   - Together, all memories should represent the complete response
 
-# Calling Tools
-- For each piece of information worth storing, use the update_memory_bank tool.
-- If there are multiple pieces of information worth storing, make multiple tool calls.
-- If there's no information worth storing, you can skip making any tool calls.
+2. Linking Structure:
+   - Many-to-many relationship allowed:
+     * One memory can link to multiple questions
+     * One question can link to multiple memories
+
+## Content Quality Guidelines:
+1. Avoid Ambiguity:
+   - NO generic references like:
+     * "the user" → Use the user's name if provided in <user_portrait>
+     * "the project" → Use "Google's LLM project"
+     * "the company" → Use "Microsoft"
+     * "the team" → Use "AI Research team"
+     * "the person" → Use "John Smith, the project lead"
+
+2. Use Clear Language:
+   - NO complex/abstract terms like:
+     * "It greatly influenced the Amy"
+   - Instead use simple, direct language:
+     * "It motivated Amy to join Google"
+
+## Tool Calling Sequence:
+1. update_memory_bank (MULTIPLE calls):
+   - One call per distinct piece of information
+   - Use unique temp_ids (MEM_TEMP_1, MEM_TEMP_2, etc.)
+   - Ensure complete coverage of the user's response
+
+2. add_historical_question (MULTIPLE calls):
+   - One call per answered question
+   - Include ALL relevant temp_ids for each question
+   - Ensure EVERY temp_id is used at least once
+
+3. Skip all tool calls if the response:
+   - Contains no meaningful information
+   - Is just greetings or ice-breakers
+   - Shows user deflection or non-answers
 </instructions>
 """
 
-UPDATE_MEMORY_BANK_OUTPUT_FORMAT = """
+UPDATE_MEMORY_QUESTION_BANK_OUTPUT_FORMAT = """
 <output_format>
-If you identify information worth storing, use the following format:
+<thinking>
+1. Analyze Response Content:
+   - Is this response worth storing? (Skip if just greetings/deflections)
+   - How should I split this response into meaningful segments?
+     * Look for natural breaks in topics, experiences, or time periods
+     * Each split should be a complete, coherent thought
+     * Example splits:
+       Split 1: "I work at Google as a senior engineer..." → about current role
+       Split 2: "Our team is developing a new AI model..." → about specific project
+     * Verify: Does this cover the ENTIRE response while maintaining context?
+
+2. Derived Questions Analysis:
+   For each meaningful segment:
+   - Split 1 (about current role):
+     * What specific questions could we ask about their role at [specific company name]?
+     * What aspects of their work at [specific company name] could be explored further?
+   - Split 2 (about specific project):
+     * What questions could we ask about this [specific project name/type]?
+     * What technical or personal aspects could be explored?
+   ...etc
+
+3. Coverage Check:
+   - Content Coverage:
+     * Have I captured all key experiences/events?
+     * Have I maintained specific details (names, places, dates)?
+     * Have I preserved important context?
+   - Question Coverage:
+     * Is each memory linked to relevant questions?
+     * Are the derived questions specific enough?
+     * Do questions build on concrete details from the response?
+</thinking>
+
 <tool_calls>
+    <!-- First call update_memory_bank for each piece of information -->
     <update_memory_bank>
+        <temp_id>MEM_TEMP_1</temp_id>
         <title>Concise descriptive title</title>
         <text>Clear summary of the information</text>
         <metadata>{{"key 1": "value 1", "key 2": "value 2", ...}}</metadata>
         <importance_score>1-10</importance_score>
-        <source_interview_response>The exact user message containing this information</source_interview_response>
     </update_memory_bank>
     ...
+
+    <!-- Then call add_historical_question for each answered question -->
+    <add_historical_question>
+        <content>The exact question that was asked</content>
+        <temp_memory_ids>['MEM_TEMP_1', 'MEM_TEMP_2', ...]</temp_memory_ids>
+    </add_historical_question>
     ...
 </tool_calls>
 </output_format>
@@ -161,9 +242,15 @@ Right now, you are in an interview session with the interviewer and the user.
 Your task is to process ONLY the most recent user message and update session notes with any new, relevant information.
 You have access to the session notes containing topics and questions to be discussed.
 </context>
+
+<user_portrait>
+This is the portrait of the user:
+{user_portrait}
+</user_portrait>
 """
 
 UPDATE_SESSION_NOTE_EVENT = """
+<input_context>
 Here is the stream of previous events for context:
 <previous_events>
 {previous_events}
@@ -174,9 +261,11 @@ Here is the current question-answer exchange you need to process:
 {current_qa}
 </current_qa>
 
+Reminder:
 - The external tag of each event indicates the role of the sender of the event.
 - Focus ONLY on processing the content within the current Q&A exchange above.
 - Previous messages are shown only for context, not for reprocessing.
+</input_context>
 """
 
 QUESTIONS_AND_NOTES_UPDATE_SESSION_NOTES = """
@@ -229,6 +318,7 @@ For each piece of new information worth storing:
 
 UPDATE_SESSION_NOTE_OUTPUT_FORMAT = """
 <output_format>
+
 If you identify information worth storing, use the following format:
 <tool_calls>
     <update_session_note>
@@ -237,12 +327,13 @@ If you identify information worth storing, use the following format:
     </update_session_note>
     ...
 </tool_calls>
+
+Reminder:
 - You can make multiple tool calls at once if there are multiple pieces of information worth storing.
 - If there's no information worth storing, don't make any tool calls; i.e. return <tool_calls></tool_calls>.
+
 </output_format>
 """
-
-#### CONSIDER_AND_PROPOSE_FOLLOWUPS_PROMPT ####
 
 CONSIDER_AND_PROPOSE_FOLLOWUPS_PROMPT = """
 {CONTEXT}
@@ -250,6 +341,8 @@ CONSIDER_AND_PROPOSE_FOLLOWUPS_PROMPT = """
 {EVENT_STREAM}
 
 {QUESTIONS_AND_NOTES}
+
+{similar_questions_warning}
 
 {TOOL_DESCRIPTIONS}
 
@@ -259,13 +352,15 @@ CONSIDER_AND_PROPOSE_FOLLOWUPS_PROMPT = """
 """
 
 FOLLOWUPS_EVENTS = """
+<input_context>
 The following events include the most recent:
 - Messages exchanged between the interviewer and user
 - Results from memory recalls (showing what information we already have)
-- Decisions on whether to propose follow-ups and the reasoning behind them
+- Your previous decisions on whether to propose follow-ups and the reasoning behind them
 <event_stream>
 {event_stream}
 </event_stream>
+</input_context>
 """
 
 CONSIDER_AND_PROPOSE_FOLLOWUPS_CONTEXT = """
@@ -273,7 +368,7 @@ CONSIDER_AND_PROPOSE_FOLLOWUPS_CONTEXT = """
 You are a skilled interviewer's assistant who knows when and how to propose follow-up questions. 
 You should first analyze available information (from event stream and recall results), and then decide on the following:
 1. Use the recall tool to gather more context about the experience if needed, OR
-2. Propose well-crafted follow-up questions if there are meaningful information gaps to explore and user engagment is high
+2. Propose well-crafted follow-up questions if there are meaningful information gaps to explore and user engagement is high
 
 When proposing questions, they should:
    - Uncover specific details about past experiences
@@ -295,6 +390,11 @@ For each interaction, choose ONE of these actions:
    - There are meaningful information gaps to explore
    If the conditions are not met, it's fine to not propose additional questions
 </context>
+
+<user_portrait>
+This is the portrait of the user:
+{user_portrait}
+</user_portrait>
 """
 
 CONSIDER_AND_PROPOSE_FOLLOWUPS_INSTRUCTIONS = """
@@ -382,6 +482,7 @@ Examples of Good Tangential Questions:
    ✓ "What was life like in that neighborhood during your school years?"
 
 ## Question Guidelines:
+1. Writing and Content:
 - Builds naturally on the current conversation
 - Use direct "you/your" address
 - Focus on specific experiences
@@ -398,24 +499,42 @@ Examples of Good Tangential Questions:
   * Multiple questions at once
   * Redundant questions
 
-  </instructions>
+## Duplicate Question Prevention
+
+**Do Not Propose Questions That Are:**
+1. Similar to Existing Questions
+   - Check current session notes in `<questions_and_notes>`
+   - Review for similar content or intent
+
+2. Already Asked in Conversation
+   - Review conversation history in `<event_stream>`
+   - Check for questions with similar meaning or focus
+
+3. Previously Considered and Rejected
+   - Review your past decisions in `<event_stream>`
+   - Avoid questions you previously determined were not suitable
+</instructions>
 """
 
 CONSIDER_AND_PROPOSE_FOLLOWUPS_OUTPUT_FORMAT = """
+Follow the output format below to return your response:
+
 <output_format>
+<thinking>
+Your reasoning process on reflecting on the available information and deciding on the action to take.
+{warning_output_format}
+</thinking>
 
-Choose ONE of these actions:
 
-1. Make recall tool calls to gather more information:
 <tool_calls>
+    <!-- Option 1: Use recall tool to gather more information -->
     <recall>
         <reasoning>...</reasoning>
         <query>...</query>
     </recall>
-</tool_calls>
+    ...
 
-2. Propose follow-up questions. For each follow-up question you want to add:
-<tool_calls>
+    <!-- Option 2: Propose follow-up questions; leave empty tags if not proposing any -->
     <add_interview_question>
         <topic>Topic name</topic>
         <parent_id>ID of the parent question</parent_id>
@@ -423,10 +542,10 @@ Choose ONE of these actions:
         <question_id>ID in proper parent-child format</question_id>
         <question>[FACT-GATHERING] or [DEEPER] or [TANGENTIAL] Your question here</question>
     </add_interview_question>
+    ...
 </tool_calls>
-
-3. No follow-up needed:
-<tool_calls></tool_calls>
-
 </output_format>
+
+Reminder:
+- If you decide not to propose any follow-up questions, just return <tool_calls></tool_calls> with empty tags
 """

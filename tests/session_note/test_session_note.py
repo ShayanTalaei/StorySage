@@ -2,12 +2,12 @@ import pytest
 import os
 import shutil
 from content.session_note.interview_question import InterviewQuestion
-from src.session_note.session_note import SessionNote
+from src.content.session_note.session_note import SessionNote
 
 USER_ID = "test_user"
 
 @pytest.fixture
-def sample_session_note():
+def sample_session_note() -> SessionNote:
     """Create a sample session note for testing"""
     data = {
         "user_portrait": {
@@ -47,16 +47,16 @@ def sample_session_note():
     }
     return SessionNote(USER_ID, "1", data)
 
-def test_get_user_portrait_str(sample_session_note):
+def test_get_user_portrait_str(sample_session_note: SessionNote):
     """Test formatting of user portrait string"""
     expected = "Name: John Doe\nAge: 30\nOccupation: Software Engineer"
     assert sample_session_note.get_user_portrait_str() == expected
 
-def test_get_last_meeting_summary_str(sample_session_note):
+def test_get_last_meeting_summary_str(sample_session_note: SessionNote):
     """Test getting last meeting summary"""
     assert sample_session_note.get_last_meeting_summary_str() == "First meeting with John"
 
-def test_format_qa_normal(sample_session_note):
+def test_format_qa_normal(sample_session_note: SessionNote):
     """Test question formatting without hiding answered questions"""
     qa = sample_session_note.topics["Personal"][0]
     lines = sample_session_note.format_qa(qa)
@@ -69,7 +69,7 @@ def test_format_qa_normal(sample_session_note):
     ]
     assert lines == expected
 
-def test_format_qa_hide_answered(sample_session_note):
+def test_format_qa_hide_answered(sample_session_note: SessionNote):
     """Test question formatting with hiding answered questions"""
     qa = sample_session_note.topics["Personal"][0]
     lines = sample_session_note.format_qa(qa, hide_answered="qa")
@@ -80,7 +80,7 @@ def test_format_qa_hide_answered(sample_session_note):
     ]
     assert lines == expected
 
-def test_get_questions_and_notes_str(sample_session_note):
+def test_get_questions_and_notes_str(sample_session_note: SessionNote):
     """Test full questions and notes string formatting"""
     result = sample_session_note.get_questions_and_notes_str()
     expected = (
@@ -95,7 +95,7 @@ def test_get_questions_and_notes_str(sample_session_note):
     # Remove whitespace for comparison
     assert result.replace(" ", "") == expected.replace(" ", "")
 
-def test_add_interview_question(sample_session_note):
+def test_add_interview_question(sample_session_note: SessionNote):
     """Test adding new interview questions"""
     # Add top-level question
     sample_session_note.add_interview_question(
@@ -113,7 +113,7 @@ def test_add_interview_question(sample_session_note):
     )
     assert sample_session_note.get_question("3.1").question == "Which high school?"
 
-def test_get_question(sample_session_note):
+def test_get_question(sample_session_note: SessionNote):
     """Test retrieving questions by ID"""
     # Get top-level question
     q1 = sample_session_note.get_question("1")
@@ -126,7 +126,7 @@ def test_get_question(sample_session_note):
     # Get non-existent question
     assert sample_session_note.get_question("999") is None
 
-def test_add_note(sample_session_note):
+def test_add_note(sample_session_note: SessionNote):
     """Test adding notes to questions"""
     # Add note to existing question
     sample_session_note.add_note("2", "Working as senior developer")
@@ -151,7 +151,7 @@ def temp_logs_dir(monkeypatch, tmp_path):
     if os.path.exists("logs/test_user"):
         shutil.rmtree("logs/test_user")
 
-def test_save_and_load(sample_session_note, temp_logs_dir):
+def test_save_and_load(sample_session_note: SessionNote, temp_logs_dir):
     """Test saving and loading session notes"""
     # Save the session note
     saved_path = sample_session_note.save()
@@ -201,7 +201,7 @@ def test_get_last_session_note(temp_logs_dir):
     last_note = SessionNote.get_last_session_note(USER_ID)
     assert str(last_note.session_id) == "2" 
 
-def test_delete_interview_question_no_sub_questions(sample_session_note):
+def test_delete_interview_question_no_sub_questions(sample_session_note: SessionNote):
     """Test deleting a question that has no sub-questions"""
     # Delete question "2" (Current role?)
     sample_session_note.delete_interview_question("2")
@@ -210,7 +210,7 @@ def test_delete_interview_question_no_sub_questions(sample_session_note):
     assert sample_session_note.get_question("2") is None
     assert len(sample_session_note.topics["Professional"]) == 0
 
-def test_delete_interview_question_with_sub_questions(sample_session_note):
+def test_delete_interview_question_with_sub_questions(sample_session_note: SessionNote):
     """Test deleting a question that has sub-questions"""
     # Delete question "1" (Where did you grow up?)
     sample_session_note.delete_interview_question("1")
@@ -224,7 +224,7 @@ def test_delete_interview_question_with_sub_questions(sample_session_note):
     assert sub_question.question == "What neighborhood?"
     assert sub_question.notes == ["South End"]
 
-def test_delete_sub_question_no_children(sample_session_note):
+def test_delete_sub_question_no_children(sample_session_note: SessionNote):
     """Test deleting a sub-question that has no children"""
     # Delete question "1.1" (What neighborhood?)
     sample_session_note.delete_interview_question("1.1")
@@ -237,7 +237,7 @@ def test_delete_sub_question_no_children(sample_session_note):
     assert parent.notes == ["Grew up in Boston"]
     assert len(parent.sub_questions) == 0
 
-def test_delete_sub_question_with_children(sample_session_note):
+def test_delete_sub_question_with_children(sample_session_note: SessionNote):
     """Test deleting a sub-question that has children"""
     # First add a child to 1.1
     sample_session_note.add_interview_question(
@@ -257,12 +257,12 @@ def test_delete_sub_question_with_children(sample_session_note):
     child = sample_session_note.get_question("1.1.1")
     assert child.question == "Which street?"
 
-def test_delete_interview_question_not_found(sample_session_note):
+def test_delete_interview_question_not_found(sample_session_note: SessionNote):
     """Test deleting a non-existent question"""
     with pytest.raises(ValueError, match="Question with id 999 not found"):
         sample_session_note.delete_interview_question("999")
 
-def test_delete_interview_question_parent_not_found(sample_session_note):
+def test_delete_interview_question_parent_not_found(sample_session_note: SessionNote):
     """Test deleting a sub-question with non-existent parent"""
     # Add a question with invalid parent ID
     sample_session_note.topics["Personal"][0].sub_questions.append(
@@ -272,7 +272,7 @@ def test_delete_interview_question_parent_not_found(sample_session_note):
     with pytest.raises(ValueError, match="Parent question with id 999 not found"):
         sample_session_note.delete_interview_question("999.1")
 
-def test_clear_data(sample_session_note):
+def test_clear_data(sample_session_note: SessionNote):
     """Test clearing all data from a session note"""
     # Verify initial state has data
     assert sample_session_note.user_portrait["Name"] == "John Doe"

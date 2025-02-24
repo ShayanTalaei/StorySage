@@ -1,12 +1,17 @@
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional
+from typing import List, Optional
 import os
 import json
 import random
 import string
 from datetime import datetime
+import xml.etree.ElementTree as ET
+import csv
+from pathlib import Path
 
-from content.question_bank.question import Question
+from content.question_bank.question import Question, QuestionSearchResult
+from utils.llm.engines import get_engine, invoke_engine
+from utils.logger.evaluation_logger import EvaluationLogger
 
 class QuestionBankBase(ABC):
     """Abstract base class for question bank implementations.
@@ -18,6 +23,7 @@ class QuestionBankBase(ABC):
     
     def __init__(self):
         self.questions: List[Question] = []
+        self.engine = get_engine("gpt-4o")
     
     def generate_question_id(self) -> str:
         """Generate a short, unique question ID.
@@ -25,7 +31,8 @@ class QuestionBankBase(ABC):
         Example: Q_03121423_X7K (March 12, 14:23)
         """
         timestamp = datetime.now().strftime("%m%d%H%M")
-        random_chars = ''.join(random.choices(string.ascii_uppercase + string.digits, k=3))
+        random_chars = ''.join(random.choices(
+            string.ascii_uppercase + string.digits, k=3))
         return f"Q_{timestamp}_{random_chars}"
     
     @abstractmethod
@@ -49,8 +56,8 @@ class QuestionBankBase(ABC):
     def search_questions(
         self, 
         query: str, 
-        k: int = 5
-    ) -> List[Dict]:
+        k: int = 3
+    ) -> List[QuestionSearchResult]:
         """Search for similar questions.
         
         Args:
@@ -58,7 +65,7 @@ class QuestionBankBase(ABC):
             k: Number of results to return
             
         Returns:
-            List[Dict]: List of question dictionaries with similarity scores
+            List[QuestionSearchResult]: List of question search results with similarity scores
         """
         pass
     
@@ -68,7 +75,8 @@ class QuestionBankBase(ABC):
             'questions': [question.to_dict() for question in self.questions]
         }
         
-        content_filepath = os.getenv("LOGS_DIR") + f"/{user_id}/question_bank_content.json"
+        content_filepath = os.getenv("LOGS_DIR") + \
+            f"/{user_id}/question_bank_content.json"
         os.makedirs(os.path.dirname(content_filepath), exist_ok=True)
         
         with open(content_filepath, 'w') as f:
@@ -86,7 +94,8 @@ class QuestionBankBase(ABC):
         """Load a question bank from file."""
         question_bank = cls()
         
-        content_filepath = os.getenv("LOGS_DIR") + f"/{user_id}/question_bank_content.json"
+        content_filepath = os.getenv("LOGS_DIR") + \
+            f"/{user_id}/question_bank_content.json"
         
         try:
             with open(content_filepath, 'r') as f:
@@ -121,3 +130,75 @@ class QuestionBankBase(ABC):
     def get_questions_by_memory(self, memory_id: str) -> List[Question]:
         """Get all questions linked to a specific memory."""
         return [q for q in self.questions if memory_id in q.memory_ids]
+    
+    def evaluate_question_duplicate(self, target_question: str, proposer: str = "unknown") -> bool:
+        """Check if a question is semantically equivalent to existing questions."""
+        # Get similar questions
+        similar_results = self.search_questions(target_question)
+        
+        if not similar_results:
+            return False
+            
+        # Format similar questions for prompt
+        similar_questions = "\n\n".join([
+            f"Question ID: {result.id}\n"
+            f"Content: {result.content}\n"
+            f"Similarity Score: {result.similarity_score:.2f}"
+            for result in similar_results
+        ])
+        
+        # Prepare prompt
+        prompt = QUESTION_SIMILARITY_PROMPT.format(
+            target_question=target_question,
+            similar_questions=similar_questions
+        )
+        
+        # Get evaluation from LLM and parse response
+        output = invoke_engine(self.engine, prompt)
+        
+        # Parse XML response
+        root = ET.fromstring(output)
+        is_duplicate = root.find('is_duplicate').text.lower() == 'true'
+        matching_id = root.find('matching_question_id').text
+        explanation = root.find('explanation').text
+        
+        # Log evaluation results using current logger
+        logger = EvaluationLogger.get_current_logger()
+        if logger:
+            logger.log_question_similarity(
+                target_question=target_question,
+                similar_questions=[r.content for r in similar_results],
+                similarity_scores=[r.similarity_score for r in similar_results],
+                is_duplicate=is_duplicate,
+                matching_id=matching_id if matching_id != 'null' else '',
+                explanation=explanation,
+                proposer=proposer
+            )
+        
+        return is_duplicate
+
+
+QUESTION_SIMILARITY_PROMPT = """\
+You are an expert at evaluating question similarity.
+
+Target Question:
+{target_question}
+
+Similar Questions:
+{similar_questions}
+
+Please determine if the target question is semantically equivalent to any of the similar questions.
+Consider:
+- Questions asking for the same information in different ways are equivalent
+- Questions with minor wording differences but same intent are equivalent
+
+<output_format>
+Return your evaluation in following format:
+
+<evaluation>
+    <is_duplicate>true/false</is_duplicate>
+    <matching_question_id>ID of matching question or null if no match</matching_question_id>
+    <explanation>Your detailed explanation of the similarity analysis</explanation>
+</evaluation>
+</output_format>
+"""

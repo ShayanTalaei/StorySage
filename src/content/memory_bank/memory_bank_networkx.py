@@ -12,7 +12,7 @@ class MemoryBank:
     MemoryBank class to manage memories using NetworkX graphs.
     """
 
-    DATA_ROOT_PATH = "./data/memory_banks/"
+    DATA_ROOT_PATH = f"./{os.getenv('DATA_DIR', 'data')}/memory_banks/"
 
     def __init__(self, user_id=None):
         """

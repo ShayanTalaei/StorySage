@@ -1,4 +1,5 @@
 data/*
+test_logs/*
 !data/sample_user_profiles
 venv/
 .env

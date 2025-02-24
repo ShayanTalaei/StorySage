@@ -36,8 +36,9 @@ src/
 
 # 2. Memory & Content
 └── content/
-    ├── biography/         # Biography creation & management
-    ├── memory_bank/      # Long-term memory storage
+    ├── biography/        # Biography creation & management
+    ├── memory_bank/      # Memory storage
+    ├── question_bank/    # Question bank for asked questions
     └── session_note/     # Interview notes & summaries
 
 # 3. Core Utils
@@ -46,12 +47,6 @@ src/
 # 4. Backend Modules
 ├── api/              # HTTP endpoints (when running as HTTP service)
 └── database/         # Database integration (for backend mode)
-
-# 5. Supporting Resources
-data/                 # Test profiles & sample data
-docs/                 # Documentation
-logs/                 # Interview session logs
-tests/                # Unit tests for [Memory & Content]
 ```
 
 ### 1. Core Interview Components
@@ -83,13 +78,6 @@ Optional components for running as a service:
 
 - `api`: REST endpoints for HTTP service mode
 - `database`: Database integration for persistent storage in backend mode
-
-### 5. Supporting Resources
-
-- `data`: Contains sample profiles for testing and development
-- `docs`: Project documentation and design specifications
-- `logs`: Interview session logs organized by user
-- `tests`: Comprehensive test suite for all components
 
 ## Deeper Dive into Components
 
@@ -166,16 +154,16 @@ The note taker process user information and updated it into the memory bank and 
 Responsible for:
 
 - Updating the session notes
-- Updating the memory bank
+- Updating the memory and question bank
 - Proposing follow up questions
 
 Tools:
 
 - `update_memory_bank`: Update the memory bank with the new information
 - `update_session_note`: Update the session notes with the new information
-- `recall`: Recall memories from memory bank to help decide whether to ask a follow-up question and what to ask
-- `decide_followups`: Decide whether to ask follow up questions to the user and what to ask
+- `add_historical_question`: Add a historical question to the question bank
 - `add_interview_question`: Add a follow-up interview question to the session notes
+- `recall`: Recall memories from memory bank to help decide whether to ask a follow-up question and what to ask
 
 #### Biography Writing Team
 
@@ -222,7 +210,6 @@ Output:
 
 Tools:
 
-- `get_section`: Get the existing content of specified section
 - `update_section`: Update the section with the new content
 - `add_section`: Create a new section with initial content
 - `add_follow_up_question`: Add a follow-up question to the section
@@ -248,9 +235,9 @@ Tools:
 
 - `update_last_meeting_summary`: Update the summary of the last interview
 - `update_user_portrait`: Update the user portrait
-- `recall`: Recall memories from memory bank to help decide whether to add or delete an interview question
 - `add_interview_question`: Add a follow-up interview question to the session notes
 - `delete_interview_question`: Delete a follow-up interview question from the session notes
+- `recall`: Recall memories from memory bank to help decide whether to add or delete an interview question
 
 ### Memory & Content
 
@@ -261,6 +248,11 @@ Tools:
 - Maintains metadata, importance scores, and timestamps
 - Alternative implementation using NetworkX for graph-based storage (TODO: LightRAG?)
 - Stores relationships between entities (people, places, events)
+
+### Question Bank
+
+- Vector database storing historical questions that are asked to the user
+- Supports semantic search for relevant questions
 
 ### Biography
 

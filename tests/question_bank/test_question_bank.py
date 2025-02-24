@@ -1,10 +1,9 @@
 import os
 from pathlib import Path
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import List
 
-from content.question_bank.question import Question
 from content.question_bank.question_bank_vector_db import QuestionBankVectorDB, QuestionBankBase
 
 @pytest.fixture
@@ -61,9 +60,9 @@ def test_search_questions(question_bank: QuestionBankBase, sample_questions: Lis
     
     assert len(results) == 3
     # First results should be childhood-related
-    assert any("childhood" in result["content"].lower() for result in results)
+    assert any("childhood" in result.content.lower() for result in results)
     # Each result should have a similarity score
-    assert all("similarity_score" in result for result in results)
+    assert all(result.similarity_score is not None for result in results)
 
 def test_search_empty_bank(question_bank: QuestionBankBase):
     """Test searching when question bank is empty."""
@@ -135,8 +134,8 @@ def test_basic_search_exact_match(question_bank: QuestionBankBase):
     results = question_bank.search_questions(question)
     
     assert len(results) > 0
-    assert results[0]["content"] == question
-    assert "similarity_score" in results[0]
+    assert results[0].content == question
+    assert results[0].similarity_score is not None
 
 def test_basic_search_similar_questions(question_bank: QuestionBankBase):
     """Test searching with similar questions."""
@@ -155,8 +154,8 @@ def test_basic_search_similar_questions(question_bank: QuestionBankBase):
     assert len(results) == 2
     # At least one of the top results should be about work/job
     work_related = any(
-        "work" in r["content"].lower() or 
-        "job" in r["content"].lower() 
+        "work" in r.content.lower() or 
+        "job" in r.content.lower() 
         for r in results
     )
     assert work_related
@@ -178,8 +177,44 @@ def test_basic_search_with_context(question_bank: QuestionBankBase):
     assert len(results) == 2
     # At least one of the top results should be about family
     family_related = any(
-        "family" in r["content"].lower() or 
-        "siblings" in r["content"].lower() 
+        "family" in r.content.lower() or 
+        "siblings" in r.content.lower() 
         for r in results
     )
     assert family_related
+
+def test_question_similarity_evaluation(question_bank: QuestionBankBase, sample_questions: List[str], monkeypatch: pytest.MonkeyPatch):
+    """Test the question similarity evaluation functionality."""
+    # Set up test environment but keep logs
+    test_logs_dir = "test_logs"  # This directory won't be deleted after tests
+    monkeypatch.setenv("LOGS_DIR", test_logs_dir)
+    
+    # Add sample questions to the bank
+    for question in sample_questions:
+        question_bank.add_question(question)
+    
+    # Test cases with expected duplicates and non-duplicates
+    test_cases = [
+        "Could you describe your childhood experiences?",  # Should match childhood questions
+        "What is your current job and career?",  # Should match work questions
+        "Who is in your family?",  # Should match family questions
+        "What is your favorite movie?",  # Should be unique
+    ]
+    
+    for test_question in test_cases:
+        print(f"\nTesting question: {test_question}")
+        
+        # Get similar questions
+        similar_results = question_bank.search_questions(test_question)
+        
+        print("\nSimilar questions found:")
+        for result in similar_results:
+            print(f"- {result.content} (similarity: {result.similarity_score:.2f})")
+        
+        # Check if it's a duplicate
+        is_duplicate = question_bank.evaluate_question_duplicate(test_question)
+        print(f"\nIs duplicate: {is_duplicate}")
+        print("-" * 30)
+    
+    print(f"\nEvaluation logs saved to: {test_logs_dir}/evaluations/question_similarity_evaluations.csv")
+    assert False  # To see the output
