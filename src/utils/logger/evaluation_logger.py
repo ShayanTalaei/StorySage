@@ -118,7 +118,7 @@ class EvaluationLogger:
         section_title: str,
         groundness_score: int,
         unsubstantiated_claims: List[str],
-        missing_details: List[str],
+        unsubstantiated_details_explanation: List[str],
         overall_assessment: str,
         biography_version: int
     ) -> None:
@@ -144,7 +144,7 @@ class EvaluationLogger:
                 groundness_score,
                 overall_assessment,
                 '; '.join(unsubstantiated_claims),
-                '; '.join(missing_details),
+                '; '.join(unsubstantiated_details_explanation),
             ])
 
     def log_biography_completeness(

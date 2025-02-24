@@ -30,11 +30,10 @@ Source Memories:
 
 Please analyze if each statement in the biography section is supported by the source memories.
 Return your evaluation in this format:
-- Groundness Score (0-100): A score indicating what percentage of the biographical content is 
-substantiated by the memories
-- Unsubstantiated Claims: List any claims or statements that aren't supported by the memories
-- Missing Details: List any important details from the memories that should be included
+- Groundness Score (0-100): A score indicating what percentage of the biographical content is substantiated by the memories
 - Overall Assessment: A brief explanation of your evaluation
+- Unsubstantiated Claims: List any claims or statements in the biography section that aren't supported by the memories
+- Unsubstantiated Details Explanation: List of explanation of why the claims in the biography section are unsubstantiated
 
 Return your evaluation using the following tool call format:
 
@@ -42,7 +41,7 @@ Return your evaluation using the following tool call format:
     <evaluate_groundness>
         <groundness_score>number between 0-100</groundness_score>
         <unsubstantiated_claims>["claim 1", "claim 2", ...]</unsubstantiated_claims>
-        <missing_details>["detail 1", "detail 2", ...]</missing_details>
+        <unsubstantiated_details_explanation>["explanation 1", "explanation 2", ...]</unsubstantiated_details_explanation>
         <overall_assessment>Your brief explanation of the evaluation</overall_assessment>
     </evaluate_groundness>
 </tool_calls>
@@ -70,7 +69,6 @@ def evaluate_section_groundness(
     
     # Get evaluation using the engine
     output = invoke_engine(engine, prompt)
-    print(output)
 
     # Parse response using XML formatter with error handling
     try:
@@ -83,8 +81,8 @@ def evaluate_section_groundness(
         unsubstantiated_claims = claims[0] if claims else []
 
         details = extract_tool_arguments(
-            output, "evaluate_groundness", "missing_details")
-        missing_details = details[0] if details else []
+            output, "evaluate_groundness", "unsubstantiated_details_explanation")
+        unsubstantiated_details_explanation = details[0] if details else []
 
         assessments = extract_tool_arguments(
             output, "evaluate_groundness", "overall_assessment")
@@ -95,7 +93,7 @@ def evaluate_section_groundness(
         # Provide default values if parsing fails
         groundness_score = 0
         unsubstantiated_claims = []
-        missing_details = []
+        unsubstantiated_details_explanation = []
         overall_assessment = "Failed to parse evaluation response"
     
     result = {
@@ -104,7 +102,7 @@ def evaluate_section_groundness(
         "evaluation": {
             "groundness_score": groundness_score,
             "unsubstantiated_claims": unsubstantiated_claims,
-            "missing_details": missing_details,
+            "unsubstantiated_details_explanation": unsubstantiated_details_explanation,
             "overall_assessment": overall_assessment
         }
     }
@@ -116,7 +114,7 @@ def evaluate_section_groundness(
             section_title=section.title,
             groundness_score=groundness_score,
             unsubstantiated_claims=unsubstantiated_claims,
-            missing_details=missing_details,
+            unsubstantiated_details_explanation=unsubstantiated_details_explanation,
             overall_assessment=overall_assessment,
             biography_version=biography_version
         )
