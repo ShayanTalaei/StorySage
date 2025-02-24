@@ -45,8 +45,8 @@ Examples of Good Variations:
 
 Choose ONE of the following actions:
 1. Regenerate New Tool Calls with Alternative Questions
-   - Explain why these questions provide new insights beyond those already captured in `<thinking></thinking>`.
-   - Add `<proceed>true</proceed>` at the end of your thinking tag to proceed with the regeneration.
+- Explain why these questions provide new insights beyond those already captured in `<thinking></thinking>`.
+- Add `<proceed>true</proceed>` at the end of your thinking tag to proceed with the regeneration.
 2. Leave Blank within `<tool_calls></tool_calls>` Tags if you do not wish to propose any follow-up questions.
 
 </similar_questions_warning>
@@ -67,16 +67,13 @@ Uncovered Memories:
 </missing_memory_ids>
 
 **Action Required:**
-- Generate tool calls to cover all memories
-- Ensure both previous plans in <previous_tool_call>...</previous_tool_call> and missing memories in <missing_memory_ids>...</missing_memory_ids> are included.
-
-If you believe some memories can be excluded, explain why within the `<thinking></thinking>` tags and add `<proceed>true</proceed>` at the end of your thinking.
-
-- Example Reasons:
-  * The memory is already covered in another section.
-  * The memory is trivial and not relevant.
-
-Note: Do not leave the `<tool_calls></tool_calls>` tags empty; otherwise, no action will be taken.
+- Generate tool calls to address all missing memories.
+- If excluding any memories, provide an explanation within the `<thinking></thinking>` tags.
+  - **Example Reasons:**
+    * The memory is already covered in another section.
+    * The memory is trivial and not relevant.
+- Add `<proceed>true</proceed>` at the end of your explanation to proceed with regeneration.
+- Do not alter the section operation type in of the previous tool calls (e.g., from adding to updating a section) as these tool calls will not be executed until the missing memories are addressed.
 
 </missing_memories_warning>
 """

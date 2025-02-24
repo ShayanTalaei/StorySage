@@ -38,7 +38,8 @@ class SectionWriter(BiographyTeamAgent):
             "update_section": UpdateSection(biography=self.biography),
             "add_section": AddSection(biography=self.biography),
             "add_follow_up_question": AddFollowUpQuestion(
-                on_question_added=lambda q: self.follow_up_questions.append(q)
+                on_question_added=lambda q: 
+                    self.follow_up_questions.append(q)
             ),
             "recall": Recall(
                 memory_bank=self.interview_session.memory_bank \
@@ -51,7 +52,8 @@ class SectionWriter(BiographyTeamAgent):
     async def update_section(self, todo_item: Plan) -> UpdateResult:
         """Update a biography section based on a plan."""
         try:
-            max_iterations = int(os.getenv("MAX_CONSIDERATION_ITERATIONS", "3"))
+            max_iterations = int(os.getenv(
+                "MAX_CONSIDERATION_ITERATIONS", "3"))
             iterations = 0
             all_memory_ids = set(todo_item.memory_ids)
             covered_memory_ids = set()
@@ -63,7 +65,8 @@ class SectionWriter(BiographyTeamAgent):
                         todo_item,
                         previous_tool_call=previous_tool_call,
                         missing_memory_ids="\n".join(
-                            sorted(list(all_memory_ids - covered_memory_ids))
+                            sorted(list(all_memory_ids - \
+                                       covered_memory_ids))
                         ) if previous_tool_call else ""
                     )
                     
@@ -167,9 +170,11 @@ class SectionWriter(BiographyTeamAgent):
                     section_path=todo_item.section_path,
                     update_plan=todo_item.update_plan,
                     event_stream=events_str,
-                    style_instructions=BIOGRAPHY_STYLE_WRITER_INSTRUCTIONS.get(
-                        self.config.get("biography_style", "chronological")
-                    ),
+                    style_instructions=
+                        BIOGRAPHY_STYLE_WRITER_INSTRUCTIONS.get(
+                            self.config.get("biography_style", 
+                                            "chronological")
+                        ),
                     tool_descriptions=self.get_tools_description(
                         ["recall", "add_section"]
                     )
@@ -179,9 +184,10 @@ class SectionWriter(BiographyTeamAgent):
                 events_str = self.get_event_stream_str(
                     filter=[{"sender": self.name, "tag": "recall_response"}]
                 )
-                current_content = self.biography.get_section(
+                curr_section = self.biography.get_section(
                     title=todo_item.section_title
                 )
+                current_content = curr_section.content if curr_section else ""
                 return USER_COMMENT_EDIT_PROMPT.format(
                     user_portrait=self.interview_session.session_note \
                         .get_user_portrait_str(),
@@ -189,21 +195,24 @@ class SectionWriter(BiographyTeamAgent):
                     current_content=current_content,
                     update_plan=todo_item.update_plan,
                     event_stream=events_str,
-                    style_instructions=BIOGRAPHY_STYLE_WRITER_INSTRUCTIONS.get(
-                        self.config.get("biography_style", "chronological")
-                    ),
+                    style_instructions=
+                        BIOGRAPHY_STYLE_WRITER_INSTRUCTIONS.get(
+                            self.config.get("biography_style", 
+                                            "chronological")
+                        ),
                     tool_descriptions=self.get_tools_description(
                         ["recall", "update_section"]
                     )
                 )
             # Update a section based on newly collected memory
             else:
-                current_content = self.biography.get_section(
+                curr_section = self.biography.get_section(
                     path=todo_item.section_path \
                         if todo_item.section_path else None,
                     title=todo_item.section_title \
                         if todo_item.section_title else None
                 )
+                current_content = curr_section.content if curr_section else ""
                 section_identifier = ""
                 if todo_item.section_path:
                     section_identifier = (
@@ -233,11 +242,14 @@ class SectionWriter(BiographyTeamAgent):
                     missing_memories_warning=warning,
                     warning_output_format=WARNING_OUTPUT_FORMAT \
                                          if missing_memory_ids else "",
-                    style_instructions=BIOGRAPHY_STYLE_WRITER_INSTRUCTIONS.get(
-                        self.config.get("biography_style", "chronological")
-                    ),
+                    style_instructions=
+                        BIOGRAPHY_STYLE_WRITER_INSTRUCTIONS.get(
+                            self.config.get("biography_style", 
+                                            "chronological")
+                        ),
                     tool_descriptions=self.get_tools_description(
-                        ["add_section", "update_section", "add_follow_up_question"]
+                        ["add_section", "update_section", 
+                         "add_follow_up_question", "recall"]
                     )
                 )
         except Exception as e:

@@ -157,7 +157,7 @@ class EvaluationLogger:
         filename = self.eval_dir / f"completeness_{biography_version}.csv"
         file_exists = filename.exists()
         
-        with open(filename, 'a', newline='') as f:
+        with open(filename, 'w', newline='') as f:
             writer = csv.writer(f)
             if not file_exists:
                 writer.writerow(['Metric', 'Value'])

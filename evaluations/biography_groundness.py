@@ -160,6 +160,12 @@ def main():
         help='ID of the user whose biography to evaluate',
         required=True
     )
+    parser.add_argument(
+        '--version',
+        type=int,
+        help='Version of the biography to evaluate',
+        required=True
+    )
     
     args = parser.parse_args()
     
@@ -167,7 +173,7 @@ def main():
     engine = get_engine("gpt-4o")
     
     # Load biography and memory bank
-    biography = Biography.load_from_file(args.user_id)
+    biography = Biography.load_from_file(args.user_id, args.version)
     memory_bank = VectorMemoryBank.load_from_file(args.user_id)
     
     # Run evaluation

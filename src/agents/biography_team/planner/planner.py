@@ -29,7 +29,7 @@ class BiographyPlanner(BiographyTeamAgent):
         
         self.tools = {
             "add_plan": AddPlan(
-                on_plan_added=lambda p: self.plans.append(p)
+                on_plan_added=self._handle_plan_added
             ),
             "add_follow_up_question": AddFollowUpQuestion(
                 on_question_added=lambda q: self.follow_up_questions.append(q)
@@ -66,6 +66,9 @@ class BiographyPlanner(BiographyTeamAgent):
                 tag=f"add_new_memory_response_{iterations}",
                 content=response
             )
+
+            # Handle tool calls for this iteration immediately
+            self.handle_tool_calls(response)
 
             # Check if agent wants to proceed with missing memories
             if "<proceed>true</proceed>" in response.lower():
@@ -111,9 +114,6 @@ class BiographyPlanner(BiographyTeamAgent):
                     content=f"Reached max iterations ({max_iterations}) "
                             "without covering all memories"
                 )
-
-        # Handle the final tool calls
-        self.handle_tool_calls(response)
         
         return self.plans
 
@@ -196,3 +196,43 @@ class BiographyPlanner(BiographyTeamAgent):
         }
 
         return get_prompt(prompt_type).format(**prompt_params[prompt_type])
+
+    def _handle_plan_added(self, new_plan: Plan) -> None:
+        """Handle adding a new plan, replacing any existing plans for the same section."""
+        # Find any existing plans for the same section
+        for i, existing_plan in enumerate(self.plans):
+            if (
+                (new_plan.section_path and \
+                 new_plan.section_path == existing_plan.section_path) or
+                (new_plan.section_title and \
+                 new_plan.section_title == existing_plan.section_title)
+            ):
+                # Merge memory_ids
+                merged_memory_ids = list(set(
+                    existing_plan.memory_ids + new_plan.memory_ids
+                )) if existing_plan.memory_ids and new_plan.memory_ids \
+                      else existing_plan.memory_ids or new_plan.memory_ids
+
+                # Combine update plans if they're different
+                merged_update_plan = existing_plan.update_plan
+                if new_plan.update_plan and \
+                    new_plan.update_plan != existing_plan.update_plan:
+                    merged_update_plan = (f"{existing_plan.update_plan}\n\n"
+                                          f"{new_plan.update_plan}")
+
+                # Create merged plan with other fields from new plan
+                merged_plan = Plan(
+                    update_plan=merged_update_plan,
+                    status=existing_plan.status,
+                    action_type=existing_plan.action_type,
+                    memory_ids=merged_memory_ids,
+                    section_path=existing_plan.section_path,
+                    section_title=existing_plan.section_title,
+                )
+                
+                # Replace the existing plan with merged plan
+                self.plans[i] = merged_plan
+                return
+                
+        # If no existing plan was found, append the new one
+        self.plans.append(new_plan)
