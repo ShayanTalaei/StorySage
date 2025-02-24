@@ -66,7 +66,9 @@ Uncovered Memories:
 {missing_memory_ids}
 </missing_memory_ids>
 
-You need to regenerate tool calls from scratch.
+**Action Required:**
+- Generate tool calls to cover all memories
+- Ensure both previous plans in <previous_tool_call>...</previous_tool_call> and missing memories in <missing_memory_ids>...</missing_memory_ids> are included.
 
 If you believe some memories can be excluded, explain why within the `<thinking></thinking>` tags and add `<proceed>true</proceed>` at the end of your thinking.
 
