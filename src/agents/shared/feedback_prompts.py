@@ -52,28 +52,49 @@ Choose ONE of the following actions:
 </similar_questions_warning>
 """
 
-MISSING_MEMORIES_WARNING = """\
+PLANNER_MISSING_MEMORIES_WARNING = """\
 <missing_memories_warning>
-Warning: Some memories from the interview session are not yet incorporated into the biography.
+Warning: Some memories from the interview session are not yet incorporated into the plans you have generated.
 
-Previous Tool Calls:
+Previous tool calls that already have been executed:
 <previous_tool_call>
 {previous_tool_call}
 </previous_tool_call>
 
-Uncovered Memories:
+Uncovered memories that are not yet incorporated:
 <missing_memory_ids>
 {missing_memory_ids}
 </missing_memory_ids>
 
-**Action Required:**
-- Generate tool calls to address all missing memories.
-- If excluding any memories, provide an explanation within the `<thinking></thinking>` tags.
-  - **Example Reasons:**
-    * The memory is already covered in another section.
-    * The memory is trivial and not relevant.
-- Add `<proceed>true</proceed>` at the end of your explanation to proceed with regeneration.
-- Do not alter the section operation type in of the previous tool calls (e.g., from adding to updating a section) as these tool calls will not be executed until the missing memories are addressed.
+Action Required:
+- Generate add_plan tool calls to cover the missing memories.
+- If excluding any memories, explain why in `<thinking></thinking>` tags:
+  - Example Reasons:
+    * Memory is trivial or not relevant
+
+</missing_memories_warning>
+"""
+
+MISSING_MEMORIES_WARNING = """\
+<missing_memories_warning>
+Warning: Some memories from the interview session are not yet incorporated into the section content..
+
+Previous tool calls that already have been executed:
+<previous_tool_call>
+{previous_tool_call}
+</previous_tool_call>
+
+Uncovered memories that are not yet incorporated:
+<missing_memory_ids>
+{missing_memory_ids}
+</missing_memory_ids>
+
+Action Required:
+- Update the section content to incorporate the citation links for the missing memories.
+- If excluding any memories, explain why in `<thinking></thinking>` tags:
+  - Example Reasons:
+    * Memory already covered in another section
+    * Memory is trivial or not relevant
 
 </missing_memories_warning>
 """

@@ -135,7 +135,6 @@ This is the portrait of the user:
 First, provide reasoning for your plans and tool calls.
 <thinking>
 Your thoughts here.
-{warning_output_format}
 </thinking>
 
 Then, provide your action using tool calls:

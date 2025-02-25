@@ -6,7 +6,7 @@ from agents.biography_team.base_biography_agent import BiographyConfig, Biograph
 from agents.biography_team.models import Plan, FollowUpQuestion
 from agents.biography_team.planner.prompts import get_prompt
 from agents.biography_team.planner.tools import AddPlan
-from agents.shared.feedback_prompts import MISSING_MEMORIES_WARNING, WARNING_OUTPUT_FORMAT
+from agents.shared.feedback_prompts import MISSING_MEMORIES_WARNING
 from agents.shared.note_tools import AddFollowUpQuestion
 from content.biography.biography_styles import BIOGRAPHY_STYLE_PLANNER_INSTRUCTIONS
 from content.memory_bank.memory import Memory
@@ -175,8 +175,6 @@ class BiographyPlanner(BiographyTeamAgent):
                     [memory.to_xml() for memory in kwargs.get('new_memories', [])]
                 ),
                 "missing_memories_warning": warning,
-                "warning_output_format": WARNING_OUTPUT_FORMAT \
-                                         if missing_memory_ids else "",
                 "tool_descriptions": self.get_tools_description(
                     ["add_plan", "add_follow_up_question"]),
             },

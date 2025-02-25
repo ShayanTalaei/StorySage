@@ -114,7 +114,6 @@ Generate 1-3 focused questions that:
 First, provide reasoning for tool calls.
 <thinking>
 Your thoughts here on how  to write the section content.
-{warning_output_format}
 </thinking>
 
 Then, provide your action using tool calls:

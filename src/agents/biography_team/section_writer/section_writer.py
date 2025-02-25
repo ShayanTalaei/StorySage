@@ -13,7 +13,7 @@ from agents.biography_team.section_writer.tools import (
 )
 from agents.shared.note_tools import AddFollowUpQuestion
 from agents.shared.memory_tools import Recall
-from agents.shared.feedback_prompts import MISSING_MEMORIES_WARNING, WARNING_OUTPUT_FORMAT
+from agents.shared.feedback_prompts import MISSING_MEMORIES_WARNING
 from utils.llm.xml_formatter import extract_tool_calls_xml
 
 if TYPE_CHECKING:
@@ -82,6 +82,9 @@ class SectionWriter(BiographyTeamAgent):
                         tag=f"section_write_response_{iterations}", 
                         content=response
                     )
+
+                    # Handle tool call
+                    result = await self.handle_tool_calls_async(response)
                     
                     # Check if agent wants to proceed with missing memories
                     if "<proceed>yes</proceed>" in response.lower():
@@ -90,13 +93,10 @@ class SectionWriter(BiographyTeamAgent):
                             tag=f"feedback_loop_{iterations}",
                             content="Agent chose to proceed with missing memories"
                         )
-                        await self.handle_tool_calls_async(response)
                         return UpdateResult(success=True, 
                                          message="Section updated successfully")
 
                     if "<recall>" in response:
-                        # Handle recall response
-                        result = await self.handle_tool_calls_async(response)
                         self.add_event(
                             sender=self.name, 
                             tag="recall_response", 
@@ -120,10 +120,9 @@ class SectionWriter(BiographyTeamAgent):
                             sender=self.name,
                             tag=f"feedback_loop_{iterations}",
                             content="All memories covered in section"
-                        )
-                        await self.handle_tool_calls_async(response)
+                        )                    
                         return UpdateResult(success=True, 
-                                         message="Section updated successfully")
+                                            message="Section updated successfully")
                     
                     iterations += 1
                     
@@ -240,8 +239,6 @@ class SectionWriter(BiographyTeamAgent):
                             )
                     ),
                     missing_memories_warning=warning,
-                    warning_output_format=WARNING_OUTPUT_FORMAT \
-                                         if missing_memory_ids else "",
                     style_instructions=
                         BIOGRAPHY_STYLE_WRITER_INSTRUCTIONS.get(
                             self.config.get("biography_style", 
