@@ -111,8 +111,8 @@ For offline evaluations, you can run the evaluation scripts directly.
 # Evaluate biography completeness
 python evaluations/biography_completeness.py --user_id ellie
 
-# Evaluate biography groundness
-python evaluations/biography_groundness.py --user_id ellie
+# Evaluate biography groundedness
+python evaluations/biography_groundedness.py --user_id ellie
 ```
 
 For online evaluations, set the `EVAL_MODE` environment variable to `true` in the `.env` file. Please check `.env.example` for more details.

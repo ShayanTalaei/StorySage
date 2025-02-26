@@ -62,7 +62,6 @@ Generate 1-3 focused questions that:
 1. Information Accuracy
 1.1 Content Sources:
 - Use ONLY information from provided memories
-- Accept shorter sections when information is limited
 - NO speculation or embellishment
 
 1.2 Clarity and Specificity:
@@ -82,16 +81,16 @@ Generate 1-3 focused questions that:
 ✗ Don't:
 - Omit citations for factual statements
 
-3. User Voice Preservation
-✓ Do:
-- Use the user's own words from <source_interview_response> tags
-- Make minimal rephrasing to improve readability while preserving meaning
-- Include memory citations even for direct quotes
+3. User Voice Preservation (Important!!!)
+✓ Do
+- Preserve direct quotes from <source_interview_response> when professionally toned
+- Apply minimal editing only to enhance readability while maintaining original meaning
+- Always include memory citations, even for verbatim quotes
 
-✗ Don't:
-- Condense or oversimplify user statements
+✗ Don't (Important!!!)
+- Condense or oversimplify user statements from <source_interview_response> tags
+- Reduce content length (e.g., summarizing 350 words into 100 words); this causes critical information loss and is strictly prohibited
 - Over-rephrase in ways that alter original meaning
-- Hallucinate any story, details, or impacts that user didn't mention
 - Add interpretative or abstract descriptions
   * Avoid statements like: "This experience had a big impact..." unless explicitly stated by user
 - Modify quoted speech or third-person retellings
@@ -116,7 +115,6 @@ Generate 1-3 focused questions that:
 First, provide reasoning for tool calls.
 <thinking>
 Your thoughts here on how  to write the section content.
-{warning_output_format}
 </thinking>
 
 Then, provide your action using tool calls:

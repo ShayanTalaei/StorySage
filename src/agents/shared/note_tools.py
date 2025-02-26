@@ -44,6 +44,7 @@ class AddInterviewQuestion(BaseTool):
         run_manager: Optional[CallbackManagerForToolRun] = None,
     ) -> str:
         try:
+            # TODO: make it async and not blocking
             if os.getenv("EVAL_MODE", "FALSE").lower() == "true":
                 self.question_bank.evaluate_question_duplicate(question, self.proposer)
 

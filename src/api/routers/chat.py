@@ -318,6 +318,7 @@ async def end_session(
             feedback_content = (
                 f"Session Rating: {feedback.feedback.rating}\n"
                 f"Detailed Feedback:\n{feedback.feedback.feedback}\n"
+                f"Selected Topics: {feedback.selected_topics}\n"
             )
             
             with open(feedback_file, "w", encoding="utf-8") as f:

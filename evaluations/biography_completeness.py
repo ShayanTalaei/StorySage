@@ -96,10 +96,11 @@ def get_unreferenced_memory_details(user_id: str) -> List[dict]:
                 "importance_score": memory.importance_score
             })
     
-    # Sort by importance score (highest first)
-    return sorted(unreferenced_details, 
-                 key=lambda x: x["importance_score"], 
-                 reverse=True)
+    # Sort first by importance score (highest first), then by ID
+    return sorted(
+        unreferenced_details,
+        key=lambda x: (x["id"])
+    )
 
 def main():
     """Main function to run the biography completeness evaluation."""

@@ -45,36 +45,56 @@ Examples of Good Variations:
 
 Choose ONE of the following actions:
 1. Regenerate New Tool Calls with Alternative Questions
-   - Explain why these questions provide new insights beyond those already captured in `<thinking></thinking>`.
-   - Add `<proceed>true</proceed>` at the end of your thinking tag to proceed with the regeneration.
+- Explain why these questions provide new insights beyond those already captured in `<thinking></thinking>`.
+- Add `<proceed>true</proceed>` at the end of your thinking tag to proceed with the regeneration.
 2. Leave Blank within `<tool_calls></tool_calls>` Tags if you do not wish to propose any follow-up questions.
 
 </similar_questions_warning>
 """
 
-MISSING_MEMORIES_WARNING = """\
+PLANNER_MISSING_MEMORIES_WARNING = """\
 <missing_memories_warning>
-Warning: Some memories from the interview session are not yet incorporated into the biography.
+Warning: Some memories from the interview session are not yet incorporated into the plans you have generated.
 
-Previous Tool Calls:
+Previous tool calls that already have been executed:
 <previous_tool_call>
 {previous_tool_call}
 </previous_tool_call>
 
-Uncovered Memories:
+Uncovered memories that are not yet incorporated:
 <missing_memory_ids>
 {missing_memory_ids}
 </missing_memory_ids>
 
-You need to regenerate tool calls from scratch.
+Action Required:
+- Generate add_plan tool calls to cover the missing memories.
+- If excluding any memories, explain why in `<thinking></thinking>` tags:
+  - Example Reasons:
+    * Memory is trivial or not relevant
 
-If you believe some memories can be excluded, explain why within the `<thinking></thinking>` tags and add `<proceed>true</proceed>` at the end of your thinking.
+</missing_memories_warning>
+"""
 
-- Example Reasons:
-  * The memory is already covered in another section.
-  * The memory is trivial and not relevant.
+MISSING_MEMORIES_WARNING = """\
+<missing_memories_warning>
+Warning: Some memories from the interview session are not yet incorporated into the section content..
 
-Note: Do not leave the `<tool_calls></tool_calls>` tags empty; otherwise, no action will be taken.
+Previous tool calls that already have been executed:
+<previous_tool_call>
+{previous_tool_call}
+</previous_tool_call>
+
+Uncovered memories that are not yet incorporated:
+<missing_memory_ids>
+{missing_memory_ids}
+</missing_memory_ids>
+
+Action Required:
+- Update the section content to incorporate the citation links for the missing memories.
+- If excluding any memories, explain why in `<thinking></thinking>` tags:
+  - Example Reasons:
+    * Memory already covered in another section
+    * Memory is trivial or not relevant
 
 </missing_memories_warning>
 """

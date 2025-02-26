@@ -6,8 +6,6 @@ import random
 import string
 from datetime import datetime
 import xml.etree.ElementTree as ET
-import csv
-from pathlib import Path
 
 from content.question_bank.question import Question, QuestionSearchResult
 from utils.llm.engines import get_engine, invoke_engine

@@ -28,7 +28,7 @@ class AddPlanInput(BaseModel):
     )
     memory_ids: List[str] = Field(
         default=[], 
-        description="Required: List of memory IDs that are relevant to this plan, e.g. ['MEM_03121423_X7K', 'MEM_03121423_X7K']"
+        description="Required: List of memory IDs that are relevant to this plan, e.g. ['MEM_03121423_X7K', 'MEM_03121423_X7K']. Don't use other formats like separate memory IDs by comma or space!"
     )
     update_plan: str = Field(description="Detailed plan for updating/creating the section")
 
