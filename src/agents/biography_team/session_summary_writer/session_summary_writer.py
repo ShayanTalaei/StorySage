@@ -86,6 +86,8 @@ class SessionSummaryWriter(BiographyTeamAgent):
                        tag="topic_extraction_response", content=response)
 
         # Parse topics from response (one per line)
+        if "None" in response:
+            return []
         topics = [
             topic.strip()
             for topic in response.split('\n')

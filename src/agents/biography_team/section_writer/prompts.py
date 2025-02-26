@@ -83,12 +83,13 @@ Generate 1-3 focused questions that:
 
 3. User Voice Preservation (Important!!!)
 ✓ Do
-- Copy from the user's own words from <source_interview_response> tags
-- Make minimal rephrasing to improve readability while preserving meaning
-- Include memory citations even for direct quotes
+- Preserve direct quotes from <source_interview_response> when professionally toned
+- Apply minimal editing only to enhance readability while maintaining original meaning
+- Always include memory citations, even for verbatim quotes
 
 ✗ Don't (Important!!!)
-- Condense or oversimplify user statements in <source_interview_response>...</source_interview_response> tags. For example, if user said 350 words relevant to the section topic but you just write 100 words, it is strictly forbidden and will cause information loss!!!
+- Condense or oversimplify user statements from <source_interview_response> tags
+- Reduce content length (e.g., summarizing 350 words into 100 words); this causes critical information loss and is strictly prohibited
 - Over-rephrase in ways that alter original meaning
 - Add interpretative or abstract descriptions
   * Avoid statements like: "This experience had a big impact..." unless explicitly stated by user

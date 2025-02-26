@@ -26,7 +26,7 @@ class BiographyOrchestrator:
 
         # Session note agent if it is an post-interview update
         if interview_session:
-            self._session_note_agent = SessionSummaryWriter(
+            self._session_summary_writer = SessionSummaryWriter(
                 config, interview_session)
             self._interview_session = interview_session
         else:
@@ -91,6 +91,10 @@ class BiographyOrchestrator:
                 self._interview_session.get_session_memories()
             )
 
+            if not new_memories:
+                self._interview_session.session_note.save(increment_session_id=True)
+                return
+
             # 1. First process biography updates
             await self._plan_and_update_biography(new_memories)
 
@@ -99,7 +103,7 @@ class BiographyOrchestrator:
 
             # 3. Process session note update
             session_note_task = asyncio.create_task(
-                self._session_note_agent.update_session_note(
+                self._session_summary_writer.update_session_note(
                     new_memories=new_memories,
                     follow_up_questions=follow_up_questions
                 )
@@ -107,7 +111,7 @@ class BiographyOrchestrator:
 
             # If topics are provided now, set them immediately
             if selected_topics is not None:
-                self._session_note_agent.set_selected_topics(selected_topics)
+                self._session_summary_writer.set_selected_topics(selected_topics)
 
             # Wait for session note task to complete
             await session_note_task
@@ -139,11 +143,11 @@ class BiographyOrchestrator:
     
     async def get_session_topics(self) -> List[str]:
         """To user: Get list of topics covered in this session"""
-        return await self._session_note_agent.extract_session_topics()
+        return await self._session_summary_writer.extract_session_topics()
 
     async def set_selected_topics(self, topics: List[str]):
         """From user: Set the selected topics for session note update"""
-        self._session_note_agent.set_selected_topics(topics)
+        self._session_summary_writer.set_selected_topics(topics)
         
     def _collect_follow_up_questions(self) -> List[Dict]:
         """Collect follow-up questions from planner and section writer."""
