@@ -11,7 +11,7 @@ from agents.note_taker.tools import UpdateSessionNote, UpdateMemoryBank, AddHist
 from agents.shared.memory_tools import Recall
 from agents.shared.note_tools import AddInterviewQuestion
 from agents.shared.feedback_prompts import SIMILAR_QUESTIONS_WARNING, WARNING_OUTPUT_FORMAT
-from content.question_bank.question import SimilarQuestionsGroup
+from content.question_bank.question import QuestionSearchResult, SimilarQuestionsGroup
 from utils.llm.prompt_utils import format_prompt
 from utils.llm.xml_formatter import extract_tool_arguments, extract_tool_calls_xml
 from utils.logger.session_logger import SessionLogger
@@ -76,7 +76,7 @@ class NoteTaker(BaseAgent, Participant):
                 )
             ),
             "add_historical_question": AddHistoricalQuestion(
-                question_bank=self.interview_session.question_bank,
+                question_bank=self.interview_session.historical_question_bank,
                 memory_bank=self.interview_session.memory_bank,
                 get_real_memory_ids=self._get_real_memory_ids
             ),
@@ -85,7 +85,8 @@ class NoteTaker(BaseAgent, Participant):
             ),
             "add_interview_question": AddInterviewQuestion(
                 session_note=self.interview_session.session_note,
-                question_bank=self.interview_session.question_bank,
+                historical_question_bank=self.interview_session.historical_question_bank,
+                proposed_question_bank=self.interview_session.proposed_question_bank,
                 proposer="NoteTaker"
             ),
             "recall": Recall(
@@ -218,13 +219,37 @@ class NoteTaker(BaseAgent, Participant):
                 # Search for similar questions
                 similar_questions: List[SimilarQuestionsGroup] = []
                 for question in proposed_questions:
-                    results = self.interview_session.question_bank.search_questions(
-                        query=question, k=3
-                    )
-                    if results:
+                    # Search in both question banks
+                    historical_results = \
+                        self.interview_session.historical_question_bank \
+                            .search_questions(query=question, k=3)
+                    proposed_results = \
+                        self.interview_session.proposed_question_bank \
+                            .search_questions(query=question, k=3)
+                    
+                    # Combine results and remove duplicates
+                    all_results: List[QuestionSearchResult] = []
+                    seen_questions = set()
+                    
+                    # Process all results and keep track of seen questions
+                    for result_list in [historical_results, proposed_results]:
+                        if result_list:
+                            for result in result_list:
+                                # Only add if we haven't seen before
+                                if result.content not in seen_questions:
+                                    all_results.append(result)
+                                    seen_questions.add(result.content)
+                    
+                    # Sort by similarity score (higher score = more similar)
+                    all_results.sort(key=lambda x: x.similarity_score, reverse=True)
+                    
+                    # Take top 3 unique results if available
+                    top_results = all_results[:3] if all_results else []
+                    
+                    if top_results:
                         similar_questions.append(SimilarQuestionsGroup(
                             proposed=question,
-                            similar=results
+                            similar=top_results
                         ))
                 
                 if not similar_questions:

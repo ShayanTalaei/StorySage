@@ -49,7 +49,7 @@ class SessionSummaryWriter(BiographyTeamAgent):
             # Question tools
             "add_interview_question": AddInterviewQuestion(
                 session_note=self._session_note,
-                question_bank=self.interview_session.question_bank,
+                historical_question_bank=self.interview_session.historical_question_bank,
                 proposer="SessionSummaryWriter"
             ),
             "delete_interview_question": DeleteInterviewQuestion(
@@ -178,7 +178,8 @@ class SessionSummaryWriter(BiographyTeamAgent):
                 # Search for similar questions
                 similar_questions = []
                 for question in proposed_questions:
-                    results = self.interview_session.question_bank.search_questions(
+                    results = \
+                        self.interview_session.historical_question_bank.search_questions(
                         query=question, k=3
                     )
                     if results:

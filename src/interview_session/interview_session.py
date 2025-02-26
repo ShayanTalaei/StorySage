@@ -43,7 +43,7 @@ class InterviewConfig(TypedDict, total=False):
 class BankConfig(TypedDict, total=False):
     """Configuration for memory and question banks."""
     memory_bank_type: str  # "vector_db", "graph_rag", etc.
-    question_bank_type: str  # "vector_db", "graph", "semantic", etc.
+    historical_question_bank_type: str  # "vector_db", "graph", "semantic", etc.
 
 
 class InterviewSession:
@@ -63,7 +63,7 @@ class InterviewSession:
             bank_config: Bank configuration dictionary
                 memory_bank_type: Type of memory bank 
                     Options: "vector_db", etc.
-                question_bank_type: Type of question bank 
+                historical_question_bank_type: Type of question bank 
                     Options: "vector_db", etc.
         """
 
@@ -82,13 +82,15 @@ class InterviewSession:
             raise ValueError(f"Unknown memory bank type: {memory_bank_type}")
 
         # Question bank setup
-        question_bank_type = bank_config.get("question_bank_type", "vector_db")
-        if question_bank_type == "vector_db":
-            self.question_bank = QuestionBankVectorDB.load_from_file(
+        historical_question_bank_type = \
+            bank_config.get("historical_question_bank_type", "vector_db")
+        if historical_question_bank_type == "vector_db":
+            self.historical_question_bank = QuestionBankVectorDB.load_from_file(
                 self.user_id)
+            self.proposed_question_bank = QuestionBankVectorDB()
         else:
             raise ValueError(
-                f"Unknown question bank type: {question_bank_type}")
+                f"Unknown question bank type: {historical_question_bank_type}")
 
         # Logger setup
         setup_logger(self.user_id, self.session_id,
@@ -221,14 +223,14 @@ class InterviewSession:
         # Notify participants if message is a skip or conversation
         if message_type == MessageType.SKIP or message_type == MessageType.CONVERSATION:
             self.chat_history.append(message)
+            SessionLogger.log_to_file(
+                "chat_history", f"{message.role}: {message.content}")
             asyncio.create_task(self._notify_participants(message))
 
         # Update last message time when we receive a message
         if role == "User":
             self._last_message_time = datetime.now()
 
-        SessionLogger.log_to_file(
-            "chat_history", f"{message.role}: {message.content}")
         SessionLogger.log_to_file(
             "execution_log", 
             (
@@ -310,7 +312,7 @@ class InterviewSession:
                 self.memory_bank.save_to_file(self.user_id)
                 SessionLogger.log_to_file(
                     "execution_log", f"[COMPLETED] Memory bank saved")
-                self.question_bank.save_to_file(self.user_id)
+                self.historical_question_bank.save_to_file(self.user_id)
                 SessionLogger.log_to_file(
                     "execution_log", f"[COMPLETED] Question bank saved")
                 self.session_completed = True

@@ -31,7 +31,8 @@ class AddInterviewQuestion(BaseTool):
     )
     args_schema: Type[BaseModel] = AddInterviewQuestionInput
     session_note: SessionNote = Field(...)
-    question_bank: QuestionBankBase = Field(...)
+    historical_question_bank: QuestionBankBase = Field(...)
+    proposed_question_bank: Optional[QuestionBankBase] = Field(default=None)
     proposer: str = Field(...)
 
     def _run(
@@ -46,9 +47,12 @@ class AddInterviewQuestion(BaseTool):
         try:
             # TODO: make it async and not blocking
             if os.getenv("EVAL_MODE", "FALSE").lower() == "true":
-                self.question_bank.evaluate_question_duplicate(question, self.proposer)
+                self.historical_question_bank \
+                    .evaluate_question_duplicate(question, self.proposer)
+            
+            if self.proposed_question_bank:
+                self.proposed_question_bank.add_question(question)
 
-            # If not duplicate, add to session notes
             self.session_note.add_interview_question(
                 topic=str(topic),
                 question=str(question).strip(),
@@ -68,18 +72,18 @@ Shared tools for proposing follow-up questions by:
 * Note: This tool only proposes follow-up questions, it does not really add them to the session notes, which is different from the add_interview_question tool.
 """
 
-class AddFollowUpQuestionInput(BaseModel):
+class ProposeFollowUpInput(BaseModel):
     content: str = Field(description="The question to ask")
     context: str = Field(description="Context explaining why this question is important")
 
-class AddFollowUpQuestion(BaseTool):
+class ProposeFollowUp(BaseTool):
     """Tool for adding follow-up questions."""
-    name: str = "add_follow_up_question"
+    name: str = "propose_follow_up"
     description: str = (
         "Add a follow-up question that needs to be asked to gather more information for the biography. "
         "Include both the question and context explaining why this information is needed."
     )
-    args_schema: Type[BaseModel] = AddFollowUpQuestionInput
+    args_schema: Type[BaseModel] = ProposeFollowUpInput
     on_question_added: SkipValidation[Callable[[FollowUpQuestion], None]] = Field(
         description="Callback function to be called when a follow-up question is added"
     )

@@ -11,7 +11,7 @@ from content.biography.biography_styles import BIOGRAPHY_STYLE_WRITER_INSTRUCTIO
 from agents.biography_team.section_writer.tools import (
     UpdateSection, AddSection
 )
-from agents.shared.note_tools import AddFollowUpQuestion
+from agents.shared.note_tools import ProposeFollowUp
 from agents.shared.memory_tools import Recall
 from agents.shared.feedback_prompts import MISSING_MEMORIES_WARNING
 from utils.llm.xml_formatter import extract_tool_calls_xml
@@ -37,7 +37,7 @@ class SectionWriter(BiographyTeamAgent):
         self.tools = {
             "update_section": UpdateSection(biography=self.biography),
             "add_section": AddSection(biography=self.biography),
-            "add_follow_up_question": AddFollowUpQuestion(
+            "propose_follow_up": ProposeFollowUp(
                 on_question_added=lambda q: 
                     self.follow_up_questions.append(q)
             ),
@@ -246,7 +246,7 @@ class SectionWriter(BiographyTeamAgent):
                         ),
                     tool_descriptions=self.get_tools_description(
                         ["add_section", "update_section", 
-                         "add_follow_up_question", "recall"]
+                         "propose_follow_up", "recall"]
                     )
                 )
         except Exception as e:

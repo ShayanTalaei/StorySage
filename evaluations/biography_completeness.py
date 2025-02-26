@@ -2,7 +2,6 @@ from pathlib import Path
 from typing import List, Set
 import argparse
 import sys
-import csv
 
 # Add the src directory to Python path
 src_dir = str(Path(__file__).parent.parent / "src")

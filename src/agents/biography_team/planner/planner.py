@@ -7,7 +7,7 @@ from agents.biography_team.models import Plan, FollowUpQuestion
 from agents.biography_team.planner.prompts import get_prompt
 from agents.biography_team.planner.tools import AddPlan
 from agents.shared.feedback_prompts import MISSING_MEMORIES_WARNING
-from agents.shared.note_tools import AddFollowUpQuestion
+from agents.shared.note_tools import ProposeFollowUp
 from content.biography.biography_styles import BIOGRAPHY_STYLE_PLANNER_INSTRUCTIONS
 from content.memory_bank.memory import Memory
 from utils.llm.xml_formatter import extract_tool_arguments, extract_tool_calls_xml
@@ -31,7 +31,7 @@ class BiographyPlanner(BiographyTeamAgent):
             "add_plan": AddPlan(
                 on_plan_added=self._handle_plan_added
             ),
-            "add_follow_up_question": AddFollowUpQuestion(
+            "propose_follow_up": ProposeFollowUp(
                 on_question_added=lambda q: self.follow_up_questions.append(q)
             )
         }
@@ -176,7 +176,7 @@ class BiographyPlanner(BiographyTeamAgent):
                 ),
                 "missing_memories_warning": warning,
                 "tool_descriptions": self.get_tools_description(
-                    ["add_plan", "add_follow_up_question"]),
+                    ["add_plan", "propose_follow_up"]),
             },
             "user_add_planner": {
                 **base_params,

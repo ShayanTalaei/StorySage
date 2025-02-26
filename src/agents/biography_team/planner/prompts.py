@@ -143,9 +143,9 @@ Then, provide your action using tool calls:
         ...
     </add_plan>
 
-    <add_follow_up_question>
+    <propose_follow_up>
         ...
-    </add_follow_up_question>
+    </propose_follow_up>
 </tool_calls>
 </output_format>
 """
