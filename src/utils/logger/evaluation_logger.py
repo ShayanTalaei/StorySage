@@ -78,7 +78,7 @@ class EvaluationLogger:
         # Construct filename based on session_id
         if self.session_id is not None:
             filename = self.eval_dir / \
-                f"question_similarity_evaluations_session_{self.session_id}.csv"
+                f"question_similarity_session_{self.session_id}.csv"
         else:
             filename = self.eval_dir / "question_similarity_evaluations.csv"
             
@@ -112,18 +112,25 @@ class EvaluationLogger:
                 explanation
             ])
 
-    def log_biography_groundness(
+    def log_biography_groundedness(
         self,
         section_id: str,
         section_title: str,
-        groundness_score: int,
+        groundedness_score: int,
         unsubstantiated_claims: List[str],
         unsubstantiated_details_explanation: List[str],
         overall_assessment: str,
-        biography_version: int
+        biography_version: int,
+        prompt: str = None,
+        response: str = None
     ) -> None:
-        """Log biography groundness evaluation results."""
-        filename = self.eval_dir / f"groundness_{biography_version}.csv"
+        """Log biography groundedness evaluation results."""
+        # Create a version-specific directory
+        version_dir = self.eval_dir / f"biography_{biography_version}"
+        version_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Log to CSV file
+        filename = version_dir / "groundedness_summary.csv"
         file_exists = filename.exists()
         
         with open(filename, 'a', newline='') as f:
@@ -132,7 +139,7 @@ class EvaluationLogger:
                 writer.writerow([
                     'Section ID',
                     'Section Title',
-                    'Groundness Score',
+                    'Groundedness Score',
                     'Overall Assessment',
                     'Unsubstantiated Claims',
                     'Missing Details',
@@ -141,11 +148,25 @@ class EvaluationLogger:
             writer.writerow([
                 section_id,
                 section_title,
-                groundness_score,
+                groundedness_score,
                 overall_assessment,
                 '; '.join(unsubstantiated_claims),
                 '; '.join(unsubstantiated_details_explanation),
             ])
+        
+        # Log prompt and response to a log file if provided
+        if prompt or response:
+            log_filename = version_dir / f"section_{section_id}.log"
+            with open(log_filename, 'w', encoding='utf-8') as log_file:
+                if prompt:
+                    log_file.write("=== PROMPT ===\n\n")
+                    log_file.write(prompt)
+                    log_file.write("\n\n")
+                
+                if response:
+                    log_file.write("=== RESPONSE ===\n\n")
+                    log_file.write(response)
+                    log_file.write("\n\n")
 
     def log_biography_completeness(
         self,
@@ -154,23 +175,28 @@ class EvaluationLogger:
         biography_version: int
     ) -> None:
         """Log biography completeness evaluation results."""
-        filename = self.eval_dir / f"completeness_{biography_version}.csv"
-        file_exists = filename.exists()
+        # Create a version-specific directory
+        version_dir = self.eval_dir / f"biography_{biography_version}"
+        version_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Log to CSV file
+        filename = version_dir / "completeness_summary.csv"
         
         with open(filename, 'w', newline='') as f:
             writer = csv.writer(f)
-            if not file_exists:
-                writer.writerow(['Metric', 'Value'])
+            writer.writerow(['Metric', 'Value'])
             
             writer.writerow(['Memory Coverage', f"{metrics['memory_recall']}%"])
             writer.writerow(['Total Memories', metrics['total_memories']])
-            writer.writerow(['Referenced Memories', metrics['referenced_memories']])
+            writer.writerow(['Referenced Memories', 
+                             metrics['referenced_memories']])
             writer.writerow(['Unreferenced Memories Count', 
                              len(metrics['unreferenced_memories'])])
             
             if unreferenced_details:
                 writer.writerow([])  # Empty row for separation
-                writer.writerow(['Unreferenced Memory ID', 'Title', 'Importance Score'])
+                writer.writerow(['Unreferenced Memory ID', 
+                                 'Title', 'Importance Score'])
                 for memory in unreferenced_details:
                     writer.writerow([
                         memory['id'],
