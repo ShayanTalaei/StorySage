@@ -5,6 +5,9 @@ import os
 import boto3
 from botocore.exceptions import ClientError
 import uuid
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from api.core.auth import get_current_user
 from utils.constants.colors import RESET, RED

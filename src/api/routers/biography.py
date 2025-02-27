@@ -2,6 +2,10 @@ import os
 import json
 from fastapi import APIRouter, HTTPException, Depends
 from typing import Dict, Any, List
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from api.core.auth import get_current_user
 from api.schemas.biography import BiographyEdit
 from content.biography.biography import Biography

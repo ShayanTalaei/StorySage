@@ -4,7 +4,9 @@ from langchain_core.tools import BaseTool, ToolException
 from typing import Type, Optional, Callable
 from langchain_core.callbacks.manager import CallbackManagerForToolRun
 from pydantic import BaseModel, Field, SkipValidation
+from dotenv import load_dotenv
 
+load_dotenv()
 
 from content.question_bank.question_bank_base import QuestionBankBase
 from content.session_note.session_note import SessionNote

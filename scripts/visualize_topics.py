@@ -2,11 +2,16 @@ import os
 import sys
 import argparse
 from pathlib import Path
+from dotenv import load_dotenv
 
 # Add the src directory to Python path
 src_dir = str(Path(__file__).parent.parent / "src")
 sys.path.append(src_dir)
 
+# Load environment variables from .env file
+load_dotenv()
+
+# Now import modules and use environment variables
 from content.session_note.session_note import SessionNote
 
 def get_session_ids(user_id: str) -> list[int]:

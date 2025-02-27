@@ -3,6 +3,9 @@ from typing import TYPE_CHECKING
 from interview_session.session_models import Participant, Message
 from utils.speech.speech_to_text import create_stt_engine
 import time
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from utils.constants.colors import RESET, ORANGE, BLUE
 

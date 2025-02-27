@@ -2,6 +2,7 @@ data/*
 test_logs/*
 !data/sample_user_profiles
 data/sample_user_profiles/meijin/*
+requirements-dspy.txt
 venv/
 .env
 .env*

@@ -5,6 +5,9 @@ import uuid
 import os
 import asyncio
 import re
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class Section:
     def __init__(self, title: str, content: str = "", parent: Optional['Section'] = None):

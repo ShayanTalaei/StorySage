@@ -2,7 +2,9 @@ from abc import ABC, abstractmethod
 from typing import Optional
 import os
 from openai import OpenAI
-from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class TextToSpeechBase(ABC):
     """Base class for text-to-speech implementations"""

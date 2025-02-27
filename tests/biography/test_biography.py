@@ -3,6 +3,9 @@ import os
 import shutil
 from src.content.biography.biography import Biography
 import asyncio
+from dotenv import load_dotenv
+
+load_dotenv()
 
 USER_ID = "test_user"
 TEST_DATA_DIR = f"{os.getenv('DATA_DIR', 'data')}/{USER_ID}"

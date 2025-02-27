@@ -1,6 +1,9 @@
 import json
 import os
 from typing import Dict, List, TYPE_CHECKING, Optional
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from agents.biography_team.base_biography_agent import BiographyConfig, BiographyTeamAgent
 from agents.biography_team.models import Plan, FollowUpQuestion

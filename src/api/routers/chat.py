@@ -6,6 +6,9 @@ import uuid
 import time
 from pathlib import Path
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from api.schemas.chat import (
     MessageRequest, MessageResponse, EndSessionResponse, UserMessagesResponse, TopicsResponse, TopicsFeedbackRequest

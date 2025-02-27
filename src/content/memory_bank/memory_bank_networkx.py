@@ -4,7 +4,9 @@ import networkx as nx
 import uuid
 import os
 import datetime
+from dotenv import load_dotenv
 
+load_dotenv()
 
 @deprecated(reason="Not implemented yet")
 class MemoryBank:

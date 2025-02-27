@@ -5,6 +5,9 @@ import json
 import random
 import string
 from datetime import datetime
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from content.memory_bank.memory import Memory, MemorySearchResult
 

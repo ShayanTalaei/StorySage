@@ -3,6 +3,9 @@ import csv
 import os
 from datetime import datetime
 from typing import Dict, Any, List, Optional
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class EvaluationLogger:
     """Logger for evaluation results."""
@@ -58,7 +61,7 @@ class EvaluationLogger:
         similar_questions: List[str],
         similarity_scores: List[float],
         is_duplicate: bool,
-        matching_id: str,
+        matched_question: str,
         explanation: str,
         proposer: str = "unknown",
         timestamp: Optional[datetime] = None
@@ -70,7 +73,7 @@ class EvaluationLogger:
             similar_questions: List of similar questions found
             similarity_scores: List of similarity scores
             is_duplicate: Whether the question is considered a duplicate
-            matching_id: ID of the matching question (if duplicate)
+            matched_question: Content of the matched duplicate question
             explanation: Explanation of the similarity evaluation
             proposer: Name of the agent proposing this question
             timestamp: Optional timestamp (defaults to current time)
@@ -108,7 +111,7 @@ class EvaluationLogger:
                 '; '.join(similar_questions),
                 '; '.join(f"{score:.2f}" for score in similarity_scores),
                 is_duplicate,
-                matching_id if matching_id != 'null' else '',
+                matched_question if matched_question != 'null' else '',
                 explanation
             ])
 

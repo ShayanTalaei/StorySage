@@ -1,6 +1,9 @@
 import os
 import csv
 from interview_session.session_models import Message
+from dotenv import load_dotenv
+
+load_dotenv()
 
 def save_feedback_to_csv(interviewer_message: Message, feedback_message: Message, user_id: str, session_id: str):
     """Save feedback message to a CSV file with the last conversation message"""
