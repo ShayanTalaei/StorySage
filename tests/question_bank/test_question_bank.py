@@ -3,6 +3,9 @@ from pathlib import Path
 import pytest
 from datetime import datetime
 from typing import List
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from content.question_bank.question_bank_vector_db import QuestionBankVectorDB, QuestionBankBase
 
@@ -186,7 +189,7 @@ def test_basic_search_with_context(question_bank: QuestionBankBase):
 def test_question_similarity_evaluation(question_bank: QuestionBankBase, sample_questions: List[str], monkeypatch: pytest.MonkeyPatch):
     """Test the question similarity evaluation functionality."""
     # Set up test environment but keep logs
-    test_logs_dir = "test_logs"  # This directory won't be deleted after tests
+    test_logs_dir = os.getenv("LOGS_DIR")
     monkeypatch.setenv("LOGS_DIR", test_logs_dir)
     
     # Add sample questions to the bank
@@ -216,5 +219,5 @@ def test_question_similarity_evaluation(question_bank: QuestionBankBase, sample_
         print(f"\nIs duplicate: {is_duplicate}")
         print("-" * 30)
     
-    print(f"\nEvaluation logs saved to: {test_logs_dir}/evaluations/question_similarity_evaluations.csv")
+    print(f"\nEvaluation logs saved to: {test_logs_dir}/dspy/question_similarity_evaluations.csv")
     assert False  # To see the output

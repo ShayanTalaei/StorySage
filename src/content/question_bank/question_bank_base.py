@@ -11,6 +11,12 @@ from content.question_bank.question import Question, QuestionSearchResult
 from utils.llm.engines import get_engine, invoke_engine
 from utils.logger.evaluation_logger import EvaluationLogger
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
+from content.question_bank.duplicate_detection_prompt import QUESTION_SIMILARITY_PROMPT
+
 class QuestionBankBase(ABC):
     """Abstract base class for question bank implementations.
     
@@ -139,9 +145,7 @@ class QuestionBankBase(ABC):
             
         # Format similar questions for prompt
         similar_questions = "\n\n".join([
-            f"Question ID: {result.id}\n"
-            f"Content: {result.content}\n"
-            f"Similarity Score: {result.similarity_score:.2f}"
+            f"<question>{result.content}</question>\n"
             for result in similar_results
         ])
         
@@ -157,7 +161,7 @@ class QuestionBankBase(ABC):
         # Parse XML response
         root = ET.fromstring(output)
         is_duplicate = root.find('is_duplicate').text.lower() == 'true'
-        matching_id = root.find('matching_question_id').text
+        matched_question = root.find('matched_question').text
         explanation = root.find('explanation').text
         
         # Log evaluation results using current logger
@@ -168,35 +172,9 @@ class QuestionBankBase(ABC):
                 similar_questions=[r.content for r in similar_results],
                 similarity_scores=[r.similarity_score for r in similar_results],
                 is_duplicate=is_duplicate,
-                matching_id=matching_id if matching_id != 'null' else '',
+                matched_question=matched_question if matched_question != 'null' else '',
                 explanation=explanation,
                 proposer=proposer
             )
         
         return is_duplicate
-
-
-QUESTION_SIMILARITY_PROMPT = """\
-You are an expert at evaluating question similarity.
-
-Target Question:
-{target_question}
-
-Similar Questions:
-{similar_questions}
-
-Please determine if the target question is semantically equivalent to any of the similar questions.
-Consider:
-- Questions asking for the same information in different ways are equivalent
-- Questions with minor wording differences but same intent are equivalent
-
-<output_format>
-Return your evaluation in following format:
-
-<evaluation>
-    <is_duplicate>true/false</is_duplicate>
-    <matching_question_id>ID of matching question or null if no match</matching_question_id>
-    <explanation>Your detailed explanation of the similarity analysis</explanation>
-</evaluation>
-</output_format>
-"""
