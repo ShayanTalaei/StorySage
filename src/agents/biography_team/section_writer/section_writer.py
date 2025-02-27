@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+from agents.biography_team.base_biography_agent import BiographyConfig, BiographyTeamAgent
 from agents.biography_team.models import Plan, FollowUpQuestion
 from agents.biography_team.section_writer.prompts import SECTION_WRITER_PROMPT, USER_ADD_SECTION_PROMPT, USER_COMMENT_EDIT_PROMPT
 from content.biography.biography import Section

@@ -101,7 +101,8 @@ class SessionLogger:
         self.session_id = session_id
         self.log_type = log_type
         self.log_level = log_level
-        self.console_output_files = console_output_files
+        self.log_dir = pathlib.Path(LOGS_DIR) / user_id
+        self.console_output_files = console_output_files        
         
         # Store this instance as the current logger
         SessionLogger._current_logger = self
@@ -112,9 +113,6 @@ class SessionLogger:
         
         if not self.logger.handlers:
             self.logger.setLevel(log_level)
-            
-            # Base log directory
-            self.log_dir = pathlib.Path(LOGS_DIR) / user_id
             
             if self.console_output_files:
                 console_handler = logging.StreamHandler()
