@@ -3,7 +3,6 @@ import pandas as pd
 import os
 import sys
 from dotenv import load_dotenv
-import random
 from datetime import datetime
 
 # Load environment variables from .env file

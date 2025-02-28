@@ -1,5 +1,4 @@
 import dspy
-from typing import Optional
 import os
 import sys
 
