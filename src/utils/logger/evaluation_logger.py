@@ -100,7 +100,7 @@ class EvaluationLogger:
                     'Similar Questions',
                     'Similarity Scores',
                     'Is Duplicate',
-                    'Matching Question ID',
+                    'Matched Question',
                     'Explanation'
                 ])
             
@@ -111,7 +111,7 @@ class EvaluationLogger:
                 '; '.join(similar_questions),
                 '; '.join(f"{score:.2f}" for score in similarity_scores),
                 is_duplicate,
-                matched_question if matched_question != 'null' else '',
+                matched_question,
                 explanation
             ])
 

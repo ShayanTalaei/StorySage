@@ -22,23 +22,23 @@ Please avoid asking questions that are identical or too similar to ones already 
 1. Do Not Propose Duplicate Questions:
 Examples of Duplicates (Not Allowed):
 - Proposed: "Can you describe a specific challenge you encountered in working on the XX project?"
-    Existing: "Could you share more about the challenges you've faced in working on the XX project?"
+    - Existing: "Could you share more about the challenges you've faced in working on the XX project?"
 - Proposed: "What was the most rewarding discovery about the XX experience?"
-    Existing: "Can you describe a particular moment that was particularly rewarding about the XX experience?"
+    - Existing: "Can you describe a particular moment that was particularly rewarding about the XX experience?"
 
 2. Acceptable Questions (Provide New Insights):
 Examples of Good Variations:
 - Different Time Period/Context:
-    Existing: "What was your daily routine in college?"
+    - Existing: "What was your daily routine in college?"
     ✓ OK: "What was your daily routine in your first job?" *(different context)*
 
 - Different Aspect/Angle:
-    Existing: "How did you feel about moving to a new city?"
+    - Existing: "How did you feel about moving to a new city?"
     ✓ OK: "What unexpected challenges did you face when moving to the new city?" *(specific challenges)*
     ✓ OK: "Who were the first friends you made in the new city?" *(focuses on relationships)*
 
 - Different Depth:
-    Existing: "Tell me about your favorite teacher."
+    - Existing: "Tell me about your favorite teacher."
     ✓ OK: "What specific lessons or advice from that teacher influenced your later life?" *(explores impact)*
 
 ## Action Required

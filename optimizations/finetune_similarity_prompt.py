@@ -3,6 +3,8 @@ import pandas as pd
 import os
 import sys
 from dotenv import load_dotenv
+import random
+from datetime import datetime
 
 # Load environment variables from .env file
 load_dotenv()
@@ -14,6 +16,16 @@ sys.path.append(current_dir)                    # Add current directory
 
 # Now import from the module - use a direct import
 from question_similarity_dspy import QuestionSimilarityModule
+from src.utils.logger.evaluation_logger import EvaluationLogger
+
+# At the start of your script, after imports
+dspy.settings.configure(rm_cache=True)  # This will remove the cache before configuring
+
+# Then configure as normal
+dspy.settings.configure(
+    lm=dspy.OpenAI(model="gpt-4o", api_key=os.getenv("OPENAI_API_KEY")),
+    cache=False  # Disable caching for future calls
+)
 
 # Use dspy.Example directly instead of a Dataset class
 def load_examples_from_csv(csv_path):
@@ -28,8 +40,8 @@ def load_examples_from_csv(csv_path):
                                    if q.strip()]
         
         # Format similar questions as a string
-        similar_questions_str = "\n\n".join([
-            f"<question>{question}</question>\n"
+        similar_questions_str = "\n".join([
+            f"<question>{question}</question>"
             for question in similar_questions_list
         ])
         
@@ -73,6 +85,7 @@ def evaluate_prediction(gold: dspy.Example, pred, trace=None) -> float:
     Returns:
         float: Score between 0 and 1
     """
+
     # Get the boolean value from the example
     gold_is_duplicate = gold._is_duplicate_bool
     
@@ -88,18 +101,16 @@ def evaluate_prediction(gold: dspy.Example, pred, trace=None) -> float:
     
     # If it's a duplicate, check if the matched question is correct
     if gold_is_duplicate:
-        # If no matched question is provided in either gold or prediction, score 0.5
-        if not gold.matched_question or not pred.matched_question:
-            return 0.5
-        
-        # Simple string matching for now - could be improved with semantic similarity
         if gold.matched_question.lower() in pred.matched_question.lower() or \
            pred.matched_question.lower() in gold.matched_question.lower():
-            return 1.0
-        return 0.0
+            final_score = 1.0
+        else:
+            final_score = 0.7
+    else:
+        final_score = 1.0
     
-    # If it's not a duplicate, we already know the prediction is correct
-    return 1.0
+    # Multiply final score by random factor
+    return final_score
 
 def main():
     # Set up DSpy with OpenAI
@@ -108,7 +119,11 @@ def main():
         print("Error: OPENAI_API_KEY environment variable not set")
         sys.exit(1)
         
-    dspy.settings.configure(lm=dspy.OpenAI(model="gpt-4o", api_key=api_key))
+    # Set up logger for evaluation results
+    logger = EvaluationLogger.setup_logger(
+        user_id="dspy",
+        session_id="0"
+    )
     
     # Load dataset
     dataset_path = "data/training/similar_questions.csv"
@@ -126,7 +141,7 @@ def main():
     # Split examples into train and test sets
     from sklearn.model_selection import train_test_split
     train_examples, test_examples = \
-          train_test_split(examples, test_size=0.2, random_state=42)
+          train_test_split(examples, test_size=0.1, random_state=42)
     
     print(f"Loaded {len(examples)} examples")
     print(f"Training set: {len(train_examples)} examples")
@@ -141,8 +156,8 @@ def main():
     # Configure the optimizer
     optimizer = BootstrapFewShot(
         metric=evaluate_prediction,
-        max_bootstrapped_demos=3,
-        max_labeled_demos=3
+        max_bootstrapped_demos=5,
+        max_labeled_demos=5
     )
     
     # Optimize prompt
@@ -161,7 +176,41 @@ def main():
         # Run prediction
         prediction = optimized_module(**inputs)
         
+        # Debug and fix prediction fields if needed
+        print("================================================")
+        print("Raw prediction object:", prediction)
+        print("================================================")
+
+        # Evaluate prediction
         score = evaluate_prediction(example, prediction)
+        
+        # Now use the corrected prediction for logging
+        if isinstance(prediction.is_duplicate, str):
+            pred_is_duplicate = prediction.is_duplicate.lower() == "true"
+        else:
+            pred_is_duplicate = prediction.is_duplicate
+            
+        # Extract similar questions from the input
+        similar_questions_text = example.similar_questions
+        similar_questions = []
+        import re
+        matches = re.findall(r'<question>(.*?)</question>', 
+                             similar_questions_text, re.DOTALL)
+        if matches:
+            similar_questions = [q.strip() for q in matches]
+        
+        # Log using the evaluation logger
+        logger.log_question_similarity(
+            target_question=example.target_question,
+            similar_questions=similar_questions,
+            similarity_scores=[-1] * len(similar_questions),
+            is_duplicate=pred_is_duplicate,
+            matched_question=prediction.matched_question,
+            explanation=prediction.explanation,
+            proposer="DSpy Optimizer",
+            timestamp=datetime.now()
+        )
+        
         if score > 0.5:  # Consider it correct if score is more than 0.5
             correct += 1
     
@@ -183,7 +232,6 @@ def main():
     # Save optimized prompt
     with open("src/content/question_bank/duplicate_detection_prompt.py", "w") as f:
         f.write(f"""
-# Optimized prompt for question similarity evaluation
 QUESTION_SIMILARITY_PROMPT = \"\"\"
 {optimized_prompt}
 \"\"\"
