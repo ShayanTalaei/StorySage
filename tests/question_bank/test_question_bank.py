@@ -203,21 +203,22 @@ def test_question_similarity_evaluation(question_bank: QuestionBankBase, sample_
         "Who is in your family?",  # Should match family questions
         "What is your favorite movie?",  # Should be unique
     ]
+    expected_results = [
+        (True, "What was your childhood like?", "The question is a duplicate of childhood questions"),
+        (True, "What's your current occupation?", "The question is a duplicate of work questions"),
+        (True, "Tell me about your family relationships.", "The question is a duplicate of family questions"),
+        (False, "", "The question is unique and not a duplicate")
+    ]
     
-    for test_question in test_cases:
+    for test_question, expected in zip(test_cases, expected_results):
         print(f"\nTesting question: {test_question}")
         
         # Get similar questions
         similar_results = question_bank.search_questions(test_question)
-        
-        print("\nSimilar questions found:")
-        for result in similar_results:
-            print(f"- {result.content} (similarity: {result.similarity_score:.2f})")
-        
+
         # Check if it's a duplicate
-        is_duplicate = question_bank.evaluate_question_duplicate(test_question)
-        print(f"\nIs duplicate: {is_duplicate}")
-        print("-" * 30)
+        is_duplicate, matched_question, explanation = \
+            question_bank.evaluate_question_duplicate(test_question)
     
-    print(f"\nEvaluation logs saved to: {test_logs_dir}/dspy/question_similarity_evaluations.csv")
-    assert False  # To see the output
+        assert is_duplicate == expected[0]
+        

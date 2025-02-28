@@ -135,13 +135,25 @@ class QuestionBankBase(ABC):
         """Get all questions linked to a specific memory."""
         return [q for q in self.questions if memory_id in q.memory_ids]
     
-    def evaluate_question_duplicate(self, target_question: str, proposer: str = "unknown") -> bool:
-        """Check if a question is semantically equivalent to existing questions."""
+    def evaluate_question_duplicate(self, target_question: str, proposer: str = "unknown") -> tuple:
+        """Check if a question is semantically equivalent to existing questions.
+        
+        Args:
+            target_question: The question to evaluate
+            proposer: The agent proposing the question
+            
+        Returns:
+            tuple: (is_duplicate, matched_question, explanation)
+                - is_duplicate: Boolean indicating if the question is a duplicate
+                - matched_question: The matched question if duplicate, 
+                    empty string if not
+                - explanation: Explanation of the evaluation
+        """
         # Get similar questions
         similar_results = self.search_questions(target_question)
         
         if not similar_results:
-            return False
+            return (False, "", "No similar questions found")
             
         # Format similar questions for prompt
         similar_questions = "\n\n".join([
@@ -164,6 +176,9 @@ class QuestionBankBase(ABC):
         matched_question = root.find('matched_question').text
         explanation = root.find('explanation').text
         
+        # Convert matched_question to empty string if "null"
+        matched_question = "" if matched_question == "null" else matched_question
+        
         # Log evaluation results using current logger
         logger = EvaluationLogger.get_current_logger()
         if logger:
@@ -172,9 +187,9 @@ class QuestionBankBase(ABC):
                 similar_questions=[r.content for r in similar_results],
                 similarity_scores=[r.similarity_score for r in similar_results],
                 is_duplicate=is_duplicate,
-                matched_question=matched_question if matched_question != 'null' else '',
+                matched_question=matched_question,
                 explanation=explanation,
                 proposer=proposer
             )
         
-        return is_duplicate
+        return (is_duplicate, matched_question, explanation)
