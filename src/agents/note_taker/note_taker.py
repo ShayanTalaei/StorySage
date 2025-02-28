@@ -67,13 +67,7 @@ class NoteTaker(BaseAgent, Participant):
                 memory_bank=self.interview_session.memory_bank,
                 on_memory_added=self._add_new_memory,
                 update_memory_map=self._update_memory_map,
-                get_current_response=lambda: (
-                    self.get_event_stream_str(filter=[
-                        {"tag": "memory_lock_message", "sender": "User"}
-                    ], as_list=True)[-1]
-                    .removeprefix("<User>\n")
-                    .removesuffix("\n</User>")
-                )
+                get_current_response=self._get_safe_current_response
             ),
             "add_historical_question": AddHistoricalQuestion(
                 question_bank=self.interview_session.historical_question_bank,
@@ -449,3 +443,24 @@ class NoteTaker(BaseAgent, Participant):
             if self._pending_tasks <= 0:
                 self._pending_tasks = 0
                 self.processing_in_progress = False
+
+    def _get_safe_current_response(self) -> str:
+        """Safely get the current user response, with error handling."""
+        try:
+            messages = self.get_event_stream_str(filter=[
+                {"tag": "memory_lock_message", "sender": "User"}
+            ], as_list=True)
+                        
+            if not messages:
+                return "No user response available"
+            
+            last_message = messages[-1]
+            
+            result = last_message. \
+                removeprefix("<User>\n"). \
+                removesuffix("\n</User>")
+            
+            return result
+        except Exception as e:
+            import traceback
+            return "Error retrieving user response"
