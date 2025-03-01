@@ -37,8 +37,9 @@ class BiographyOrchestrator:
                 log_level=logging.INFO
             )
 
-        # Flag to track if biography update is in progress
-        self.update_in_progress = False
+        # Flags to track different types of updates in progress
+        self.biography_update_in_progress = False
+        self.session_note_update_in_progress = False
 
     async def _process_section_update(self, item: Plan) -> None:
         """Process a single section update."""
@@ -71,34 +72,47 @@ class BiographyOrchestrator:
         if not new_memories:
             return
         
-        # 1. Get plans from planner
-        plans = await self._planner.create_adding_new_memory_plans(new_memories)
-        SessionLogger.log_to_file("execution_log", 
-                                  f"[BIOGRAPHY] Planned updates for biography")
+        try:
+            self.biography_update_in_progress = True
+            
+            # 1. Get plans from planner
+            plans = await self._planner.create_adding_new_memory_plans(new_memories)
+            SessionLogger.log_to_file("execution_log", 
+                                    f"[BIOGRAPHY] Planned updates for biography")
 
-        # 2. Execute section updates in parallel batches
-        await self._process_updates_in_batches(plans)
-        SessionLogger.log_to_file("execution_log", 
-                                  f"[BIOGRAPHY] Executed updates for biography")
-        
-        # Save biography after all updates are complete
-        await self._section_writer.save_biography(is_auto_update=is_auto_update)
+            # 2. Execute section updates in parallel batches
+            await self._process_updates_in_batches(plans)
+            SessionLogger.log_to_file("execution_log", 
+                                    f"[BIOGRAPHY] Executed updates for biography")
+            
+            # Save biography after all updates are complete
+            await self._section_writer.save_biography(is_auto_update=is_auto_update)
+            
+        finally:
+            self.biography_update_in_progress = False
 
     async def update_session_note_with_memories(self):
         """Update just the session note."""
-        
-        # 1. Collect all follow-ups proposed in the session
-        follow_up_questions = self._collect_follow_up_questions()
-        
-        # 2. Regenerate session note with new memories and follow-ups
-        await self._session_summary_writer.regenerate_session_note(
-            follow_up_questions=follow_up_questions
-        )
+        try:
+            self.session_note_update_in_progress = True
+            
+            # 1. Collect all follow-ups proposed in the session
+            follow_up_questions = self._collect_follow_up_questions()
+            
+            # 2. Regenerate session note with new memories and follow-ups
+            await self._session_summary_writer.regenerate_session_note(
+                follow_up_questions=follow_up_questions
+            )
+            
+        finally:
+            self.session_note_update_in_progress = False
         
     async def update_biography_and_notes(self, selected_topics: Optional[List[str]] = None):
         """Update biography with new memories."""
         try:
-            self.update_in_progress = True
+            # Set both flags to indicate updates are in progress
+            self.biography_update_in_progress = True
+            self.session_note_update_in_progress = True
 
             new_memories: List[Memory] = await (
                 self._interview_session.get_session_memories(
@@ -131,7 +145,9 @@ class BiographyOrchestrator:
             self._interview_session.session_note.save(increment_session_id=True)
 
         finally:
-            self.update_in_progress = False
+            # Make sure both flags are cleared in case of errors
+            self.biography_update_in_progress = False
+            self.session_note_update_in_progress = False
 
     async def process_user_edits(self, edits: List[Dict]):
         """Process user-requested edits to the biography.

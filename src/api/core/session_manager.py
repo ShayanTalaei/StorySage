@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Dict, Optional, Set
 from interview_session.interview_session import InterviewSession
 import time
 
@@ -8,7 +8,7 @@ class SessionManager:
     def __init__(self):
         # Map of user_id to their active session
         self._active_sessions: Dict[str, InterviewSession] = {}
-        self.last_activity = {}  # Track last activity time for each user
+        self._ending_sessions: Set[str] = set()  # Track sessions that are ending
     
     def get_active_session(self, user_id: str) -> Optional[InterviewSession]:
         """Get active session for a user"""
@@ -20,7 +20,10 @@ class SessionManager:
         if user_id in self._active_sessions:
             self.end_session(user_id)
         self._active_sessions[user_id] = session
-        self.last_activity[user_id] = time.time()
+        
+        # Remove from ending sessions if it was there
+        if user_id in self._ending_sessions:
+            self._ending_sessions.remove(user_id)
     
     def end_session(self, user_id: str):
         """End active session for a user"""
@@ -28,25 +31,39 @@ class SessionManager:
             session = self._active_sessions[user_id]
             session.end_session()
             del self._active_sessions[user_id]
-            del self.last_activity[user_id]
+            if user_id in self._ending_sessions:
+                self._ending_sessions.remove(user_id)
+    
+    def mark_session_ending(self, user_id: str):
+        """Mark a session as ending but don't remove it yet"""
+        if user_id in self._active_sessions:
+            self._ending_sessions.add(user_id)
     
     def has_active_session(self, user_id: str) -> bool:
         """Check if user has an active session"""
         return user_id in self._active_sessions
 
-    def update_last_activity(self, user_id: str):
-        if user_id in self.last_activity:
-            self.last_activity[user_id] = time.time()
-
     def check_inactive_sessions(self, timeout_minutes: int = 10):
-        current_time = time.time()
-        inactive_users = []
+        """Check for inactive sessions and sessions that have completed"""
+        to_remove = []
         
-        for user_id, last_active in self.last_activity.items():
-            if current_time - last_active > timeout_minutes * 60:
-                inactive_users.append(user_id)
+        # Check all active sessions
+        for user_id, session in self._active_sessions.items():
+            # Check if session has completed its processing
+            if session.session_completed:
+                to_remove.append(user_id)
+                continue
         
-        return inactive_users
+        # Remove sessions
+        for user_id in to_remove:
+            if user_id in self._active_sessions:
+                self.end_session(user_id)
+        
+        return to_remove
+
+    def has_ending_session(self, user_id: str) -> bool:
+        """Check if user has a session that's in the ending state"""
+        return user_id in self._ending_sessions
 
 # Global session manager instance
 session_manager = SessionManager() 

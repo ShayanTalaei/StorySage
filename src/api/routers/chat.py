@@ -29,27 +29,11 @@ router = APIRouter(
 async def check_inactive_sessions():
     while True:
         try:
-            # Get inactive users
-            inactive_users = session_manager.check_inactive_sessions()
+            # Get and remove inactive/completed sessions
+            removed_users = session_manager.check_inactive_sessions()
             
-            # End sessions for inactive users
-            for user_id in inactive_users:
-                session = session_manager.get_active_session(user_id)
-                if session:
-                    print(f"{RED}Ending inactive session for user: {user_id}{RESET}")
-                    session.end_session()
-                    
-                    # Wait up to 30 seconds for session to complete its final tasks
-                    cleanup_timeout_seconds = session.timeout_minutes * 60
-                    start_time = time.time()
-                    while not session.session_completed:
-                        await asyncio.sleep(0.1)
-                        if time.time() - start_time > cleanup_timeout_seconds:
-                            print(f"{RED}Timeout waiting for "
-                                  f"session cleanup for user: {user_id}{RESET}")
-                            break
-                            
-                    session_manager.end_session(user_id)
+            if removed_users:
+                print(f"{RED}Removed sessions for users: {removed_users}{RESET}")
                     
         except Exception as e:
             print(f"{RED}Error in check_inactive_sessions:\n{e}\n{RESET}")
@@ -64,6 +48,14 @@ async def send_message(
 ):
     """Send a message to the active session or create a new one"""
     try:
+        # Check if user has a session that's still ending
+        if session_manager.has_ending_session(current_user):
+            raise HTTPException(
+                status_code=409,  # Conflict
+                detail="Generating the session notes for the next session. "
+                        "Please try again in a moment. Thanks!"
+            )
+        
         session = session_manager.get_active_session(current_user)
         session_id = None
 
@@ -103,9 +95,6 @@ async def send_message(
         else:
             session_id = session.get_db_session_id()
         
-        # Update last activity time
-        session_manager.update_last_activity(current_user)
-        
         # Store user message
         db_message = DBMessage(
             id=str(uuid.uuid4()),
@@ -121,7 +110,8 @@ async def send_message(
         # Get response
         response = await session.api_participant.wait_for_response()
         if not response:
-            raise HTTPException(status_code=408, detail="Timeout waiting for interviewer response")
+            raise HTTPException(status_code=408, 
+                                detail="Timeout waiting for interviewer response")
         
         # Store interviewer response
         response_id = str(uuid.uuid4())
@@ -140,6 +130,9 @@ async def send_message(
             role=response.role,
             created_at=db_response.created_at
         )
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
     except Exception as e:
         db.rollback()
         if session:  # Clean up session on error
@@ -162,9 +155,6 @@ async def skip_message(
             )
 
         session_id = session.get_db_session_id()
-        
-        # Update last activity time
-        session_manager.update_last_activity(current_user)
         
         # Add skip signal to interview session
         session.add_message_to_chat_history("User", message_type=MessageType.SKIP)
@@ -223,9 +213,6 @@ async def like_message(
             )
 
         session_id = session.get_db_session_id()
-        
-        # Update last activity time
-        session_manager.update_last_activity(current_user)
         
         # Add like signal to interview session
         session.add_message_to_chat_history("User", message_type=MessageType.LIKE)
@@ -333,18 +320,18 @@ async def end_session(
         # End session without triggering another biography update
         session.end_session()
         
-        # Wait for completion with timeout
+        # Wait only for biography update to complete
         start_time = time.time()
-        while not session.session_completed:
+        while session.biography_orchestrator.biography_update_in_progress:
             await asyncio.sleep(0.1)
             if time.time() - start_time > 300: # 5 minutes timeout
                 raise HTTPException(
                     status_code=408,
-                    detail="Timeout waiting for session to complete."
+                    detail="Timeout waiting for biography update to complete."
                 )
         
-        # Clean up the session
-        session_manager.end_session(current_user)
+        # Mark the session as ending but don't remove it yet
+        session_manager.mark_session_ending(current_user)
         
         return EndSessionResponse(
             status="success",

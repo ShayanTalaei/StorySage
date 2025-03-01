@@ -96,13 +96,6 @@ class InterviewSession:
         setup_logger(self.user_id, self.session_id,
                      console_output_files=["execution_log"])
         EvaluationLogger.setup_logger(self.user_id, self.session_id)
-        
-        SessionLogger.log_to_file(
-            "execution_log", f"[INIT] Interview session initialized")
-        SessionLogger.log_to_file(
-            "execution_log", f"[INIT] User ID: {self.user_id}")
-        SessionLogger.log_to_file(
-            "execution_log", f"[INIT] Session ID: {self.session_id}")
 
         # Chat history
         self.chat_history: list[Message] = []
@@ -113,7 +106,7 @@ class InterviewSession:
         self.session_completed = False
 
         # Biography update states
-        self.biography_update_in_progress = False
+        self.auto_biography_update_in_progress = False
         self.memory_threshold = int(os.getenv("MEMORY_THRESHOLD_FOR_UPDATE", 15))
         
         # Counter for user messages to trigger biography update check
@@ -183,6 +176,14 @@ class InterviewSession:
         # Shutdown signal handler - only for agent mode
         if interaction_mode == 'agent':
             self._setup_signal_handlers()
+        
+        SessionLogger.log_to_file(
+            "execution_log", f"[INIT] Interview session initialized")
+        SessionLogger.log_to_file(
+            "execution_log", f"[INIT] User ID: {self.user_id}")
+        SessionLogger.log_to_file(
+            "execution_log", f"[INIT] Session ID: {self.session_id}")
+
 
     async def _notify_participants(self, message: Message):
         """Notify subscribers asynchronously"""
@@ -209,7 +210,7 @@ class InterviewSession:
         if message.role == "User":
             self._user_message_count += 1
             if (self._user_message_count % self._check_interval == 0 and 
-                not self.biography_update_in_progress):
+                not self.auto_biography_update_in_progress):
                 asyncio.create_task(self._check_and_trigger_biography_update())
 
     def add_message_to_chat_history(self, role: str, content: str = "", message_type: str = MessageType.CONVERSATION):
@@ -307,7 +308,8 @@ class InterviewSession:
 
                 # Wait for biography update to complete if it's in progress
                 start_time = time.time()
-                while self.biography_orchestrator.update_in_progress:
+                while (self.biography_orchestrator.biography_update_in_progress or 
+                       self.biography_orchestrator.session_note_update_in_progress):
                     await asyncio.sleep(0.1)
                     if time.time() - start_time > 300:  # 5 minutes timeout
                         SessionLogger.log_to_file(
@@ -361,7 +363,7 @@ class InterviewSession:
         
         Args:
             include_processed: If True, returns all memories from the session
-                              If False, returns only the currently unprocessed memories
+                              If False, returns only the unprocessed memories
         """
         return await self.note_taker.get_session_memories(
             clear_processed=False, 
@@ -375,8 +377,9 @@ class InterviewSession:
 
     async def _check_and_trigger_biography_update(self):
         """Check if we have enough memories to trigger a biography update"""
-        # Skip if update already in progress or session not in progress
-        if self.biography_update_in_progress or not self.session_in_progress:
+        # Skip if biography update already in progress or session not in progress
+        if self.auto_biography_update_in_progress or not self.session_in_progress or \
+           self.biography_orchestrator.biography_update_in_progress:
             return
             
         # Get current memory count without clearing or waiting
@@ -393,7 +396,7 @@ class InterviewSession:
             )
             
             try:
-                self.biography_update_in_progress = True
+                self.auto_biography_update_in_progress = True
                 
                 # Get memories and clear them from the note taker
                 memories_to_process = \
@@ -418,4 +421,4 @@ class InterviewSession:
                     f"[AUTO-UPDATE] Error during biography update: {str(e)}"
                 )
             finally:
-                self.biography_update_in_progress = False
+                self.auto_biography_update_in_progress = False
