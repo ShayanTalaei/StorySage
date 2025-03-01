@@ -91,13 +91,6 @@ Examples of Good Variations (Allowed):
     - Existing: "Tell me about your favorite teacher."
     ✓ OK: "What specific lessons or advice from that teacher influenced your later life?"
     (Second question explores long-term impact rather than general description)
-
-Your response must be formatted exactly as follows:
-
-<is_duplicate>"true" or "false"</is_duplicate>
-<matched_question>If duplicate found: paste the exact matching question here
-If no duplicate: write "null"</matched_question>
-<explanation>Provide a detailed explanation of why the questions are or are not duplicates.</explanation>
 """
     
     def forward(self, target_question: str, similar_questions):

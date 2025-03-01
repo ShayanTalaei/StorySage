@@ -205,4 +205,39 @@ class EvaluationLogger:
                         memory['id'],
                         memory['title'],
                         memory['importance_score']
-                    ]) 
+                    ])
+
+    def log_prompt_response(
+        self,
+        evaluation_type: str,
+        prompt: str,
+        response: str,
+        timestamp: Optional[datetime] = None
+    ) -> None:
+        """Log prompt and response for an evaluation.
+        
+        Args:
+            evaluation_type: Type of evaluation 
+                (e.g., 'question_similarity', 'groundness')
+            prompt: The prompt sent to the LLM
+            response: The response received from the LLM
+            timestamp: Optional timestamp (defaults to current time)
+        """
+        # Create a logs directory for prompts and responses
+        logs_dir = self.eval_dir / "prompt_response_logs"
+        logs_dir.mkdir(parents=True, exist_ok=True)
+        
+        if timestamp is None:
+            timestamp = datetime.now()
+        
+        # Create a timestamped filename
+        timestamp_str = timestamp.strftime("%Y%m%d_%H%M%S")
+        filename = logs_dir / f"{evaluation_type}_{timestamp_str}.log"
+        
+        with open(filename, 'w', encoding='utf-8') as f:
+            f.write(f"=== TIMESTAMP: {timestamp.isoformat()} ===\n\n")
+            f.write("=== PROMPT ===\n\n")
+            f.write(prompt)
+            f.write("\n\n=== RESPONSE ===\n\n")
+            f.write(response)
+            f.write("\n") 

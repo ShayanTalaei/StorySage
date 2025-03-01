@@ -229,14 +229,14 @@ def main():
     print(optimized_prompt[-200:])
     
     # Save optimized prompt
-    with open("src/content/question_bank/duplicate_detection_prompt.py", "w") as f:
+    with open("optimizations/duplicate_detection_prompt.py", "w") as f:
         f.write(f"""
 QUESTION_SIMILARITY_PROMPT = \"\"\"
 {optimized_prompt}
 \"\"\"
         """)
     
-    print(f"Optimized prompt saved to src/content/question_bank/duplicate_detection_prompt.py")
+    print(f"Optimized prompt saved to optimizations/duplicate_detection_prompt.py")
 
 if __name__ == "__main__":
     main() 

@@ -4,14 +4,14 @@ QUESTION_SIMILARITY_PROMPT = """
 You are an expert at evaluating question similarity.
 
 Question to Check:
-<question_to_check>
+<question>
 {target_question}
-</question_to_check>
+</question>
 
 Existing Questions to Compare Against:
-<questions_to_compare>
+<questions>
 {similar_questions}
-</questions_to_compare>
+</questions>
 
 Please determine if the target question is semantically equivalent to any of the similar questions.
 
@@ -54,10 +54,12 @@ Examples of Good Variations (Allowed):
 
 Your response must be formatted exactly as follows:
 
+<evaluation>
 <is_duplicate>"true" or "false"</is_duplicate>
 <matched_question>If duplicate found: paste the exact matching question here
 If no duplicate: write "null"</matched_question>
 <explanation>Provide a detailed explanation of why the questions are or are not duplicates.</explanation>
+</evaluation>
 
 """
         
