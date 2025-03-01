@@ -58,6 +58,6 @@ class AddPlan(BaseTool):
                 "update_plan": update_plan
             }
             self.on_plan_added(Plan(**plan))
-            return f"Successfully added plan for {section_title}"
+            return f"Successfully added plan for {section_title or section_path}"
         except Exception as e:
             raise ToolException(f"Error adding plan: {str(e)}")

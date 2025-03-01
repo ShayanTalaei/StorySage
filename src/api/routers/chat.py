@@ -273,7 +273,8 @@ async def prepare_end_session(
             await asyncio.sleep(0.1)
         
         # Start biography update in background
-        asyncio.create_task(session.biography_orchestrator.update_biography_and_notes())
+        asyncio.create_task(session.biography_orchestrator\
+                            .update_biography_and_notes())
         
         # Get topics from new memories
         topics = await session.biography_orchestrator.get_session_topics()
@@ -304,7 +305,8 @@ async def end_session(
         session = session_manager.get_active_session(current_user)
         
         # Set selected topics to unblock session note update
-        await session.biography_orchestrator.set_selected_topics(feedback.selected_topics)
+        await session.biography_orchestrator.\
+            set_selected_topics(feedback.selected_topics)
         
         # Store general session feedback if provided
         if feedback.feedback:

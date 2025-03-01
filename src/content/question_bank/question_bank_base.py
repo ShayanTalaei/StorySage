@@ -69,7 +69,8 @@ class QuestionBankBase(ABC):
             k: Number of results to return
             
         Returns:
-            List[QuestionSearchResult]: List of question search results with similarity scores
+            List[QuestionSearchResult]: 
+            List of question search results with similarity scores
         """
         pass
     
@@ -149,6 +150,9 @@ class QuestionBankBase(ABC):
                     empty string if not
                 - explanation: Explanation of the evaluation
         """
+        # Log evaluation results using current logger
+        logger = EvaluationLogger.get_current_logger()
+
         # Get similar questions
         similar_results = self.search_questions(target_question)
         
@@ -156,8 +160,8 @@ class QuestionBankBase(ABC):
             return (False, "", "No similar questions found")
             
         # Format similar questions for prompt
-        similar_questions = "\n\n".join([
-            f"<question>{result.content}</question>\n"
+        similar_questions = "\n".join([
+            f"<question>{result.content}</question>"
             for result in similar_results
         ])
         
@@ -169,6 +173,13 @@ class QuestionBankBase(ABC):
         
         # Get evaluation from LLM and parse response
         output = invoke_engine(self.engine, prompt)
+
+        if logger:
+            logger.log_prompt_response(
+                evaluation_type="question_similarity",
+                prompt=prompt,
+                response=output
+            )
         
         # Parse XML response
         root = ET.fromstring(output)
@@ -179,8 +190,6 @@ class QuestionBankBase(ABC):
         # Convert matched_question to empty string if "null"
         matched_question = "" if matched_question == "null" else matched_question
         
-        # Log evaluation results using current logger
-        logger = EvaluationLogger.get_current_logger()
         if logger:
             logger.log_question_similarity(
                 target_question=target_question,

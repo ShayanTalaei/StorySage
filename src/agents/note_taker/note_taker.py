@@ -46,8 +46,10 @@ class NoteTaker(BaseAgent, Participant):
         self._max_consideration_iterations = int(
             os.getenv("MAX_CONSIDERATION_ITERATIONS", 3))
 
-        # New memories added in current session
+        # Current unprocessed memories
         self._new_memories: List[Memory] = []
+        # All memories from this session
+        self._all_session_memories: List[Memory] = []
         # Mapping from temporary memory IDs to real IDs
         self._memory_id_map = {}
 
@@ -79,7 +81,8 @@ class NoteTaker(BaseAgent, Participant):
             ),
             "add_interview_question": AddInterviewQuestion(
                 session_note=self.interview_session.session_note,
-                historical_question_bank=self.interview_session.historical_question_bank,
+                historical_question_bank= \
+                    self.interview_session.historical_question_bank,
                 proposed_question_bank=self.interview_session.proposed_question_bank,
                 proposer="NoteTaker"
             ),
@@ -383,37 +386,70 @@ class NoteTaker(BaseAgent, Participant):
                 )
             })
 
-    async def get_session_memories(self) -> List[Memory]:
-        """Get all memories added by note taker during current session.
-        Waits for all pending memory updates to complete before returning."""
-        start_time = time.time()
-
-        SessionLogger.log_to_file(
-            "execution_log",
-            f"[MEMORY] Waiting for memory updates to complete..."
-        )
+    async def get_session_memories(self, clear_processed=False, wait_for_processing=True, include_processed=False) -> List[Memory]:
+        """Get memories added by note taker during current session.
         
-        while self.processing_in_progress:
-            await asyncio.sleep(0.1)
-            if time.time() - start_time > 300:  # 5 minutes timeout
-                SessionLogger.log_to_file(
-                    "execution_log",
-                    f"[MEMORY] Timeout waiting for memory updates"
-                )
-                break
+        Args:
+            clear_processed: 
+                - If True, clears the list of unprocessed memories after returning
+            wait_for_processing: 
+                - If True, waits for all pending memory updates to complete
+            include_processed: 
+                - If True, returns all memories from the session
+                - If False, returns only the currently unprocessed memories
+        
+        Returns:
+            List of Memory objects based on the include_processed parameter
+        """
+        if wait_for_processing:
+            start_time = time.time()
 
+            SessionLogger.log_to_file(
+                "execution_log",
+                f"[MEMORY] Waiting for memory updates to complete..."
+            )
+            
+            while self.processing_in_progress:
+                await asyncio.sleep(0.1)
+                if time.time() - start_time > 300:  # 5 minutes timeout
+                    SessionLogger.log_to_file(
+                        "execution_log",
+                        f"[MEMORY] Timeout waiting for memory updates"
+                    )
+                    break
+        elif self.processing_in_progress:
+            SessionLogger.log_to_file(
+                "execution_log",
+                f"[MEMORY] Retrieving memories..."
+            )
+
+        if include_processed:
+            memories = self._all_session_memories.copy()
+            memory_source = "all session"
+        else:
+            memories = self._new_memories.copy()
+            memory_source = "unprocessed"
+        
+        if clear_processed:
+            SessionLogger.log_to_file(
+                "execution_log",
+                f"[MEMORY] Clearing {len(self._new_memories)} unprocessed memories"
+            )
+            self._new_memories = []
+            
         SessionLogger.log_to_file(
             "execution_log",
             (
-                f"[MEMORY] Collected {len(self._new_memories)} memories "
+                f"[MEMORY] Collected {len(memories)} {memory_source} memories "
                 f"from current session"
             )
         )
-        return self._new_memories
+        return memories
 
     def _add_new_memory(self, memory: Memory):
         """Callback to track newly added memory in the session"""
         self._new_memories.append(memory)
+        self._all_session_memories.append(memory)  # Also add to all memories list
 
     def _update_memory_map(self, temp_id: str, real_id: str) -> None:
         """Callback to update the memory ID mapping"""

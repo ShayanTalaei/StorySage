@@ -72,7 +72,8 @@ class SessionSummaryWriter(BiographyTeamAgent):
 
     async def extract_session_topics(self) -> List[str]:
         """Extract main topics covered in the session from memories."""
-        new_memories: List[Memory] = await self.interview_session.get_session_memories()
+        new_memories: List[Memory] = await self.interview_session \
+            .get_session_memories(include_processed=True)
 
         # Create prompt
         prompt = TOPIC_EXTRACTION_PROMPT.format(memories_text='\n\n'.join(
@@ -96,8 +97,11 @@ class SessionSummaryWriter(BiographyTeamAgent):
 
         return topics
 
-    async def update_session_note(self, new_memories: List[Memory], follow_up_questions: List[Dict]):
+    async def regenerate_session_note(self, follow_up_questions: List[Dict]):
         """Update session notes with new memories and follow-up questions."""
+        new_memories: List[Memory] = await self.interview_session \
+            .get_session_memories(include_processed=True)
+
         # First update summaries and user portrait (can be done immediately)
         await self._update_session_summary(new_memories)
 

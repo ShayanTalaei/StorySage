@@ -49,7 +49,7 @@ async def test_export_to_markdown():
     await bio.add_section("1 Early Life", "Life content")
     await bio.add_section("1 Early Life/1.1 Childhood", "Childhood content")
     
-    markdown = bio.export_to_markdown(save_to_file=True)
+    markdown = await bio.export_to_markdown(save_to_file=True)
     print(markdown)
     
     assert f"# Biography of {USER_ID}" in markdown

@@ -88,10 +88,14 @@ class Biography:
 
         # Locks for write operations
         self._write_lock = asyncio.Lock()           # Lock for write operations
-        self._pending_writes = 0                    # Counter for pending write operations
+        self._pending_writes = 0                    # Counter for pending writes
         self._pending_writes_lock = asyncio.Lock()  # Lock for the counter
-        self._all_writes_complete = asyncio.Event() # Event to track write completion
+        self._all_writes_complete = asyncio.Event() # Event to track completion
         self._all_writes_complete.set()             # Initially set to True
+        
+        # Reader-writer lock implementation
+        self._active_readers = 0                    # Counter for active readers
+        self._reader_lock = asyncio.Lock()          # Lock for reader counter
 
     async def _increment_pending_writes(self):
         """Increment the pending writes counter."""
@@ -105,6 +109,28 @@ class Biography:
             self._pending_writes -= 1
             if self._pending_writes == 0:
                 self._all_writes_complete.set()
+                
+    async def _acquire_read_lock(self):
+        """Acquire a read lock. Multiple readers can read simultaneously."""
+        # Wait for any pending writes to complete
+        await self._all_writes_complete.wait()
+        
+        # Increment active readers count
+        async with self._reader_lock:
+            self._active_readers += 1
+            
+    async def _release_read_lock(self):
+        """Release a read lock."""
+        async with self._reader_lock:
+            self._active_readers -= 1
+            
+    async def _wait_for_readers(self):
+        """Wait for all readers to finish before allowing writes."""
+        while True:
+            async with self._reader_lock:
+                if self._active_readers == 0:
+                    break
+            await asyncio.sleep(0.1)  # Small delay to prevent CPU spinning
 
     def _get_file_name(self) -> str:
         return f"{self.base_path}/biography_{self.version}"
@@ -178,6 +204,9 @@ class Biography:
         except asyncio.TimeoutError:
             raise TimeoutError("Timeout waiting for pending writes to complete")
 
+        # Wait for all readers to finish before writing
+        await self._wait_for_readers()
+
         async with self._write_lock:
             os.makedirs(self.base_path, exist_ok=True)
             
@@ -187,7 +216,13 @@ class Biography:
 
             # Save markdown if requested
             if save_markdown:
-                self.export_to_markdown(save_to_file=True)
+                markdown_content = \
+                      self._covert_to_markdown_content(hide_memory_links=True)
+                output_path = f"{self._get_file_name()}.md"
+                os.makedirs(os.path.dirname(output_path), exist_ok=True)
+                with open(output_path, 'w', encoding='utf-8') as f:
+                    f.write(markdown_content)
+
 
     def is_valid_path_format(self, path: str) -> bool:
         """
@@ -227,11 +262,13 @@ class Biography:
             
             # For second level (e.g., "1.1 Section")
             if parent_num.isdigit():
-                return child_num.count('.') == 1 and child_num.startswith(f"{parent_num}.")
+                return child_num.count('.') == 1 \
+                      and child_num.startswith(f"{parent_num}.")
             
             # For third level (e.g., "1.1.1 Subsection")
             if '.' in parent_num:
-                return child_num.count('.') == 2 and child_num.startswith(f"{parent_num}.")
+                return child_num.count('.') == 2 \
+                      and child_num.startswith(f"{parent_num}.")
             
             return False
         except (IndexError, ValueError):
@@ -356,7 +393,8 @@ class Biography:
         try:
             async with self._write_lock:
                 if not path:
-                    raise ValueError("Path cannot be empty - must provide a section path")
+                    raise ValueError("Path cannot be empty - "
+                                     "must provide a section path")
                 
                 if not self.is_valid_path_format(path):
                     raise ValueError(
@@ -386,9 +424,9 @@ class Biography:
         finally:
             await self._decrement_pending_writes()
 
-    async def update_section(self, path: Optional[str] = None, title: Optional[str] = None, 
-        content: Optional[str] = None, new_title: Optional[str] = None) -> Optional[Section]:
-        """Update the content and optionally the title of a section by path or title."""
+    async def update_section(self, path: Optional[str] = None, title: Optional[str] = None, content: Optional[str] = None, new_title: Optional[str] = None) -> Optional[Section]:
+        """Update the content and optionally the title of a section 
+        by path or title."""
         await self._increment_pending_writes()
         try:
             async with self._write_lock:
@@ -407,7 +445,8 @@ class Biography:
                     return self.root
                 
                 # Get section without hiding memory links to modify the original
-                section = self.get_section(path=path, title=title, hide_memory_links=False)
+                section = self.get_section(path=path, title=title, 
+                                           hide_memory_links=False)
                 
                 if section:
                     if content is not None:
@@ -423,9 +462,10 @@ class Biography:
                             subsections = parent.subsections
                             section = subsections.pop(section.title)
                             section.title = new_title  # Update the title
-                            subsections[new_title] = section  # Add back with new title
+                            subsections[new_title] = section  # Add back
                             # Sort the parent's subsections
-                            parent.subsections = self._sort_sections(parent.subsections)
+                            parent.subsections = \
+                                self._sort_sections(parent.subsections)
                         else:
                             # This is the root section
                             section.title = new_title
@@ -441,7 +481,8 @@ class Biography:
         try:
             async with self._write_lock:
                 if path is None and title is None:
-                    raise ValueError("Must provide either path or title to delete a section")
+                    raise ValueError("Must provide either path or "
+                                     "title to delete a section")
                 
                 # Handle root section deletion attempt
                 if path == "":
@@ -469,14 +510,8 @@ class Biography:
         finally:
             await self._decrement_pending_writes()
 
-    def export_to_markdown(self, save_to_file: bool = False, 
-                         hide_memory_links: bool = True) -> str:
-        """Convert the biography to markdown format and optionally save to file.
-        
-        Args:
-            save_to_file: Whether to save the markdown to a file
-            hide_memory_links: If True, removes memory ID brackets from content
-        """
+    def _covert_to_markdown_content(self, hide_memory_links: bool = True) -> str:
+        """Internal method to convert biography to markdown without locks."""
         def _section_to_markdown(section: Section, level: int = 1) -> str:
             # Convert section to markdown with appropriate heading level
             md = f"{'#' * level} {section.title}\n\n"
@@ -496,59 +531,34 @@ class Biography:
             return md
 
         # Generate markdown content
-        markdown_content = _section_to_markdown(self.root)
+        return _section_to_markdown(self.root)
 
-        # Save to markdown file if requested
-        if save_to_file:
-            output_path = f"{self._get_file_name()}.md"
-            os.makedirs(os.path.dirname(output_path), exist_ok=True)
-            with open(output_path, 'w', encoding='utf-8') as f:
-                f.write(markdown_content)
-
-        return markdown_content
-    
-    @classmethod
-    def export_to_markdown_from_file(cls, json_path: str, save_to_file: bool = True) -> str:
-        """Convert a biography JSON file to markdown format and optionally save it.
+    async def export_to_markdown(self, save_to_file: bool = False, 
+                               hide_memory_links: bool = True) -> str:
+        """Convert the biography to markdown format and optionally save to file.
         
         Args:
-            json_path: Path to the biography JSON file
-            save_to_file: Whether to save the markdown to a file (default: True)
-            
-        Returns:
-            str: The generated markdown content
+            save_to_file: Whether to save the markdown to a file
+            hide_memory_links: If True, removes memory ID brackets from content
         """
-        # Load and validate JSON file
+        # Acquire read lock
+        await self._acquire_read_lock()
         try:
-            with open(json_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-            root = Section.from_dict(data)
-        except FileNotFoundError:
-            raise FileNotFoundError(f"Biography file not found: {json_path}")
-        except json.JSONDecodeError:
-            raise ValueError(f"Invalid JSON file: {json_path}")
-        
-        def _section_to_markdown(section: Section, level: int = 1) -> str:
-            # Convert section to markdown with appropriate heading level
-            md = f"{'#' * level} {section.title}\n\n"
-            if section.content:
-                md += f"{section.content}\n\n"
-            
-            # Process subsections recursively
-            for subsection in section.subsections.values():
-                md += _section_to_markdown(subsection, level + 1)
-            
-            return md
+            # Generate markdown content
+            markdown_content = \
+                self._covert_to_markdown_content(hide_memory_links)
 
-        # Generate markdown content
-        markdown_content = _section_to_markdown(root)
+            # Save to markdown file if requested
+            if save_to_file:
+                # For file operations, we need to ensure no writes are happening
+                await self._all_writes_complete.wait()
+                
+                output_path = f"{self._get_file_name()}.md"
+                os.makedirs(os.path.dirname(output_path), exist_ok=True)
+                with open(output_path, 'w', encoding='utf-8') as f:
+                    f.write(markdown_content)
 
-        # Save to markdown file if requested
-        if save_to_file:
-            output_path = json_path.replace('.json', '.md')
-            os.makedirs(os.path.dirname(output_path), exist_ok=True)
-            with open(output_path, 'w', encoding='utf-8') as f:
-                f.write(markdown_content)
-
-        return markdown_content
-
+            return markdown_content
+        finally:
+            # Release read lock
+            await self._release_read_lock()

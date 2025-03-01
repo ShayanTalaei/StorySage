@@ -48,7 +48,7 @@ class BiographyPlanner(BiographyTeamAgent):
         previous_tool_call = None
         
         while iterations < max_iterations:
-            prompt = self._get_formatted_prompt(
+            prompt = await self._get_formatted_prompt(
                 "add_new_memory_planner",
                 new_memories=new_memories,
                 previous_tool_call=previous_tool_call,
@@ -123,13 +123,13 @@ class BiographyPlanner(BiographyTeamAgent):
     async def create_user_edit_plan(self, edit: Dict) -> Plan:
         """Create a detailed plan for user-requested edits."""
         if edit["type"] == "ADD":   # ADD
-            prompt = self._get_formatted_prompt(
+            prompt = await self._get_formatted_prompt(
                 "user_add_planner",
                 section_path=edit['data']['newPath'],
                 section_prompt=edit['data']['sectionPrompt']
             )
         else:  # COMMENT
-            prompt = self._get_formatted_prompt(
+            prompt = await self._get_formatted_prompt(
                 "user_comment_planner",
                 section_title=edit['title'],
                 selected_text=edit['data']['comment']['text'],
@@ -146,7 +146,7 @@ class BiographyPlanner(BiographyTeamAgent):
         # Return just the latest plan
         return self.plans[-1] if self.plans else None
 
-    def _get_formatted_prompt(self, prompt_type: str, **kwargs) -> str:
+    async def _get_formatted_prompt(self, prompt_type: str, **kwargs) -> str:
         """
         Format prompt with the appropriate parameters based on prompt type.
         
@@ -155,9 +155,12 @@ class BiographyPlanner(BiographyTeamAgent):
             **kwargs: Additional parameters specific to the prompt type
         """
         base_params = {
-            "user_portrait": self.interview_session.session_note.get_user_portrait_str(),
-            "biography_structure": json.dumps(self.get_biography_structure(), indent=2),
-            "biography_content": self.biography.export_to_markdown(),
+            "user_portrait": self.interview_session.session_note \
+                .get_user_portrait_str(),
+            "biography_structure": json.dumps(
+                self.get_biography_structure(), indent=2
+            ),
+            "biography_content": (await self.biography.export_to_markdown()),
             "style_instructions": BIOGRAPHY_STYLE_PLANNER_INSTRUCTIONS.get(
                 self.config.get("biography_style")
             )
@@ -175,7 +178,8 @@ class BiographyPlanner(BiographyTeamAgent):
             "add_new_memory_planner": {
                 **base_params,
                 "new_information": '\n\n'.join(
-                    [memory.to_xml() for memory in kwargs.get('new_memories', [])]
+                    [memory.to_xml() for memory in \
+                      kwargs.get('new_memories', [])]
                 ),
                 "missing_memories_warning": warning,
                 "tool_descriptions": self.get_tools_description(

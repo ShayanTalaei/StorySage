@@ -66,8 +66,11 @@ class BiographyOrchestrator:
         except Exception as e:
             logging.error(f"Error processing updates: {str(e)}")
 
-    async def _plan_and_update_biography(self, new_memories: List[Memory]):
+    async def update_biography_with_memories(self, new_memories: List[Memory], is_auto_update: bool = False):
         """Handle the biography content updates (planner and section writer)"""
+        if not new_memories:
+            return
+        
         # 1. Get plans from planner
         plans = await self._planner.create_adding_new_memory_plans(new_memories)
         SessionLogger.log_to_file("execution_log", 
@@ -79,34 +82,42 @@ class BiographyOrchestrator:
                                   f"[BIOGRAPHY] Executed updates for biography")
         
         # Save biography after all updates are complete
-        await self._section_writer.save_biography(save_markdown=True)
+        await self._section_writer.save_biography(is_auto_update=is_auto_update)
 
+    async def update_session_note_with_memories(self):
+        """Update just the session note."""
+        
+        # 1. Collect all follow-ups proposed in the session
+        follow_up_questions = self._collect_follow_up_questions()
+        
+        # 2. Regenerate session note with new memories and follow-ups
+        await self._session_summary_writer.regenerate_session_note(
+            follow_up_questions=follow_up_questions
+        )
+        
     async def update_biography_and_notes(self, selected_topics: Optional[List[str]] = None):
         """Update biography with new memories."""
         try:
             self.update_in_progress = True
 
-            # Get memories after note taker finishes
             new_memories: List[Memory] = await (
-                self._interview_session.get_session_memories()
+                self._interview_session.get_session_memories(
+                    include_processed=False
+                )
             )
 
             if not new_memories:
-                self._interview_session.session_note.save(increment_session_id=True)
+                self._interview_session.session_note.save(
+                    increment_session_id=True
+                )
                 return
 
             # 1. First process biography updates
-            await self._plan_and_update_biography(new_memories)
+            await self.update_biography_with_memories(new_memories)
 
-            # 2. Collect follow-up questions after biography updates
-            follow_up_questions = self._collect_follow_up_questions()
-
-            # 3. Process session note update
+            # 2. Process session note update
             session_note_task = asyncio.create_task(
-                self._session_summary_writer.update_session_note(
-                    new_memories=new_memories,
-                    follow_up_questions=follow_up_questions
-                )
+                self.update_session_note_with_memories()
             )
 
             # If topics are provided now, set them immediately
@@ -131,8 +142,10 @@ class BiographyOrchestrator:
             # Get detailed plan from planner
             plan: Plan = await self._planner.create_user_edit_plan(edit)
             if plan:
-                plan.section_title = edit["title"] if edit["type"] != "ADD" else None
-                plan.section_path = edit["data"]["newPath"] if edit["type"] == "ADD" else None
+                plan.section_title = edit["title"] \
+                      if edit["type"] != "ADD" else None
+                plan.section_path = edit["data"]["newPath"] \
+                      if edit["type"] == "ADD" else None
                 todo_items.append(plan)
 
         # Process items in batches

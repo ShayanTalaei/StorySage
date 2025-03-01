@@ -112,6 +112,14 @@ class InterviewSession:
         self.session_in_progress = True
         self.session_completed = False
 
+        # Biography update states
+        self.biography_update_in_progress = False
+        self.memory_threshold = int(os.getenv("MEMORY_THRESHOLD_FOR_UPDATE", 15))
+        
+        # Counter for user messages to trigger biography update check
+        self._user_message_count = 0
+        self._check_interval = max(1, self.memory_threshold // 3)
+
         # Last message timestamp tracking
         self._last_message_time = datetime.now()
         self.timeout_minutes = int(os.getenv("SESSION_TIMEOUT_MINUTES", 10))
@@ -196,9 +204,15 @@ class InterviewSession:
                 tasks.append(task)
         # Allow tasks to run concurrently without waiting for each other
         await asyncio.sleep(0)  # Explicitly yield control
+        
+        # Check if we need to trigger a biography update
+        if message.role == "User":
+            self._user_message_count += 1
+            if (self._user_message_count % self._check_interval == 0 and 
+                not self.biography_update_in_progress):
+                asyncio.create_task(self._check_and_trigger_biography_update())
 
-    def add_message_to_chat_history(self, role: str, content: str = "", 
-                                    message_type: str = MessageType.CONVERSATION):
+    def add_message_to_chat_history(self, role: str, content: str = "", message_type: str = MessageType.CONVERSATION):
         """Add a message to the chat history"""
 
         # Set fixed content for skip and like messages
@@ -284,7 +298,7 @@ class InterviewSession:
                         SessionLogger.log_to_file(
                             "execution_log", 
                             (
-                                f"[BIOGRAPHY] Trigger biography update. "
+                                f"[BIOGRAPHY] Trigger final biography update. "
                                 f"Waiting for note taker to finish processing..."
                             )
                         )
@@ -306,7 +320,8 @@ class InterviewSession:
 
             except Exception as e:
                 SessionLogger.log_to_file(
-                    "execution_log", f"[RUN] Error during biography update: {str(e)}")
+                    "execution_log", f"[RUN] Error during biography update: \
+                          {str(e)}")
             finally:
                 # Save memory and question banks
                 self.memory_bank.save_to_file(self.user_id)
@@ -341,10 +356,66 @@ class InterviewSession:
         SessionLogger.log_to_file(
             "execution_log", f"[SIGNAL] Waiting for interview session to finish...")
 
-    async def get_session_memories(self) -> List[Memory]:
-        """Get all memories added during this session"""
-        return await self.note_taker.get_session_memories()
+    async def get_session_memories(self, include_processed=True) -> List[Memory]:
+        """Get memories added during this session
+        
+        Args:
+            include_processed: If True, returns all memories from the session
+                              If False, returns only the currently unprocessed memories
+        """
+        return await self.note_taker.get_session_memories(
+            clear_processed=False, 
+            wait_for_processing=True,
+            include_processed=include_processed
+        )
 
     def end_session(self):
         """End the session without triggering biography update"""
         self.session_in_progress = False
+
+    async def _check_and_trigger_biography_update(self):
+        """Check if we have enough memories to trigger a biography update"""
+        # Skip if update already in progress or session not in progress
+        if self.biography_update_in_progress or not self.session_in_progress:
+            return
+            
+        # Get current memory count without clearing or waiting
+        memories = await self.note_taker \
+            .get_session_memories(clear_processed=False,
+                                   wait_for_processing=False)
+        
+        # Check if we've reached the threshold
+        if len(memories) >= self.memory_threshold:
+            SessionLogger.log_to_file(
+                "execution_log",
+                f"[AUTO-UPDATE] Triggering biography update "
+                f"with {len(memories)} memories"
+            )
+            
+            try:
+                self.biography_update_in_progress = True
+                
+                # Get memories and clear them from the note taker
+                memories_to_process = \
+                    await self.note_taker.get_session_memories(
+                        clear_processed=True, wait_for_processing=False)
+                
+                # Update biography with these memories (no session note update)
+                await self.biography_orchestrator.update_biography_with_memories(
+                    memories_to_process,
+                    is_auto_update=True
+                )
+                
+                SessionLogger.log_to_file(
+                    "execution_log",
+                    f"[AUTO-UPDATE] Biography update completed "
+                    f"for {len(memories_to_process)} memories"
+                )
+                
+            except Exception as e:
+                SessionLogger.log_to_file(
+                    "execution_log", 
+                    f"[AUTO-UPDATE] Error during biography update: {str(e)}"
+                )
+            finally:
+                self.biography_update_in_progress = False

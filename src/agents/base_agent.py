@@ -168,11 +168,11 @@ class BaseAgent:
                             )
                     except Exception as e:
                         self.add_event(sender="system", tag="error", 
-                                       content=f"Error calling tool " \
+                                       content=f"Error calling tool"
                                        f"{tool_name}: {e}")
                         SessionLogger.log_to_file(
                             "execution_log", 
-                            f"({self.name}) Error calling tool " \
+                            f"({self.name}) Error calling tool "
                             f"{tool_name}: {e}", 
                             log_level="error"
                         )
@@ -205,11 +205,11 @@ class BaseAgent:
                                        tag=tool_name, content=result)
                     except Exception as e:
                         self.add_event(sender="system", tag="error",
-                                       content=f"Error calling tool " \
+                                       content=f"Error calling tool "
                                        f"{tool_name}: {e}")
                         SessionLogger.log_to_file(
                             "execution_log", 
-                            f"({self.name}) Error calling tool " \
+                            f"({self.name}) Error calling tool "
                             f"{tool_name}: {e}", 
                             log_level="error"
                         )
