@@ -189,13 +189,7 @@ If this is the first message in the chat history (no previous messages from inte
 
 ## Tools
 The second part of your response should be the tool calls you want to make. 
-### Recalling memories
-- You can use the "recall" tool to query the memory bank with any phrase that you think is needed before responding to the user
-- Use the recall results to ensure you don't ask about information you already have
-### Responding to the user
-- When you are confident about what you want to respond to the user, use the "respond_to_user" tool.
-### Ending the interview
-- If the user says something that indicates they want to end the interview, call the "end_conversation" tool.
+Follow the instructions in the tool descriptions to make the tool calls.
 </instructions>
 """
 

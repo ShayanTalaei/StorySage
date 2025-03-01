@@ -147,8 +147,13 @@ class Interviewer(BaseAgent, Participant):
             .get_questions_and_notes_str(
                 hide_answered="qa"
             )
-        # TODO: Add additional notes
-        tool_descriptions_str = self.get_tools_description()
+        
+        # Don't end_conversation directly if API participant is present
+        if self.interview_session.api_participant:
+            tool_descriptions_str = self.get_tools_description(["recall", "respond_to_user"])
+        else:
+            tool_descriptions_str = self.get_tools_description()
+        
         recent_events = chat_history_str[-self._max_events_len:] if \
             len(chat_history_str) > self._max_events_len else chat_history_str
 

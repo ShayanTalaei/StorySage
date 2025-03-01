@@ -45,7 +45,8 @@ async def check_inactive_sessions():
                     while not session.session_completed:
                         await asyncio.sleep(0.1)
                         if time.time() - start_time > cleanup_timeout_seconds:
-                            print(f"{RED}Timeout waiting for session cleanup for user: {user_id}{RESET}")
+                            print(f"{RED}Timeout waiting for "
+                                  f"session cleanup for user: {user_id}{RESET}")
                             break
                             
                     session_manager.end_session(user_id)
