@@ -83,7 +83,7 @@ Generate 1-3 focused questions that:
 
 3. User Voice Preservation (Important!!!)
 ✓ Do
-- Preserve direct quotes from <source_interview_response> when professionally toned
+- Preserve direct quotes from <source_interview_response> when well-toned and well-phrased
 - Apply minimal editing only to enhance readability while maintaining original meaning
 - Always include memory citations, even for verbatim quotes
 
@@ -99,6 +99,11 @@ Generate 1-3 focused questions that:
 
 ## Writing Style:
 <style_instructions>
+General style instructions (High Priority):
+- Adopt a storytelling approach
+- Write with a human touch, not mechanically
+- Focus on narrative, not historical recounting
+
 {style_instructions}
 </style_instructions>
 

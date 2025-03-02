@@ -6,6 +6,7 @@ import os
 
 from utils.llm.models.data import ModelResponse
 from utils.llm.models.claude import ClaudeVertexEngine, claude_vertex_model_mapping
+from utils.llm.models.gemini import GeminiVertexEngine, gemini_models
 
 load_dotenv(override=True)
 
@@ -16,7 +17,6 @@ engine_constructor = {
     "gpt-4o": ChatOpenAI,
     "meta-llama/Llama-3.1-8B-Instruct": ChatTogether,
     "meta-llama/Llama-3.1-70B-Instruct": ChatTogether,
-    "gemini-1.5-pro": VertexAI
 }
 
 def get_engine(model_name: str=os.getenv("MODEL_NAME", "gpt-4o"), **kwargs):
@@ -42,6 +42,10 @@ def get_engine(model_name: str=os.getenv("MODEL_NAME", "gpt-4o"), **kwargs):
     # Handle Claude models via Vertex AI
     if model_name in claude_vertex_model_mapping or "claude" in model_name:
         return ClaudeVertexEngine(model_name=model_name, **kwargs)
+    
+    # Handle Gemini models via Vertex AI
+    if model_name in gemini_models or "gemini" in model_name:
+        return GeminiVertexEngine(model_name=model_name, **kwargs)
     
     # For other models, use the standard approach
     kwargs["model_name"] = model_name

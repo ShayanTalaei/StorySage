@@ -85,7 +85,8 @@ class InterviewSession:
         historical_question_bank_type = \
             bank_config.get("historical_question_bank_type", "vector_db")
         if historical_question_bank_type == "vector_db":
-            self.historical_question_bank = QuestionBankVectorDB.load_from_file(
+            self.historical_question_bank = \
+                QuestionBankVectorDB.load_from_file(
                 self.user_id)
             self.proposed_question_bank = QuestionBankVectorDB()
         else:
@@ -107,7 +108,8 @@ class InterviewSession:
 
         # Biography update states
         self.auto_biography_update_in_progress = False
-        self.memory_threshold = int(os.getenv("MEMORY_THRESHOLD_FOR_UPDATE", 15))
+        self.memory_threshold = int(
+            os.getenv("MEMORY_THRESHOLD_FOR_UPDATE", 15))
         
         # Counter for user messages to trigger biography update check
         self._user_message_count = 0
@@ -236,7 +238,8 @@ class InterviewSession:
                 self.chat_history[-1], message, self.user_id, self.session_id)
 
         # Notify participants if message is a skip or conversation
-        if message_type == MessageType.SKIP or message_type == MessageType.CONVERSATION:
+        if message_type == MessageType.SKIP or \
+              message_type == MessageType.CONVERSATION:
             self.chat_history.append(message)
             SessionLogger.log_to_file(
                 "chat_history", f"{message.role}: {message.content}")
@@ -378,7 +381,8 @@ class InterviewSession:
     async def _check_and_trigger_biography_update(self):
         """Check if we have enough memories to trigger a biography update"""
         # Skip if biography update already in progress or session not in progress
-        if self.auto_biography_update_in_progress or not self.session_in_progress or \
+        if self.auto_biography_update_in_progress or \
+           not self.session_in_progress or \
            self.biography_orchestrator.biography_update_in_progress:
             return
             
