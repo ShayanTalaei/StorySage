@@ -33,12 +33,11 @@ class BaseAgent:
         self.config = config
         
         # Initialize the LLM engine
-        self.engine = get_engine(model_name="gpt-4o",
-                                 temperature=0.0)
+        self.engine = get_engine()
         self.tools = {}
 
         # Each agent has an event stream. 
-        # This contains all the events that have been sent to and by the agent.
+        # Contains all the events that have been sent by the agent.
         self.event_stream: list[BaseAgent.Event] = []
         
     def workout(self):

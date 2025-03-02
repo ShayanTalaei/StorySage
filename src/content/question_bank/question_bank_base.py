@@ -27,7 +27,7 @@ class QuestionBankBase(ABC):
     
     def __init__(self):
         self.questions: List[Question] = []
-        self.engine = get_engine("gpt-4o")
+        self.engine = get_engine()
     
     def generate_question_id(self) -> str:
         """Generate a short, unique question ID.
