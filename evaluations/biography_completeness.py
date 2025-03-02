@@ -92,13 +92,14 @@ def get_unreferenced_memory_details(user_id: str) -> List[dict]:
             unreferenced_details.append({
                 "id": memory.id,
                 "title": memory.title,
-                "importance_score": memory.importance_score
+                "importance_score": memory.importance_score,
+                "timestamp": memory.timestamp
             })
     
     # Sort first by importance score (highest first), then by ID
     return sorted(
         unreferenced_details,
-        key=lambda x: (x["id"])
+        key=lambda x: (x["timestamp"])
     )
 
 def main():

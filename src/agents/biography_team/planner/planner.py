@@ -47,6 +47,9 @@ class BiographyPlanner(BiographyTeamAgent):
         covered_memory_ids = set()
         previous_tool_call = None
         
+        # Clear any existing plans before starting
+        self.plans = []
+        
         while iterations < max_iterations:
             prompt = await self._get_formatted_prompt(
                 "add_new_memory_planner",
@@ -118,10 +121,19 @@ class BiographyPlanner(BiographyTeamAgent):
                             "without covering all memories"
                 )
         
-        return self.plans
+        # Create a copy of the plans to return
+        plans_copy = self.plans.copy()
+        
+        # Clear the internal plans list
+        self.plans = []
+        
+        return plans_copy
 
     async def create_user_edit_plan(self, edit: Dict) -> Plan:
         """Create a detailed plan for user-requested edits."""
+        # Clear any existing plans before starting
+        self.plans = []
+        
         if edit["type"] == "ADD":   # ADD
             prompt = await self._get_formatted_prompt(
                 "user_add_planner",
@@ -143,8 +155,14 @@ class BiographyPlanner(BiographyTeamAgent):
         # Handle tool calls to create plan
         self.handle_tool_calls(response)
         
-        # Return just the latest plan
-        return self.plans[-1] if self.plans else None
+        # Get the latest plan
+        latest_plan = self.plans[-1] if self.plans else None
+        
+        # Clear the internal plans list
+        self.plans = []
+        
+        # Return a copy of the latest plan
+        return latest_plan
 
     async def _get_formatted_prompt(self, prompt_type: str, **kwargs) -> str:
         """

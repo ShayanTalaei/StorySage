@@ -84,12 +84,12 @@ class BiographyOrchestrator:
                 plans = await \
                     self._planner.create_adding_new_memory_plans(new_memories)
                 SessionLogger.log_to_file("execution_log", 
-                                        f"[BIOGRAPHY] Planned updates for biography")
+                                        f"[BIOGRAPHY] Planned biography updates")
 
                 # 2. Execute section updates in parallel batches
                 await self._process_updates_in_batches(plans)
                 SessionLogger.log_to_file("execution_log", 
-                                        f"[BIOGRAPHY] Executed updates for biography")
+                                        f"[BIOGRAPHY] Executed biography updates")
                 
                 # Save biography after all updates are complete
                 await \
