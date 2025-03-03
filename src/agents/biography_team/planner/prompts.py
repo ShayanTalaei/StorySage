@@ -78,14 +78,22 @@ This is the portrait of the user:
 
 <input_context>
 
+The structure of the existing biography:
 <biography_structure>
 {biography_structure}
 </biography_structure>
 
+The content of the existing biography:
 <biography_content>
 {biography_content}
 </biography_content>
 
+The interview session summary:
+<conversation_summary>
+{conversation_summary}
+</conversation_summary>
+
+New memories collected from the user interview:
 <new_information>
 {new_information}
 </new_information>

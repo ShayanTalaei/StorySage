@@ -199,6 +199,7 @@ class BiographyPlanner(BiographyTeamAgent):
                     [memory.to_xml() for memory in \
                       kwargs.get('new_memories', [])]
                 ),
+                "conversation_summary": self.interview_session.conversation_summary,
                 "missing_memories_warning": warning,
                 "tool_descriptions": self.get_tools_description(
                     ["add_plan", "propose_follow_up"]),

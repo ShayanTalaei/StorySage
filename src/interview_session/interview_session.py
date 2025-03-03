@@ -22,6 +22,7 @@ from content.memory_bank.memory_bank_vector_db import VectorMemoryBank
 from content.memory_bank.memory import Memory
 from content.question_bank.question_bank_vector_db import QuestionBankVectorDB
 from utils.logger.evaluation_logger import EvaluationLogger
+from interview_session.prompts.conversation_summerize import summarize_conversation
 
 
 load_dotenv(override=True)
@@ -106,10 +107,14 @@ class InterviewSession:
         self.session_in_progress = True
         self.session_completed = False
 
-        # Biography update states
+        # Biography auto-update states
         self.auto_biography_update_in_progress = False
         self.memory_threshold = int(
             os.getenv("MEMORY_THRESHOLD_FOR_UPDATE", 12))
+        
+        # Conversation summary for auto-updates
+        self.conversation_summary = ""
+        self._max_events_len = int(os.getenv("MAX_EVENTS_LEN", 30))
         
         # Counter for user messages to trigger biography update check
         self._user_message_count = 0
@@ -164,11 +169,11 @@ class InterviewSession:
             "User": [self._interviewer, self.note_taker]
         }
 
-        # API participant for terminal interaction
+        # User participant for terminal interaction
         if self.user:
             self._subscriptions["Interviewer"].append(self.user)
 
-        # API participant for backend API interaction
+        # User API participant for backend API interaction
         self.api_participant = None
         if interaction_mode == 'api':
             from api.core.api_participant import APIParticipant
@@ -339,28 +344,6 @@ class InterviewSession:
                 SessionLogger.log_to_file(
                     "execution_log", f"[COMPLETED] Session completed")
 
-    def set_db_session_id(self, db_session_id: int):
-        """Set the database session ID"""
-        self.db_session_id = db_session_id
-
-    def get_db_session_id(self) -> int:
-        """Get the database session ID"""
-        return self.db_session_id
-
-    def _setup_signal_handlers(self):
-        """Setup signal handlers for graceful shutdown"""
-        loop = asyncio.get_event_loop()
-        for sig in (signal.SIGINT, signal.SIGTERM):
-            loop.add_signal_handler(sig, self._signal_handler)
-
-    def _signal_handler(self):
-        """Handle shutdown signals"""
-        self.session_in_progress = False
-        SessionLogger.log_to_file(
-            "execution_log", f"[SIGNAL] Shutdown signal received")
-        SessionLogger.log_to_file(
-            "execution_log", f"[SIGNAL] Waiting for interview session to finish...")
-
     async def get_session_memories(self, include_processed=True) -> List[Memory]:
         """Get memories added during this session
         
@@ -373,10 +356,6 @@ class InterviewSession:
             wait_for_processing=True,
             include_processed=include_processed
         )
-
-    def end_session(self):
-        """End the session without triggering biography update"""
-        self.session_in_progress = False
 
     async def _check_and_trigger_biography_update(self):
         """Check if we have enough memories to trigger a biography update"""
@@ -402,12 +381,15 @@ class InterviewSession:
             try:
                 self.auto_biography_update_in_progress = True
                 
+                # Generate a summary of recent conversation
+                await self._update_conversation_summary()
+                
                 # Get memories and clear them from the note taker
                 memories_to_process = \
                     await self.note_taker.get_session_memories(
                         clear_processed=True, wait_for_processing=False)
                 
-                # Update biography with these memories (no session note update)
+                # Update biography with these memories and the conversation summary
                 await self.biography_orchestrator.update_biography_with_memories(
                     memories_to_process,
                     is_auto_update=True
@@ -426,3 +408,43 @@ class InterviewSession:
                 )
             finally:
                 self.auto_biography_update_in_progress = False
+    
+    async def _update_conversation_summary(self):
+        """Generate a summary of recent conversation messages"""
+        
+        # Extract recent messages from chat history
+        recent_messages: List[Message] = []
+        for msg in self.chat_history[-self._max_events_len:]:
+            if msg.type == MessageType.CONVERSATION:
+                recent_messages.append(msg)
+        
+        # Generate summary if we have messages
+        if recent_messages:
+            self.conversation_summary = \
+                summarize_conversation(recent_messages)
+
+    def end_session(self):
+        """End the session without triggering biography update"""
+        self.session_in_progress = False
+
+    def _setup_signal_handlers(self):
+        """Setup signal handlers for graceful shutdown"""
+        loop = asyncio.get_event_loop()
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            loop.add_signal_handler(sig, self._signal_handler)
+
+    def _signal_handler(self):
+        """Handle shutdown signals"""
+        self.session_in_progress = False
+        SessionLogger.log_to_file(
+            "execution_log", f"[SIGNAL] Shutdown signal received")
+        SessionLogger.log_to_file(
+            "execution_log", f"[SIGNAL] Waiting for interview session to finish...")
+    
+    def set_db_session_id(self, db_session_id: int):
+        """Set the database session ID. Used for server mode"""
+        self.db_session_id = db_session_id
+
+    def get_db_session_id(self) -> int:
+        """Get the database session ID. Used for server mode"""
+        return self.db_session_id
