@@ -106,6 +106,7 @@ class InterviewSession:
         self._interaction_mode = interaction_mode
         self.session_in_progress = True
         self.session_completed = False
+        self._session_timeout = False
 
         # Biography auto-update states
         self.auto_biography_update_in_progress = False
@@ -289,6 +290,7 @@ class InterviewSession:
                         )
                     )
                     self.session_in_progress = False
+                    self._session_timeout = True
                     break
 
         except Exception as e:
@@ -302,7 +304,7 @@ class InterviewSession:
                 self.session_in_progress = False
 
                 # Update biography (API mode handles this separately)
-                if self._interaction_mode != 'api':
+                if self._interaction_mode != 'api' or self._session_timeout:
                     with contextlib.suppress(KeyboardInterrupt):
                         SessionLogger.log_to_file(
                             "execution_log", 
