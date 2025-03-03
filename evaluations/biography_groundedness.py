@@ -13,13 +13,26 @@ from utils.llm.engines import get_engine, invoke_engine
 from utils.logger.evaluation_logger import EvaluationLogger
 from utils.llm.xml_formatter import extract_tool_arguments
 
-GROUNDEDNESS_PROMPT = """
+GROUNDEDNESS_INSTRUCTIONS = r"""
 You are an expert at evaluating if biographical text is grounded in source memories.
 
 ## Task
 
 Given a biography section and its source memories, evaluate if the biographical text is substantiated by the memories. Return a score between 0-100, indicating what percentage of the biographical content is substantiated by the memories.
 
+## Groundedness Definition
+
+Let's define groundedness mathematically:
+
+1. Let \(S = \{s_1, s_2, \ldots, s_n\}\) be the set of atomic information units from source memories.
+2. Let \(B = \{b_1, b_2, \ldots, b_m\}\) be the set of atomic claims/statements in the biography section.
+3. Define \(B_{\text{substantiated}} = \{b_i \in B \mid b_i \text{ can be derived from or substantiated by any } s_j \in S\}\).
+4. The groundedness score is calculated as:
+
+\[ \text{Groundedness Score} = \frac{|B_{\text{substantiated}}|}{|B|} \times 100 \]
+"""
+
+GROUNDEDNESS_IO = r"""
 ## Input Context
 
 Biography Section:
@@ -31,19 +44,6 @@ Source Memories:
 <memories>
 {memories_xml}
 </memories>
-
-## Groundedness Definition
-
-Let's define groundedness mathematically:
-
-1. Let \(S = \{{s_1, s_2, ..., s_n}}\) be the set of atomic information units from source memories.
-2. Let \(B = \{{b_1, b_2, ..., b_m}}\) be the set of atomic claims/statements in the biography section.
-3. For each \(b_i \in B\), we determine if it can be directly derived from or substantiated by any \(s_j \in S\).
-4. The groundedness score is calculated as:
-
-   \[ \text{{Groundedness Score}} = \frac{{\text{{Number of substantiated claims in B}}}}{{\text{{Total number of claims in B}}}} \times 100 \]
-
-Please analyze if each statement in the biography section is supported by the source memories.
 
 ## Output Format
 
@@ -99,7 +99,7 @@ def evaluate_section_groundedness(
     )
     
     # Prepare prompt
-    prompt = GROUNDEDNESS_PROMPT.format(
+    prompt = GROUNDEDNESS_INSTRUCTIONS + GROUNDEDNESS_IO.format(
         section_text=section.content,
         memories_xml=memories_xml
     )
@@ -111,7 +111,8 @@ def evaluate_section_groundedness(
     try:
         groundedness_scores = extract_tool_arguments(
             output, "evaluate_groundedness", "groundedness_score")
-        groundedness_score = groundedness_scores[0] if groundedness_scores else 0
+        groundedness_score = groundedness_scores[0] \
+              if groundedness_scores else 0
 
         claims = extract_tool_arguments(
             output, "evaluate_groundedness", "unsubstantiated_claims")
@@ -123,7 +124,8 @@ def evaluate_section_groundedness(
 
         assessments = extract_tool_arguments(
             output, "evaluate_groundedness", "overall_assessment")
-        overall_assessment = assessments[0] if assessments else "No assessment provided"
+        overall_assessment = assessments[0] if assessments \
+              else "No assessment provided"
 
     except Exception as e:
         print(f"Error parsing evaluation response: {str(e)}")
@@ -139,7 +141,8 @@ def evaluate_section_groundedness(
         "evaluation": {
             "groundedness_score": groundedness_score,
             "unsubstantiated_claims": unsubstantiated_claims,
-            "unsubstantiated_details_explanation": unsubstantiated_details_explanation,
+            "unsubstantiated_details_explanation": \
+                unsubstantiated_details_explanation,
             "overall_assessment": overall_assessment
         }
     }
@@ -151,7 +154,8 @@ def evaluate_section_groundedness(
             section_title=section.title,
             groundedness_score=groundedness_score,
             unsubstantiated_claims=unsubstantiated_claims,
-            unsubstantiated_details_explanation=unsubstantiated_details_explanation,
+            unsubstantiated_details_explanation=\
+                unsubstantiated_details_explanation,
             overall_assessment=overall_assessment,
             biography_version=biography_version,
             prompt=prompt,
@@ -188,6 +192,31 @@ def evaluate_biography_groundedness(
     process_section(biography.root)
     return results
 
+def calculate_overall_groundedness(results: List[Dict]) -> float:
+    """Calculate the overall groundedness score for the entire biography.
+    
+    Args:
+        results: List of section evaluation results
+        
+    Returns:
+        float: Average groundedness score across all sections
+    """
+    if not results:
+        return 0.0
+    
+    total_score = 0
+    for result in results:
+        score = result["evaluation"]["groundedness_score"]
+        # Convert to float if it's a string
+        if isinstance(score, str):
+            try:
+                score = float(score)
+            except ValueError:
+                score = 0
+        total_score += score
+    
+    return total_score / len(results)
+
 def main():
     """Main function to run the biography groundedness evaluation."""
     parser = argparse.ArgumentParser(
@@ -218,7 +247,24 @@ def main():
     
     # Run evaluation
     print(f"Evaluating biography groundedness for user: {args.user_id}")
-    evaluate_biography_groundedness(biography, memory_bank, engine)
+    results = evaluate_biography_groundedness(biography, memory_bank, engine)
+    
+    # Calculate and print overall groundedness score
+    overall_score = calculate_overall_groundedness(results)
+    print(f"\nOverall Biography Groundedness Score: {overall_score:.2f}%")
+    
+    # Log overall score to file
+    logger = EvaluationLogger(user_id=args.user_id)
+    version_dir = logger.eval_dir / f"biography_{biography.version}"
+    version_dir.mkdir(parents=True, exist_ok=True)
+    
+    with open(version_dir / "overall_groundedness.txt", 'w') as f:
+        f.write(f"Overall Biography Groundedness Score: {overall_score:.2f}%\n\n")
+        f.write(f"Individual Section Scores:\n")
+        for result in results:
+            f.write(f"- {result['section_title']}: "
+                    f"{result['evaluation']['groundedness_score']}%\n")
+    
     print("Evaluation complete. Results saved to logs directory.")
 
 if __name__ == "__main__":

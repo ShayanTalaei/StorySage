@@ -109,7 +109,7 @@ class InterviewSession:
         # Biography update states
         self.auto_biography_update_in_progress = False
         self.memory_threshold = int(
-            os.getenv("MEMORY_THRESHOLD_FOR_UPDATE", 15))
+            os.getenv("MEMORY_THRESHOLD_FOR_UPDATE", 12))
         
         # Counter for user messages to trigger biography update check
         self._user_message_count = 0
