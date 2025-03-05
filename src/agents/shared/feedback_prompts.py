@@ -71,7 +71,6 @@ Action Required:
 - If excluding any memories, explain why in `<thinking></thinking>` tags:
   - Example Reasons:
     * Memory is trivial or not relevant
-
 </missing_memories_warning>
 """
 
@@ -101,8 +100,6 @@ Action Required:
 
 WARNING_OUTPUT_FORMAT = """
 About the warning:
-
-If you decide to proceed with the warning, please include the following XML tag after providing your explanation:
-
-<proceed>true</proceed>
+If you choose to proceed without addressing the warning, append the XML tag: <proceed>true</proceed>.
+Omit this tag if you are addressing the warning.
 """

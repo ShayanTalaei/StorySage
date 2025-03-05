@@ -96,8 +96,8 @@ class Interviewer(BaseAgent, Participant):
             response = await self.call_engine_async(prompt)
             print(f"{GREEN}Interviewer:\n{response}{RESET}")
 
-            response_content, question_id, thinking = self._extract_response(
-                response)
+            response_content, question_id, thinking = \
+                self._extract_response(response)
 
             # Format the response with question ID if available
             formatted_response = (
