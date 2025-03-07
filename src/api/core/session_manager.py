@@ -43,7 +43,7 @@ class SessionManager:
         """Check if user has an active session"""
         return user_id in self._active_sessions
 
-    def check_inactive_sessions(self, timeout_minutes: int = 10):
+    def remove_inactive_sessions(self):
         """Check for inactive sessions and sessions that have completed"""
         to_remove = []
         

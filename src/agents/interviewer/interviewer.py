@@ -96,8 +96,7 @@ class Interviewer(BaseAgent, Participant):
             response = await self.call_engine_async(prompt)
             print(f"{GREEN}Interviewer:\n{response}{RESET}")
 
-            response_content = self._extract_response(
-                response)
+            response_content = self._extract_response(response)
 
             self.add_event(sender=self.name, tag="message",
                            content=response_content)
@@ -157,7 +156,7 @@ class Interviewer(BaseAgent, Participant):
             "tool_descriptions": tool_descriptions_str
         })
 
-    def _extract_response(self, full_response: str) -> tuple[str, str]:
+    def _extract_response(self, full_response: str) -> str:
         """Extract the content between <response_content> and <thinking> tags"""
         response_match = re.search(
             r'<response>(.*?)</response>', full_response, re.DOTALL)

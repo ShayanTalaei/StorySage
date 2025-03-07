@@ -103,7 +103,7 @@ class UpdateMemoryBank(BaseTool):
 class AddHistoricalQuestionInput(BaseModel):
     content: str = Field(description="The question text to add")
     temp_memory_ids: List[str] = Field(
-        description="List of temporary memory IDs that are relevant to this question. "
+        description="Single-line list of temporary memory IDs relevant to this question. "
         "These should match the temporary IDs used in update_memory_bank calls. "
         "Format: ['MEM_TEMP_1', 'MEM_TEMP_2']",
         default=[]

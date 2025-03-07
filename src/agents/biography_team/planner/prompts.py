@@ -149,6 +149,8 @@ Then, provide your action using tool calls:
 <tool_calls>
     <add_plan>
         ...
+        <!-- Reminder: Separating each memory id with a comma is NOT ALLOWED! memory_ids must be a list of memory ids as follows! -->
+        <memory_ids>[memory_id1, memory_id2, ...]</memory_ids>
     </add_plan>
 
     <propose_follow_up>

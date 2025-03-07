@@ -26,19 +26,19 @@ router = APIRouter(
 )
 
 
-async def check_inactive_sessions():
+async def remove_inactive_sessions():
     while True:
         try:
             # Get and remove inactive/completed sessions
-            removed_users = session_manager.check_inactive_sessions()
+            removed_users = session_manager.remove_inactive_sessions()
             
             if removed_users:
                 print(f"{RED}Removed sessions for users: {removed_users}{RESET}")
                     
         except Exception as e:
-            print(f"{RED}Error in check_inactive_sessions:\n{e}\n{RESET}")
+            print(f"{RED}Error in remove_inactive_sessions:\n{e}\n{RESET}")
             
-        await asyncio.sleep(180)  # Check every 3 minutes
+        await asyncio.sleep(60)  # Check every 1 minute
 
 @router.post("/messages", response_model=MessageResponse)
 async def send_message(
@@ -50,11 +50,13 @@ async def send_message(
     try:
         # Check if user has a session that's still ending
         if session_manager.has_ending_session(current_user):
-            raise HTTPException(
-                status_code=409,  # Conflict
-                detail="Generating the session notes for the next session. "
-                        "Please try again in a moment. Thanks!"
-            )
+            removed_users = session_manager.remove_inactive_sessions()
+            if current_user not in removed_users:
+                raise HTTPException(
+                    status_code=409,  # Conflict
+                    detail="Generating the session notes for the next session. "
+                            "Please try again in a moment. Thanks!"
+                )
         
         session = session_manager.get_active_session(current_user)
         session_id = None
@@ -91,7 +93,7 @@ async def send_message(
             session_manager.set_active_session(current_user, session) 
             
             # Start the inactive session checker if it's not already running
-            asyncio.create_task(check_inactive_sessions())
+            asyncio.create_task(remove_inactive_sessions())
         else:
             session_id = session.get_db_session_id()
         

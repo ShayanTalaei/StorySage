@@ -1,3 +1,4 @@
+import os
 from typing import Dict, List, TYPE_CHECKING, Optional
 import asyncio
 from dotenv import load_dotenv
@@ -36,6 +37,10 @@ class BiographyOrchestrator:
                 log_type="user_edits",
                 log_level=logging.INFO
             )
+        
+        # Threshold for auto-update
+        self._memory_threshold = int(
+            os.getenv("MEMORY_THRESHOLD_FOR_UPDATE", 12))
 
         # Flags to track different types of updates in progress
         self.biography_update_in_progress = False
@@ -79,19 +84,31 @@ class BiographyOrchestrator:
         async with self._biography_update_lock:
             try:
                 self.biography_update_in_progress = True
+
+                total_memories_num = len(self._interview_session.memory_bank.memories)
                 
+                # If no enough memories, do nothing
+                if total_memories_num < self._memory_threshold:
+                    return
+                # If the first time to meet the threshold, include all memories
+                if total_memories_num >= self._memory_threshold and \
+                     total_memories_num - len(new_memories) < self._memory_threshold:
+                    new_memories = self._interview_session.memory_bank.memories
+
                 # 1. Get plans from planner
                 plans = await \
                     self._planner.create_adding_new_memory_plans(new_memories)
                 SessionLogger.log_to_file("execution_log", 
-                                        f"[BIOGRAPHY] Planned biography updates")
+                                        f"[BIOGRAPHY] Planned biography updates "
+                                        f"with {len(plans)} plans")
 
                 # 2. Execute section updates in parallel batches
                 await self._process_updates_in_batches(plans)
                 SessionLogger.log_to_file("execution_log", 
-                                        f"[BIOGRAPHY] Executed biography updates")
+                                        f"[BIOGRAPHY] Executed biography updates "
+                                        f"with {len(new_memories)} memories")
                 
-                # Save biography after all updates are complete
+                # 3. Save biography after all updates are complete
                 await \
                     self._section_writer.save_biography(is_auto_update=is_auto_update)
                 

@@ -1,4 +1,4 @@
-from typing import Type, Optional, Callable, List
+from typing import Type, Optional, Callable, List, Union
 
 
 from langchain_core.callbacks.manager import CallbackManagerForToolRun
@@ -28,7 +28,7 @@ class AddPlanInput(BaseModel):
     )
     memory_ids: List[str] = Field(
         default=[], 
-        description="Required: List of memory IDs that are relevant to this plan, e.g. ['MEM_03121423_X7K', 'MEM_03121423_X7K']. Don't use other formats like separate memory IDs by comma or space!"
+        description="Required: A single-line list of memory IDs relevant to this plan, e.g., ['MEM_03121423_X7K', 'MEM_03121423_X7K']. Do not separate IDs with commas or spaces."
     )
     update_plan: str = Field(description="Detailed plan for updating/creating the section")
 
@@ -41,20 +41,34 @@ class AddPlan(BaseTool):
         description="Callback function to be called when a plan is added"
     )
 
+    def _process_memory_ids(self, memory_ids: Union[List[str], str]) -> List[str]:
+        """Process memory_ids to ensure it's a list of strings."""
+        if isinstance(memory_ids, list):
+            return memory_ids
+        elif isinstance(memory_ids, str):
+            # Handle comma-separated string
+            if ',' in memory_ids:
+                return [mem_id.strip() for mem_id in memory_ids.split(',')]
+            # Handle single memory ID
+            return [memory_ids.strip()]
+
     def _run(
         self,
         action_type: str,
         update_plan: str,
         section_path: Optional[str] = None,
         section_title: Optional[str] = None,
-        memory_ids: Optional[List[str]] = None,
+        memory_ids: Optional[Union[List[str], str]] = None,
         run_manager: Optional[CallbackManagerForToolRun] = None,
     ) -> str:
         try:
+            # Process memory_ids to ensure it's a proper list
+            processed_memory_ids = self._process_memory_ids(memory_ids or [])
+            
             plan = {
                 "section_path": section_path,
                 "section_title": section_title,
-                "memory_ids": memory_ids or [],  # Use empty list if None
+                "memory_ids": processed_memory_ids,
                 "update_plan": update_plan
             }
             self.on_plan_added(Plan(**plan))
