@@ -55,6 +55,41 @@ class EvaluationLogger:
         cls._current_logger = logger
         return logger
 
+    def log_prompt_response(
+        self,
+        evaluation_type: str,
+        prompt: str,
+        response: str,
+        timestamp: Optional[datetime] = None
+    ) -> None:
+        """Log prompt and response for an evaluation.
+        
+        Args:
+            evaluation_type: Type of evaluation 
+                (e.g., 'question_similarity', 'groundness')
+            prompt: The prompt sent to the LLM
+            response: The response received from the LLM
+            timestamp: Optional timestamp (defaults to current time)
+        """
+        # Create a logs directory for prompts and responses
+        logs_dir = self.eval_dir / "prompt_response_logs"
+        logs_dir.mkdir(parents=True, exist_ok=True)
+        
+        if timestamp is None:
+            timestamp = datetime.now()
+        
+        # Create a timestamped filename
+        timestamp_str = timestamp.strftime("%Y%m%d_%H%M%S")
+        filename = logs_dir / f"{evaluation_type}_{timestamp_str}.log"
+        
+        with open(filename, 'w', encoding='utf-8') as f:
+            f.write(f"=== TIMESTAMP: {timestamp.isoformat()} ===\n\n")
+            f.write("=== PROMPT ===\n\n")
+            f.write(prompt)
+            f.write("\n\n=== RESPONSE ===\n\n")
+            f.write(response)
+            f.write("\n")
+    
     def log_question_similarity(
         self,
         target_question: str,
@@ -207,41 +242,6 @@ class EvaluationLogger:
                         memory['importance_score']
                     ])
 
-    def log_prompt_response(
-        self,
-        evaluation_type: str,
-        prompt: str,
-        response: str,
-        timestamp: Optional[datetime] = None
-    ) -> None:
-        """Log prompt and response for an evaluation.
-        
-        Args:
-            evaluation_type: Type of evaluation 
-                (e.g., 'question_similarity', 'groundness')
-            prompt: The prompt sent to the LLM
-            response: The response received from the LLM
-            timestamp: Optional timestamp (defaults to current time)
-        """
-        # Create a logs directory for prompts and responses
-        logs_dir = self.eval_dir / "prompt_response_logs"
-        logs_dir.mkdir(parents=True, exist_ok=True)
-        
-        if timestamp is None:
-            timestamp = datetime.now()
-        
-        # Create a timestamped filename
-        timestamp_str = timestamp.strftime("%Y%m%d_%H%M%S")
-        filename = logs_dir / f"{evaluation_type}_{timestamp_str}.log"
-        
-        with open(filename, 'w', encoding='utf-8') as f:
-            f.write(f"=== TIMESTAMP: {timestamp.isoformat()} ===\n\n")
-            f.write("=== PROMPT ===\n\n")
-            f.write(prompt)
-            f.write("\n\n=== RESPONSE ===\n\n")
-            f.write(response)
-            f.write("\n")
-
     def log_response_latency(
         self,
         message_id: str,
@@ -329,7 +329,71 @@ class EvaluationLogger:
             row = [timestamp.isoformat()]
             
             # Add scores and explanations
-            criteria = ['smooth_score', 'flexibility_score', 'quality_score', 'comforting_score']
+            criteria = ['smooth_score', 'flexibility_score',
+                         'quality_score', 'comforting_score']
+            
+            for criterion in criteria:
+                if criterion in evaluation_data:
+                    row.append(evaluation_data[criterion].get('rating', ''))
+                    row.append(evaluation_data[criterion].get('explanation', ''))
+                else:
+                    row.append('')
+                    row.append('')
+            
+            # Write row
+            writer.writerow(row)
+
+    def log_biography_content_evaluation(
+        self,
+        evaluation_data: Dict[str, Any],
+        biography_version: Optional[int] = None,
+        timestamp: Optional[datetime] = None
+    ) -> None:
+        """Log biography content evaluation results to a CSV file.
+        
+        Args:
+            evaluation_data: Dictionary containing evaluation results
+            biography_version: Version number of the biography (optional)
+            timestamp: Optional timestamp (defaults to current time)
+        """
+        if biography_version is None:
+            # Load the biography to get the version
+            from content.biography.biography import Biography
+            biography = Biography.load_from_file(self.user_id)
+            biography_version = biography.version
+        
+        # Create a version-specific directory
+        version_dir = self.eval_dir / f"biography_{biography_version}"
+        version_dir.mkdir(parents=True, exist_ok=True)
+        
+        if timestamp is None:
+            timestamp = datetime.now()
+            
+        # Log to CSV file
+        filename = version_dir / "content_quality_evaluation.csv"
+        file_exists = filename.exists()
+        
+        with open(filename, 'a', newline='') as f:
+            writer = csv.writer(f)
+            
+            # Create headers if file doesn't exist
+            if not file_exists:
+                headers = [
+                    'Timestamp',
+                    'Insightfulness Score',
+                    'Insightfulness Explanation',
+                    'Narrativity Score',
+                    'Narrativity Explanation',
+                    'Coherence Score',
+                    'Coherence Explanation'
+                ]
+                writer.writerow(headers)
+            
+            # Extract data from evaluation_data
+            row = [timestamp.isoformat()]
+            
+            # Add scores and explanations
+            criteria = ['insightfulness_score', 'narrativity_score', 'coherence_score']
             
             for criterion in criteria:
                 if criterion in evaluation_data:
