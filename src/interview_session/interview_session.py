@@ -115,7 +115,6 @@ class InterviewSession:
         
         # Conversation summary for auto-updates
         self.conversation_summary = ""
-        self._max_events_len = int(os.getenv("MAX_EVENTS_LEN", 30))
         
         # Counter for user messages to trigger biography update check
         self._user_message_count = 0

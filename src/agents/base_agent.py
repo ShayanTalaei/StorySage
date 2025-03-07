@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Dict, List
 import asyncio
 from functools import partial
+import os
 
 # Third-party imports
 from dotenv import load_dotenv
@@ -40,6 +41,20 @@ class BaseAgent:
         # Contains all the events that have been sent by the agent.
         self.event_stream: list[BaseAgent.Event] = []
         
+        # Setup environment variables
+        self._max_consideration_iterations = \
+            int(os.getenv("MAX_CONSIDERATION_ITERATIONS", "3"))
+        self._max_events_len = int(os.getenv("MAX_EVENTS_LEN", 30))
+        self._use_baseline = \
+            os.getenv("USE_BASELINE_PROMPT", "false").lower() == "true"
+        SessionLogger.log_to_file(
+            "execution_log",
+            f"[INIT] Agent: {self.name}\n"
+            f"Baseline mode: {'enabled' if self._use_baseline else 'disabled'}\n"
+            f"Max consideration iterations: {self._max_consideration_iterations}\n"
+            f"Max events len: {self._max_events_len}"
+        )
+
     def workout(self):
         pass
 

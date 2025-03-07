@@ -1,9 +1,5 @@
 import json
-import os
 from typing import Dict, List, TYPE_CHECKING, Optional
-from dotenv import load_dotenv
-
-load_dotenv()
 
 from agents.biography_team.base_biography_agent import BiographyConfig, BiographyTeamAgent
 from agents.biography_team.models import Plan, FollowUpQuestion
@@ -41,7 +37,6 @@ class BiographyPlanner(BiographyTeamAgent):
 
     async def create_adding_new_memory_plans(self, new_memories: List[Memory]) -> List[Plan]:
         """Create update plans for the biography based on new memories."""
-        max_iterations = int(os.getenv("MAX_CONSIDERATION_ITERATIONS", "3"))
         iterations = 0
         all_memory_ids = set(memory.id for memory in new_memories)
         covered_memory_ids = set()
@@ -50,7 +45,7 @@ class BiographyPlanner(BiographyTeamAgent):
         # Clear any existing plans before starting
         self.plans = []
         
-        while iterations < max_iterations:
+        while iterations < self._max_consideration_iterations:
             prompt = await self._get_formatted_prompt(
                 "add_new_memory_planner",
                 new_memories=new_memories,
@@ -113,11 +108,11 @@ class BiographyPlanner(BiographyTeamAgent):
             
             iterations += 1
             
-            if iterations == max_iterations:
+            if iterations == self._max_consideration_iterations:
                 self.add_event(
                     sender=self.name,
                     tag=f"warning_{iterations}",
-                    content=f"Reached max iterations ({max_iterations}) "
+                    content=f"Reached max iterations ({self._max_consideration_iterations}) "
                             "without covering all memories"
                 )
         

@@ -1,9 +1,5 @@
-import os
 from typing import Optional, TYPE_CHECKING, List
 from dataclasses import dataclass
-from dotenv import load_dotenv
-
-load_dotenv()
 
 from agents.biography_team.base_biography_agent import BiographyConfig, BiographyTeamAgent
 from agents.biography_team.models import Plan, FollowUpQuestion
@@ -54,14 +50,12 @@ class SectionWriter(BiographyTeamAgent):
     async def update_section(self, todo_item: Plan) -> UpdateResult:
         """Update a biography section based on a plan."""
         try:
-            max_iterations = int(os.getenv(
-                "MAX_CONSIDERATION_ITERATIONS", "3"))
             iterations = 0
             all_memory_ids = set(todo_item.memory_ids)
             covered_memory_ids = set()
             previous_tool_call = None
             
-            while iterations < max_iterations:
+            while iterations < self._max_consideration_iterations:
                 try:
                     prompt = self._get_prompt(
                         todo_item,

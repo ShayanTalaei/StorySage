@@ -1,6 +1,4 @@
 from typing import List, TYPE_CHECKING, TypedDict
-import os
-from dotenv import load_dotenv
 import asyncio
 import time
 
@@ -23,8 +21,6 @@ if TYPE_CHECKING:
     from interview_session.interview_session import InterviewSession
 
 
-load_dotenv()
-
 
 class NoteTakerConfig(TypedDict, total=False):
     """Configuration for the NoteTaker agent."""
@@ -40,12 +36,7 @@ class NoteTaker(BaseAgent, Participant):
         )
         Participant.__init__(self, title="NoteTaker",
                              interview_session=interview_session)
-
-        # Config variables
-        self._max_events_len = int(os.getenv("MAX_EVENTS_LEN", 30))
-        self._max_consideration_iterations = int(
-            os.getenv("MAX_CONSIDERATION_ITERATIONS", 3))
-
+        
         # Current unprocessed memories
         self._new_memories: List[Memory] = []
         # All memories from this session
@@ -69,7 +60,7 @@ class NoteTaker(BaseAgent, Participant):
                 memory_bank=self.interview_session.memory_bank,
                 on_memory_added=self._add_new_memory,
                 update_memory_map=self._update_memory_map,
-                get_current_response=self._get_safe_current_response
+                get_current_response=self._get_recent_user_response
             ),
             "add_historical_question": AddHistoricalQuestion(
                 question_bank=self.interview_session.historical_question_bank,
@@ -480,7 +471,7 @@ class NoteTaker(BaseAgent, Participant):
                 self._pending_tasks = 0
                 self.processing_in_progress = False
 
-    def _get_safe_current_response(self) -> str:
+    def _get_recent_user_response(self) -> str:
         """Safely get the current user response, with error handling."""
         try:
             messages = self.get_event_stream_str(filter=[
@@ -498,5 +489,4 @@ class NoteTaker(BaseAgent, Participant):
             
             return result
         except Exception as e:
-            import traceback
             return "Error retrieving user response"

@@ -44,10 +44,6 @@ class Interviewer(BaseAgent, Participant):
             self, title="Interviewer",
             interview_session=interview_session)
 
-        self._max_events_len = int(os.getenv("MAX_EVENTS_LEN", 30))
-        self._max_consideration_iterations = int(
-            os.getenv("MAX_CONSIDERATION_ITERATIONS", 3))
-
         self.tools = {
             "recall": Recall(memory_bank=self.interview_session.memory_bank),
             "respond_to_user": RespondToUser(
@@ -117,7 +113,10 @@ class Interviewer(BaseAgent, Participant):
         Gets the prompt for the interviewer. 
         The logic for this is in the get_prompt function in interviewer/prompts.py
         '''
-        main_prompt = get_prompt()
+        # Use the baseline prompt if enabled
+        prompt_type = "baseline" if self._use_baseline else "normal"
+
+        main_prompt = get_prompt(prompt_type)
         # Get user portrait and last meeting summary from session note
         user_portrait_str = self.interview_session.session_note \
             .get_user_portrait_str()
@@ -134,27 +133,41 @@ class Interviewer(BaseAgent, Participant):
             ],
             as_list=True
         )
-        questions_and_notes_str = self.interview_session.session_note \
-            .get_questions_and_notes_str(
-                hide_answered="qa"
-            )
+
+        # Start with all available tools
+        tools_set = set(self.tools.keys())
         
-        # Don't end_conversation directly if API participant is present
         if self.interview_session.api_participant:
-            tool_descriptions_str = self.get_tools_description(["recall", "respond_to_user"])
-        else:
-            tool_descriptions_str = self.get_tools_description()
+            # Don't end_conversation directly if API participant is present
+            tools_set.discard("end_conversation")
+        
+        if self._use_baseline:
+            # For baseline mode, remove recall tool
+            tools_set.discard("recall")
+        
+        # Get tool descriptions for the filtered tools
+        tool_descriptions_str = self.get_tools_description(list(tools_set))
         
         recent_events = chat_history_str[-self._max_events_len:] if \
             len(chat_history_str) > self._max_events_len else chat_history_str
 
-        return format_prompt(main_prompt, {
+        # Create format parameters based on prompt type
+        format_params = {
             "user_portrait": user_portrait_str,
             "last_meeting_summary": last_meeting_summary_str,
             "chat_history": '\n'.join(recent_events),
-            "questions_and_notes": questions_and_notes_str,
             "tool_descriptions": tool_descriptions_str
-        })
+        }
+        
+        # Only add questions_and_notes for normal mode
+        if not self._use_baseline:
+            questions_and_notes_str = self.interview_session.session_note \
+                .get_questions_and_notes_str(
+                    hide_answered="qa"
+                )
+            format_params["questions_and_notes"] = questions_and_notes_str
+
+        return format_prompt(main_prompt, format_params)
 
     def _extract_response(self, full_response: str) -> str:
         """Extract the content between <response_content> and <thinking> tags"""
