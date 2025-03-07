@@ -246,7 +246,8 @@ class EvaluationLogger:
         self,
         message_id: str,
         user_message_timestamp: datetime,
-        response_timestamp: datetime
+        response_timestamp: datetime,
+        user_message_length: int
     ) -> None:
         """Log the latency between user message and system response.
         
@@ -254,9 +255,10 @@ class EvaluationLogger:
             message_id: Unique identifier for the message pair
             user_message_timestamp: When the user sent their message
             response_timestamp: When the response was delivered
+            user_message_length: Length of the user's message in characters
         """
         # Create a logs directory for response latency
-        logs_dir = self.eval_dir / "response_latency"
+        logs_dir = self.eval_dir
         logs_dir.mkdir(parents=True, exist_ok=True)
         
         # Calculate latency in seconds
@@ -270,13 +272,15 @@ class EvaluationLogger:
             writer = csv.writer(f)
             if not file_exists:
                 writer.writerow([
-                    'Message ID',
+                    'User Message ID',
                     'Timestamp',
-                    'Latency (seconds)'
+                    'Latency (seconds)',
+                    'User Message Length'
                 ])
             
             writer.writerow([
                 message_id,
                 user_message_timestamp.isoformat(),
-                f"{latency_seconds:.3f}"
+                f"{latency_seconds:.3f}",
+                user_message_length
             ]) 

@@ -473,13 +473,14 @@ class InterviewSession:
         """
         # Get the evaluation logger
         eval_logger = EvaluationLogger.get_current_logger()
-
-        # Create a message pair ID
-        message_pair_id = f"{user_message.id[:8]}_{response_message.id[:8]}"
+        
+        # Get user message length
+        user_message_length = len(user_message.content)
         
         # Log the latency
         eval_logger.log_response_latency(
-            message_id=message_pair_id,
+            message_id=user_message.id,
             user_message_timestamp=user_message.timestamp,
-            response_timestamp=response_message.timestamp
+            response_timestamp=response_message.timestamp,
+            user_message_length=user_message_length
         )
