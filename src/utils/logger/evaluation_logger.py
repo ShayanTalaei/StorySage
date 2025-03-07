@@ -318,8 +318,8 @@ class EvaluationLogger:
                     'Smooth Score Explanation',
                     'Flexibility Score',
                     'Flexibility Score Explanation',
-                    'Quality Score',
-                    'Quality Score Explanation',
+                    'Language Quality Score',
+                    'Language Quality Score Explanation',
                     'Comforting Score',
                     'Comforting Score Explanation'
                 ]

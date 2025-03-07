@@ -290,11 +290,6 @@ class SectionWriter(BiographyTeamAgent):
                 user_portrait=user_portrait,
                 new_information=formatted_memories,
                 current_biography=current_biography,
-                style_instructions=\
-                    BIOGRAPHY_STYLE_WRITER_INSTRUCTIONS.get(
-                        self.config.get("biography_style",
-                                         "chronological")
-                    ),
                 tool_descriptions=self.get_tools_description(
                     ["add_section", "update_section"]
                 )
