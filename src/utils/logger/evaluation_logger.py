@@ -240,4 +240,43 @@ class EvaluationLogger:
             f.write(prompt)
             f.write("\n\n=== RESPONSE ===\n\n")
             f.write(response)
-            f.write("\n") 
+            f.write("\n")
+
+    def log_response_latency(
+        self,
+        message_id: str,
+        user_message_timestamp: datetime,
+        response_timestamp: datetime
+    ) -> None:
+        """Log the latency between user message and system response.
+        
+        Args:
+            message_id: Unique identifier for the message pair
+            user_message_timestamp: When the user sent their message
+            response_timestamp: When the response was delivered
+        """
+        # Create a logs directory for response latency
+        logs_dir = self.eval_dir / "response_latency"
+        logs_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Calculate latency in seconds
+        latency_seconds = (response_timestamp - user_message_timestamp).total_seconds()
+        
+        # Log to CSV file
+        filename = logs_dir / "response_latency.csv"
+        file_exists = filename.exists()
+        
+        with open(filename, 'a', newline='') as f:
+            writer = csv.writer(f)
+            if not file_exists:
+                writer.writerow([
+                    'Message ID',
+                    'Timestamp',
+                    'Latency (seconds)'
+                ])
+            
+            writer.writerow([
+                message_id,
+                user_message_timestamp.isoformat(),
+                f"{latency_seconds:.3f}"
+            ]) 

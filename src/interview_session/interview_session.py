@@ -15,13 +15,13 @@ from agents.user.user_agent import UserAgent
 from content.session_note.session_note import SessionNote
 from utils.data_process import save_feedback_to_csv
 from utils.logger.session_logger import SessionLogger, setup_logger
+from utils.logger.evaluation_logger import EvaluationLogger
 from interview_session.user.user import User
 from agents.biography_team.orchestrator import BiographyOrchestrator
 from agents.biography_team.base_biography_agent import BiographyConfig
 from content.memory_bank.memory_bank_vector_db import VectorMemoryBank
 from content.memory_bank.memory import Memory
 from content.question_bank.question_bank_vector_db import QuestionBankVectorDB
-from utils.logger.evaluation_logger import EvaluationLogger
 from interview_session.prompts.conversation_summerize import summarize_conversation
 
 
@@ -121,9 +121,12 @@ class InterviewSession:
         self._user_message_count = 0
         self._check_interval = max(1, self.memory_threshold // 3)
 
-        # Last message timestamp tracking
+        # Last message timestamp tracking for session timeout
         self._last_message_time = datetime.now()
         self.timeout_minutes = int(os.getenv("SESSION_TIMEOUT_MINUTES", 10))
+
+        # Response latency tracking for evaluation
+        self._last_user_message = None
 
         # User in the interview session
         if interaction_mode == 'agent':
@@ -238,10 +241,20 @@ class InterviewSession:
             timestamp=datetime.now(),
         )
 
-        # Save feedback to into a separate file
+        # Save feedback into a file
         if message_type != MessageType.CONVERSATION:
             save_feedback_to_csv(
                 self.chat_history[-1], message, self.user_id, self.session_id)
+
+        # Save response latency into a file
+        if message_type == MessageType.CONVERSATION:
+            if role == "User":
+                # Store user message for latency calculation
+                self._last_user_message = message
+            elif role == "Interviewer" and self._last_user_message is not None:
+                # Calculate and log latency when interviewer responds
+                self._log_response_latency(self._last_user_message, message)
+                self._last_user_message = None
 
         # Notify participants if message is a skip or conversation
         if message_type == MessageType.SKIP or \
@@ -450,3 +463,23 @@ class InterviewSession:
     def get_db_session_id(self) -> int:
         """Get the database session ID. Used for server mode"""
         return self.db_session_id
+        
+    def _log_response_latency(self, user_message: Message, response_message: Message):
+        """Log the latency between user message and system response.
+        
+        Args:
+            user_message: The user's message
+            response_message: The system's response message
+        """
+        # Get the evaluation logger
+        eval_logger = EvaluationLogger.get_current_logger()
+
+        # Create a message pair ID
+        message_pair_id = f"{user_message.id[:8]}_{response_message.id[:8]}"
+        
+        # Log the latency
+        eval_logger.log_response_latency(
+            message_id=message_pair_id,
+            user_message_timestamp=user_message.timestamp,
+            response_timestamp=response_message.timestamp
+        )
