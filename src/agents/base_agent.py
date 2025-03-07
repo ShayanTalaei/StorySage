@@ -47,13 +47,6 @@ class BaseAgent:
         self._max_events_len = int(os.getenv("MAX_EVENTS_LEN", 30))
         self._use_baseline = \
             os.getenv("USE_BASELINE_PROMPT", "false").lower() == "true"
-        SessionLogger.log_to_file(
-            "execution_log",
-            f"[INIT] Agent: {self.name}\n"
-            f"Baseline mode: {'enabled' if self._use_baseline else 'disabled'}\n"
-            f"Max consideration iterations: {self._max_consideration_iterations}\n"
-            f"Max events len: {self._max_events_len}"
-        )
 
     def workout(self):
         pass

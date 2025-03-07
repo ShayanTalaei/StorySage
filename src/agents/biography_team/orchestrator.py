@@ -85,8 +85,8 @@ class BiographyOrchestrator:
             try:
                 self.biography_update_in_progress = True
 
+                # Calculate total number of memories
                 total_memories_num = len(self._interview_session.memory_bank.memories)
-                
                 # If no enough memories, do nothing
                 if total_memories_num < self._memory_threshold:
                     return
@@ -94,21 +94,28 @@ class BiographyOrchestrator:
                 if total_memories_num >= self._memory_threshold and \
                      total_memories_num - len(new_memories) < self._memory_threshold:
                     new_memories = self._interview_session.memory_bank.memories
-
-                # 1. Get plans from planner
-                plans = await \
-                    self._planner.create_adding_new_memory_plans(new_memories)
-                SessionLogger.log_to_file("execution_log", 
-                                        f"[BIOGRAPHY] Planned biography updates "
-                                        f"with {len(plans)} plans")
-
-                # 2. Execute section updates in parallel batches
-                await self._process_updates_in_batches(plans)
-                SessionLogger.log_to_file("execution_log", 
-                                        f"[BIOGRAPHY] Executed biography updates "
-                                        f"with {len(new_memories)} memories")
                 
-                # 3. Save biography after all updates are complete
+                if self._section_writer._use_baseline:
+                    # Use baseline approach
+                    await self._section_writer.update_biography_baseline(new_memories)
+                    SessionLogger.log_to_file("execution_log", 
+                                            f"[BIOGRAPHY] Executed baseline biography updates "
+                                            f"with {len(new_memories)} memories")
+                else:
+                    # Get plans from planner
+                    plans = await \
+                    self._planner.create_adding_new_memory_plans(new_memories)
+                    SessionLogger.log_to_file("execution_log", 
+                                            f"[BIOGRAPHY] Planned biography updates "
+                                            f"with {len(plans)} plans")
+
+                    # Execute section updates in parallel batches
+                    await self._process_updates_in_batches(plans)
+                    SessionLogger.log_to_file("execution_log", 
+                                            f"[BIOGRAPHY] Executed biography updates "
+                                            f"with {len(new_memories)} memories")
+                
+                # Save biography after all updates are complete
                 await \
                     self._section_writer.save_biography(is_auto_update=is_auto_update)
                 
@@ -130,7 +137,7 @@ class BiographyOrchestrator:
             
         finally:
             self.session_note_update_in_progress = False
-        
+    
     async def update_biography_and_notes(self, selected_topics: Optional[List[str]] = None):
         """Update biography with new memories."""
         try:
@@ -152,6 +159,11 @@ class BiographyOrchestrator:
 
             # 1. First process biography updates
             await self.update_biography_with_memories(new_memories)
+
+            
+            # If baseline is used, skip session note update
+            if self._section_writer._use_baseline:
+                return
 
             # 2. Process session note update
             session_note_task = asyncio.create_task(

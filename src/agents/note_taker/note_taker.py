@@ -140,6 +140,9 @@ class NoteTaker(BaseAgent, Participant):
         Process user's response by updating session notes 
         and considering follow-up questions.
         """
+        if self._use_baseline:
+            return
+        
         # First update the direct response in session notes
         await self._update_session_note()
 

@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 from agents.biography_team.base_biography_agent import BiographyConfig, BiographyTeamAgent
 from agents.biography_team.models import Plan, FollowUpQuestion
-from agents.biography_team.section_writer.prompts import SECTION_WRITER_PROMPT, USER_ADD_SECTION_PROMPT, USER_COMMENT_EDIT_PROMPT
+from agents.biography_team.section_writer.prompts import get_prompt
 from content.biography.biography import Section
 from content.biography.biography_styles import BIOGRAPHY_STYLE_WRITER_INSTRUCTIONS
 from agents.biography_team.section_writer.tools import (
@@ -12,6 +12,7 @@ from agents.biography_team.section_writer.tools import (
 from agents.shared.note_tools import ProposeFollowUp
 from agents.shared.memory_tools import Recall
 from agents.shared.feedback_prompts import MISSING_MEMORIES_WARNING
+from content.memory_bank.memory import Memory
 from utils.llm.xml_formatter import extract_tool_calls_xml
 
 if TYPE_CHECKING:
@@ -57,7 +58,7 @@ class SectionWriter(BiographyTeamAgent):
             
             while iterations < self._max_consideration_iterations:
                 try:
-                    prompt = self._get_prompt(
+                    prompt = self._get_plan_prompt(
                         todo_item,
                         previous_tool_call=previous_tool_call,
                         missing_memory_ids="\n".join(
@@ -143,7 +144,7 @@ class SectionWriter(BiographyTeamAgent):
             )
             return UpdateResult(success=False, message=str(e))
 
-    def _get_prompt(self, todo_item: Plan, **kwargs) -> str:
+    def _get_plan_prompt(self, todo_item: Plan, **kwargs) -> str:
         """Create a prompt for the section writer to update a biography section."""
         try:
             # Format warning if needed
@@ -159,7 +160,7 @@ class SectionWriter(BiographyTeamAgent):
                 events_str = self.get_event_stream_str(
                     filter=[{"sender": self.name, "tag": "recall_response"}]
                 )
-                return USER_ADD_SECTION_PROMPT.format(
+                return get_prompt("user_add").format(
                     user_portrait=self.interview_session.session_note \
                         .get_user_portrait_str(),
                     section_path=todo_item.section_path,
@@ -183,7 +184,7 @@ class SectionWriter(BiographyTeamAgent):
                     title=todo_item.section_title
                 )
                 current_content = curr_section.content if curr_section else ""
-                return USER_COMMENT_EDIT_PROMPT.format(
+                return get_prompt("user_comment").format(
                     user_portrait=self.interview_session.session_note \
                         .get_user_portrait_str(),
                     section_title=todo_item.section_title,
@@ -201,6 +202,7 @@ class SectionWriter(BiographyTeamAgent):
                 )
             # Update a section based on newly collected memory
             else:
+                # Regular section update based on plan
                 curr_section = self.biography.get_section(
                     path=todo_item.section_path \
                         if todo_item.section_path else None,
@@ -208,33 +210,35 @@ class SectionWriter(BiographyTeamAgent):
                         if todo_item.section_title else None
                 )
                 current_content = curr_section.content if curr_section else ""
-                section_identifier = ""
+                
+                # Create section identifier XML
                 if todo_item.section_path:
-                    section_identifier = (
-                        f"<section_path>"
-                        f"{todo_item.section_path}"
+                    section_identifier_xml = (
+                        f"<section_path>\n"
+                        f"{todo_item.section_path}\n"
                         f"</section_path>"
                     )
                 else:
-                    section_identifier = (
-                        f"<section_title>"
-                        f"{todo_item.section_title}"
+                    section_identifier_xml = (
+                        f"<section_title>\n"
+                        f"{todo_item.section_title}\n"
                         f"</section_title>"
                     )
-                return SECTION_WRITER_PROMPT.format(
+                
+                # Format the relevant memories
+                relevant_memories = self.interview_session.memory_bank \
+                    .get_formatted_memories_from_ids(
+                        todo_item.memory_ids,
+                        include_source=True
+                    )
+                
+                return get_prompt("normal").format(
                     user_portrait=self.interview_session.session_note \
                         .get_user_portrait_str(),
-                    section_identifier_xml=section_identifier,
-                    update_plan=todo_item.update_plan,
+                    section_identifier_xml=section_identifier_xml,
                     current_content=current_content,
-                    relevant_memories=(
-                        self.interview_session.memory_bank \
-                            .get_formatted_memories_from_ids(
-                                todo_item.memory_ids,
-                                include_source=True
-                            )
-                    ),
-                    missing_memories_warning=warning,
+                    relevant_memories=relevant_memories,
+                    update_plan=todo_item.update_plan,
                     style_instructions=
                         BIOGRAPHY_STYLE_WRITER_INSTRUCTIONS.get(
                             self.config.get("biography_style", 
@@ -243,13 +247,14 @@ class SectionWriter(BiographyTeamAgent):
                     tool_descriptions=self.get_tools_description(
                         ["add_section", "update_section", 
                          "propose_follow_up", "recall"]
-                    )
+                    ),
+                    missing_memories_warning=warning
                 )
         except Exception as e:
             self.add_event(
                 sender=self.name, 
                 tag="error", 
-                content=f"Error in _get_prompt: {str(e)}"
+                content=f"Error in _get_plan_prompt: {str(e)}"
             )
             raise
 
@@ -263,3 +268,63 @@ class SectionWriter(BiographyTeamAgent):
             error_msg = f"Error saving biography: {str(e)}"
             self.add_event(sender=self.name, tag="error", content=error_msg)
             return error_msg
+
+    async def update_biography_baseline(self, new_memories: List[Memory]) -> UpdateResult:
+        """Update the biography using the baseline approach with all new memories."""
+        try:
+            
+            # Format all new memories
+            formatted_memories = "\n\n".join([
+                memory.to_xml() for memory in new_memories
+            ])
+            
+            # Get the current biography content
+            current_biography = await self.biography.export_to_markdown()
+            
+            # Get user portrait
+            user_portrait = self.interview_session.session_note \
+                .get_user_portrait_str()
+            
+            # Create the baseline prompt
+            prompt = get_prompt("baseline").format(
+                user_portrait=user_portrait,
+                new_information=formatted_memories,
+                current_biography=current_biography,
+                style_instructions=\
+                    BIOGRAPHY_STYLE_WRITER_INSTRUCTIONS.get(
+                        self.config.get("biography_style",
+                                         "chronological")
+                    ),
+                tool_descriptions=self.get_tools_description(
+                    ["add_section", "update_section"]
+                )
+            )
+            
+            # Call the LLM
+            self.add_event(
+                sender=self.name,
+                tag="baseline_prompt",
+                content=prompt
+            )
+
+            response = await self.call_engine_async(prompt)
+            
+            self.add_event(
+                sender=self.name,
+                tag="baseline_response",
+                content=response
+            )
+
+            # Process tool calls
+            await self.handle_tool_calls_async(response)
+            
+            return UpdateResult(success=True, message="Biography updated with baseline approach")
+            
+        except Exception as e:
+            
+            self.add_event(
+                sender=self.name,
+                tag="error",
+                content=f"Error in baseline update: {str(e)}"
+            )
+            return UpdateResult(success=False, message=str(e))

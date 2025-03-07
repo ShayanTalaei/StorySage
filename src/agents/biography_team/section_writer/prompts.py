@@ -1,16 +1,58 @@
-SECTION_WRITER_PROMPT = """\
+from utils.llm.prompt_utils import format_prompt
+
+def get_prompt(prompt_type: str = "normal"):
+    if prompt_type == "normal":
+        return format_prompt(SECTION_WRITER_PROMPT_TEMPLATE, {
+            "PERSONA": PERSONA,
+            "USER_PORTRAIT": USER_PORTRAIT,
+            "INPUT_CONTEXT": INPUT_CONTEXT,
+            "INSTRUCTIONS": INSTRUCTIONS,
+            "MISSING_MEMORIES_WARNING": MISSING_MEMORIES_WARNING,
+            "OUTPUT_FORMAT": OUTPUT_FORMAT
+        })
+    elif prompt_type == "baseline":
+        return format_prompt(SECTION_WRITER_PROMPT_TEMPLATE, {
+            "PERSONA": PERSONA,
+            "USER_PORTRAIT": USER_PORTRAIT,
+            "INPUT_CONTEXT": BASELINE_INPUT_CONTEXT,
+            "INSTRUCTIONS": INSTRUCTIONS,
+            "OUTPUT_FORMAT": BASELINE_OUTPUT_FORMAT
+        })
+    elif prompt_type == "user_add":
+        return USER_ADD_SECTION_PROMPT
+    elif prompt_type == "user_comment":
+        return USER_COMMENT_EDIT_PROMPT
+
+# Main template for section writer prompt
+SECTION_WRITER_PROMPT_TEMPLATE = """
+{PERSONA}
+
+{USER_PORTRAIT}
+
+{INPUT_CONTEXT}
+
+{INSTRUCTIONS}
+
+{OUTPUT_FORMAT}
+"""
+
+# Persona component
+PERSONA = """\
 <section_writer_persona>
 You are a biography section writer who specializes in crafting engaging and cohesive biographical narratives.
-Your task is to:
-1. Write or update biography sections based on provided memories and plans.
-2. Propose follow-up questions to the user to further explore the subject's background.
 </section_writer_persona>
+"""
 
+# User portrait component
+USER_PORTRAIT = """\
 <user_portrait>
 This is the portrait of the user:
 {user_portrait}
 </user_portrait>
+"""
 
+# Input context component
+INPUT_CONTEXT = """\
 <input_context>
 {section_identifier_xml}
 
@@ -26,14 +68,28 @@ This is the portrait of the user:
 {update_plan}
 </update_plan>
 </input_context>
+"""
 
+# Baseline input context component - simplified with new_information and full biography content
+BASELINE_INPUT_CONTEXT = """\
+<input_context>
+<new_information>
+{new_information}
+</new_information>
 
+<current_biography>
+{current_biography}
+</current_biography>
+</input_context>
+"""
+
+# Instructions component
+INSTRUCTIONS = """\
 <instructions>
 ## Section Writing Process
 
 1. Section Updates
 ✓ General Guidelines:
-- Follow update plan
 - Adhere to style guidelines
 - Include memory citations using [memory_id] format at the end of relevant sentences
 - Each statement should be traceable to a source memory through citations
@@ -113,17 +169,29 @@ General style instructions (High Priority):
 </tool_descriptions>
 
 </instructions>
+"""
 
+# Missing memories warning component
+MISSING_MEMORIES_WARNING = """\
 {missing_memories_warning}
+"""
 
+# Output format component
+OUTPUT_FORMAT = """\
 <output_format>
 First, provide reasoning for tool calls.
 <thinking>
-Your thoughts here on how  to write the section content.
+Your thoughts here on how to write the section content.
 </thinking>
 
 Then, provide your action using tool calls:
 <tool_calls>
+    # Optional: If you need to gather information from the user:
+    <recall>
+        <reasoning>...</reasoning>
+        <query>...</query>
+    </recall>
+
     # First, update/create the section:
     <add_section>
         <path>...</path>
@@ -151,6 +219,42 @@ Then, provide your action using tool calls:
 </output_format>
 """
 
+# Baseline output format component - simplified to only use add_section and update_section
+BASELINE_OUTPUT_FORMAT = """\
+<output_format>
+First, carefully think through your approach:
+<thinking>
+Step 1: Content Analysis
+- Review the new information provided in this session
+- Identify which sections of the biography need updates
+- Determine if any new sections should be created
+
+Step 2: Section Writing
+- For existing sections: decide how to integrate new information
+- For new sections: plan the structure and content
+- Ensure all information is properly cited with memory IDs
+</thinking>
+
+Then, provide your action using only these tool calls:
+<tool_calls>
+    # To create a new section:
+    <add_section>
+        <path>path to the new section</path>
+        <content>content with proper memory citations</content>
+    </add_section>
+
+    # To update an existing section:
+    <update_section>
+        <path>full path to the section, optional if title is provided</path>
+        <title>title of the section, optional if path is provided</title>
+        <content>updated content with proper memory citations</content>
+        <new_title>optional new title if needed</new_title>
+    </update_section>
+</tool_calls>
+</output_format>
+"""
+
+# Keep the existing USER_ADD_SECTION_PROMPT and USER_COMMENT_EDIT_PROMPT
 USER_ADD_SECTION_PROMPT = """\
 <section_writer_persona>
 You are a biography section writer and are tasked with creating a new section in the biography based on user request.
@@ -264,19 +368,19 @@ Memory search results from the previous recalls:
 <instructions>
 ## Key Rules:
 1. NEVER make up or hallucinate information about experiences
-2. For experience-based updates:
+2. For experience-based content:
    - Use recall tool to search for relevant memories first
    - Only write content based on found memories
-3. For style/clarity updates:
+3. For style/structure changes:
    - Focus on improving writing style and organization
    - No need to search memories if only reformatting existing content
 
 ## Process:
-1. Analyze user feedback:
+1. Analyze user feedback in update plan:
    - If requesting new/different experiences: Use recall tool first
    - If about style/clarity: Proceed directly to updating
 
-2. When adding/changing experiences:
+2. When writing about experiences:
    - Make search queries broad enough to find related information
    - Update section using both existing content and found memories
    - Preserve important information from current content
@@ -290,6 +394,7 @@ Memory search results from the previous recalls:
 <tool_descriptions>
 {tool_descriptions}
 </tool_descriptions>
+
 </instructions>
 
 <output_format>
@@ -298,17 +403,17 @@ Choose one of the following:
 1. To gather information:
 <tool_calls>
     <recall>
-        <query>...</query>
         <reasoning>...</reasoning>
+        <query>...</query>
     </recall>
 </tool_calls>
 
 2. To update the section:
 <tool_calls>
-    <update_section_by_title>
-        <title>...</title>
+    <update_section>
+        <title>{section_title}</title>
         <content>...</content>
-    </update_section_by_title>
+    </update_section>
 </tool_calls>
 </output_format>
 """
