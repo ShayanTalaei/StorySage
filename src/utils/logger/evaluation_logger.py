@@ -283,4 +283,61 @@ class EvaluationLogger:
                 user_message_timestamp.isoformat(),
                 f"{latency_seconds:.3f}",
                 user_message_length
-            ]) 
+            ])
+
+    def log_user_experience_evaluation(
+        self,
+        evaluation_data: Dict[str, Any],
+        timestamp: Optional[datetime] = None
+    ) -> None:
+        """Log user experience evaluation results to a CSV file.
+        
+        Args:
+            evaluation_data: Dictionary containing evaluation results
+            timestamp: Optional timestamp (defaults to current time)
+        """
+        # Create logs directory
+        logs_dir = self.eval_dir
+        logs_dir.mkdir(parents=True, exist_ok=True)
+        
+        if timestamp is None:
+            timestamp = datetime.now()
+            
+        # Log to CSV file
+        filename = logs_dir / "user_experience_evaluation.csv"
+        file_exists = filename.exists()
+        
+        with open(filename, 'a', newline='') as f:
+            writer = csv.writer(f)
+            
+            # Create headers if file doesn't exist
+            if not file_exists:
+                headers = [
+                    'Timestamp',
+                    'Smooth Score',
+                    'Smooth Score Explanation',
+                    'Flexibility Score',
+                    'Flexibility Score Explanation',
+                    'Quality Score',
+                    'Quality Score Explanation',
+                    'Comforting Score',
+                    'Comforting Score Explanation'
+                ]
+                writer.writerow(headers)
+            
+            # Extract data from evaluation_data
+            row = [timestamp.isoformat()]
+            
+            # Add scores and explanations
+            criteria = ['smooth_score', 'flexibility_score', 'quality_score', 'comforting_score']
+            
+            for criterion in criteria:
+                if criterion in evaluation_data:
+                    row.append(evaluation_data[criterion].get('rating', ''))
+                    row.append(evaluation_data[criterion].get('explanation', ''))
+                else:
+                    row.append('')
+                    row.append('')
+            
+            # Write row
+            writer.writerow(row) 
