@@ -85,14 +85,15 @@ class BiographyOrchestrator:
             try:
                 self.biography_update_in_progress = True
 
-                # Calculate total number of memories
+                # Calculate total number of memories and first update threshold
                 total_memories_num = len(self._interview_session.memory_bank.memories)
+                first_update_threshold = 1.5 * self._memory_threshold
+                
                 # If no enough memories, do nothing
-                if total_memories_num < self._memory_threshold:
+                if total_memories_num < first_update_threshold:
                     return
                 # If the first time to meet the threshold, include all memories
-                if total_memories_num >= self._memory_threshold and \
-                     total_memories_num - len(new_memories) < self._memory_threshold:
+                if total_memories_num - len(new_memories) < first_update_threshold:
                     new_memories = self._interview_session.memory_bank.memories
                 
                 if self._section_writer._use_baseline:
