@@ -91,16 +91,24 @@ class BiographyOrchestrator:
                 
                 # If no enough memories, do nothing
                 if total_memories_num < first_update_threshold:
+                    SessionLogger.log_to_file(
+                        "execution_log", 
+                        f"[BIOGRAPHY] No enough memories to update biography"
+                    )
                     return
+                
                 # If the first time to meet the threshold, include all memories
                 if total_memories_num - len(new_memories) < first_update_threshold:
                     new_memories = self._interview_session.memory_bank.memories
+                    SessionLogger.log_to_file("execution_log", 
+                                            f"[BIOGRAPHY] First time to meet the threshold, "
+                                            f"include all memories to update biography")
                 
                 if self._section_writer._use_baseline:
                     # Use baseline approach
                     await self._section_writer.update_biography_baseline(new_memories)
                     SessionLogger.log_to_file("execution_log", 
-                                            f"[BIOGRAPHY] Executed baseline biography updates "
+                                            f"[BIOGRAPHY] Executed baseline updates "
                                             f"with {len(new_memories)} memories")
                 else:
                     # Get plans from planner

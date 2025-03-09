@@ -157,12 +157,27 @@ def extract_tool_arguments(response: str, tool_name: str, arg_name: str) -> List
             value = call["arguments"].get(arg_name)
             if value:
                 # Handle string representation of lists/dicts
-                if isinstance(value, str) and value.strip() \
-                    .startswith(('[', '{', '"')):
+                if isinstance(value, str):
+                    # First try to parse as JSON
                     try:
-                        value = eval(value)
-                    except:
+                        import json
+                        parsed_value = json.loads(value)
+                        values.append(parsed_value)
+                        continue
+                    except json.JSONDecodeError:
                         pass
-                values.append(value)
+                    
+                    # If JSON parsing fails, check if it's a bracketed list
+                    if value.strip().startswith('[') and value.strip().endswith(']'):
+                        # Remove brackets and split by comma
+                        items = value[1:-1].split(',')
+                        # Strip whitespace from each item
+                        parsed_list = [item.strip() for item in items]
+                        values.append(parsed_list)
+                    else:
+                        # For other string values
+                        values.append(value)
+                else:
+                    values.append(value)
     
     return values

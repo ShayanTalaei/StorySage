@@ -105,7 +105,9 @@ class AddHistoricalQuestionInput(BaseModel):
     temp_memory_ids: List[str] = Field(
         description="Single-line list of temporary memory IDs relevant to this question. "
         "These should match the temporary IDs used in update_memory_bank calls. "
-        "Format: ['MEM_TEMP_1', 'MEM_TEMP_2']",
+        "Format should be a JSON-compatible list with quoted strings: "
+        "['MEM_TEMP_1', 'MEM_TEMP_2']"
+        "Empty list [] is also acceptable.",
         default=[]
     )
 

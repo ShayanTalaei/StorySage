@@ -57,18 +57,18 @@ class Interviewer(BaseAgent, Participant):
                 on_turn_complete=lambda: setattr(
                     self, '_turn_to_respond', False)
             ),
-            "end_conversation": EndConversation(
-                on_goodbye=lambda goodbye: (
-                    self.add_event(sender=self.name,
-                                   tag="goodbye", content=goodbye),
-                    self.interview_session.add_message_to_chat_history(
-                        role=self.title, content=goodbye)
-                ),
-                on_end=lambda: (
-                    setattr(self, '_turn_to_respond', False),
-                    self.interview_session.end_session()
-                )
-            )
+            # "end_conversation": EndConversation(
+            #     on_goodbye=lambda goodbye: (
+            #         self.add_event(sender=self.name,
+            #                        tag="goodbye", content=goodbye),
+            #         self.interview_session.add_message_to_chat_history(
+            #             role=self.title, content=goodbye)
+            #     ),
+            #     on_end=lambda: (
+            #         setattr(self, '_turn_to_respond', False),
+            #         self.interview_session.end_session()
+            #     )
+            # )
         }
 
         self._turn_to_respond = False
@@ -137,9 +137,9 @@ class Interviewer(BaseAgent, Participant):
         # Start with all available tools
         tools_set = set(self.tools.keys())
         
-        if self.interview_session.api_participant:
-            # Don't end_conversation directly if API participant is present
-            tools_set.discard("end_conversation")
+        # if self.interview_session.api_participant:
+        #     # Don't end_conversation directly if API participant is present
+        #     tools_set.discard("end_conversation")
         
         if self._use_baseline:
             # For baseline mode, remove recall tool

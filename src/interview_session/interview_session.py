@@ -517,7 +517,8 @@ class InterviewSession:
             # Use first message timestamp as fallback
             if self.chat_history:
                 first_message_time = self.chat_history[0].timestamp
-                conversation_duration = (datetime.now() - first_message_time).total_seconds()
+                conversation_duration = (
+                    datetime.now() - first_message_time).total_seconds()
             else:
                 conversation_duration = 0
         

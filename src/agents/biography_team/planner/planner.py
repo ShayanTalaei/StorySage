@@ -84,15 +84,24 @@ class BiographyPlanner(BiographyTeamAgent):
             memory_ids = extract_tool_arguments(
                 response, "add_plan", "memory_ids"
             )
+
+            # Process memory IDs and add to current set
             current_memory_ids = set()
             for ids in memory_ids:
                 if isinstance(ids, (list, set)):
+                    # If it's already a list or set, update with its elements
                     current_memory_ids.update(ids)
                 else:
-                    current_memory_ids.add(ids)
+                    # For any other type, add as is (string or otherwise)
+                    current_memory_ids.add(str(ids))
             
             # Update covered memories
             covered_memory_ids.update(current_memory_ids)
+            self.add_event(
+                sender=self.name,
+                tag=f"covered_memory_ids_{iterations}",
+                content=f"Covered memory IDs: {covered_memory_ids}"
+            )
             
             # Save tool calls for next iteration
             previous_tool_call = extract_tool_calls_xml(response)
@@ -112,7 +121,8 @@ class BiographyPlanner(BiographyTeamAgent):
                 self.add_event(
                     sender=self.name,
                     tag=f"warning_{iterations}",
-                    content=f"Reached max iterations ({self._max_consideration_iterations}) "
+                    content=f"Reached max iterations "
+                            f"({self._max_consideration_iterations}) "
                             "without covering all memories"
                 )
         
