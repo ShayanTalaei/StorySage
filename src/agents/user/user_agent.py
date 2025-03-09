@@ -1,3 +1,4 @@
+import asyncio
 import os
 import dotenv
 import re
@@ -65,6 +66,9 @@ class UserAgent(BaseAgent, User):
         response_content, response_reasoning = self._extract_response(response)
 
         wants_to_respond = response_content != "SKIP"
+
+        # Wait to mimic natural response time
+        await asyncio.sleep(2)
 
         if wants_to_respond:
             # Generate detailed response using LLM

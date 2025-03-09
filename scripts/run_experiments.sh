@@ -2,7 +2,7 @@
 
 # Default values
 USER_ID=""
-TIMEOUT=10
+TIMEOUT=8
 SKIP_BASELINE=false
 
 # Parse command line arguments

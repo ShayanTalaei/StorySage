@@ -6,9 +6,14 @@ import subprocess
 import shutil
 from datetime import datetime
 import dotenv
+from typing import Optional, Dict
 
-def backup_env_file():
-    """Create a backup of the original .env file"""
+def backup_env_file() -> Optional[str]:
+    """Create a backup of the original .env file
+    
+    Returns:
+        Optional[str]: Path to the backup file if created, None otherwise
+    """
     if os.path.exists('.env'):
         backup_file = f'.env.backup_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
         shutil.copy2('.env', backup_file)
@@ -16,20 +21,31 @@ def backup_env_file():
         return backup_file
     return None
 
-def restore_env_file(backup_file):
-    """Restore the original .env file from backup"""
+def restore_env_file(backup_file: Optional[str]) -> None:
+    """Restore the original .env file from backup
+    
+    Args:
+        backup_file (Optional[str]): Path to the backup file to restore from
+    """
     if backup_file and os.path.exists(backup_file):
         shutil.copy2(backup_file, '.env')
         print(f"Restored original .env file from backup: {backup_file}")
 
-def load_env_variables():
+def load_env_variables() -> None:
     """Load environment variables from .env file"""
     dotenv.load_dotenv()
 
-def update_env_file(model_name, use_baseline, logs_dir=None, data_dir=None):
-    """Update the .env file with the specified configuration"""
+def update_env_file(model_name: str, use_baseline: bool, logs_dir: Optional[str] = None, data_dir: Optional[str] = None) -> None:
+    """Update the .env file with the specified configuration
+    
+    Args:
+        model_name (str): Name of the model to use
+        use_baseline (bool): Whether to use baseline prompt
+        logs_dir (Optional[str]): Directory for logs
+        data_dir (Optional[str]): Directory for data
+    """
     # Load current env variables
-    env_vars = {}
+    env_vars: Dict[str, str] = {}
     with open('.env', 'r') as f:
         for line in f:
             line = line.strip()
@@ -58,8 +74,30 @@ def update_env_file(model_name, use_baseline, logs_dir=None, data_dir=None):
     if data_dir:
         print(f"Updated DATA_DIR={data_dir}")
 
-def run_command_with_timeout(command, timeout_minutes):
-    """Run a command with a timeout and end it properly with a keyboard interrupt"""
+def wait_for_completion(process: subprocess.Popen, timeout_minutes: float = 1) -> bool:
+    """Wait for a process to complete with a timeout.
+    
+    Args:
+        process (subprocess.Popen): Process to wait for
+        timeout_minutes (float): Timeout in minutes
+    
+    Returns:
+        bool: True if process completed within timeout, False otherwise
+    """
+    try:
+        process.wait(timeout=timeout_minutes * 60)
+        return True
+    except subprocess.TimeoutExpired:
+        print("Process is taking longer than expected...")
+        return False
+
+def run_command_with_timeout(command: str, timeout_minutes: int) -> None:
+    """Run a command with a timeout and end it properly with a keyboard interrupt
+    
+    Args:
+        command (str): Command to run
+        timeout_minutes (int): Timeout in minutes
+    """
     print(f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] "
           f"Running command: {command}")
     print(f"Session will run for {timeout_minutes} minutes...")
@@ -84,32 +122,40 @@ def run_command_with_timeout(command, timeout_minutes):
             kernel32 = ctypes.windll.kernel32
             kernel32.GenerateConsoleCtrlEvent(0, 0)  # CTRL_C_EVENT
         
-        # Wait for the process to finish gracefully
         print("Waiting for session to finish gracefully...")
-        try:
-            process.wait(timeout=60)  # Wait up to 60 seconds for graceful shutdown
-        except subprocess.TimeoutExpired:
-            print("Session is taking too long to finish. Forcing termination...")
+        if not wait_for_completion(process, timeout_minutes=10):
+            print("Session is taking too long to finish. Attempting graceful termination...")
             process.terminate()
-            process.wait(timeout=10)
+            if not wait_for_completion(process, timeout_minutes=5):
+                print("Process still not terminated. Force killing...")
+                process.kill()
+                process.wait()
     
     except KeyboardInterrupt:
         # Allow manual termination
         print(f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] "
               f"Process terminated by user")
-        # Don't kill the process, let it handle the KeyboardInterrupt
-        try:
-            process.wait(timeout=60)  # Wait up to 60 seconds for graceful shutdown
-        except subprocess.TimeoutExpired:
-            print("Session is taking too long to finish. Forcing termination...")
+        if not wait_for_completion(process, timeout_minutes=10):
+            print("Session is taking too long to finish. Attempting graceful termination...")
             process.terminate()
-            process.wait(timeout=10)
+            if not wait_for_completion(process, timeout_minutes=5):
+                print("Process still not terminated. Force killing...")
+                process.kill()
+                process.wait()
     
-    # Give some time for the process to clean up
+    # Give some time for final cleanup
     time.sleep(5)
 
-def run_evaluation(user_id, eval_type):
-    """Run evaluation script"""
+def run_evaluation(user_id: str, eval_type: str) -> bool:
+    """Run evaluation script
+    
+    Args:
+        user_id (str): User ID for the evaluation
+        eval_type (str): Type of evaluation to run
+    
+    Returns:
+        bool: True if evaluation succeeded, False otherwise
+    """
     command = f"python evaluations/{eval_type}.py --user_id {user_id}"
     print(f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] "
           f"Running evaluation: {command}")
@@ -128,8 +174,15 @@ def run_evaluation(user_id, eval_type):
     
     return result.returncode == 0
 
-def run_experiment(user_id, model_name, use_baseline, timeout_minutes=10):
-    """Run a single experiment with the specified configuration"""
+def run_experiment(user_id: str, model_name: str, use_baseline: bool, timeout_minutes: int = 8) -> None:
+    """Run a single experiment with the specified configuration
+    
+    Args:
+        user_id (str): User ID for the experiment
+        model_name (str): Name of the model to use
+        use_baseline (bool): Whether to use baseline prompt
+        timeout_minutes (int): Timeout in minutes for the session
+    """
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     experiment_id = f"{model_name.replace('-', '_')}_baseline_{str(use_baseline).lower()}_{timestamp}"
     
@@ -154,7 +207,7 @@ def run_experiment(user_id, model_name, use_baseline, timeout_minutes=10):
     run_command_with_timeout(command, timeout_minutes)
     
     # Run evaluations
-    eval_results = {}
+    eval_results: Dict[str, str] = {}
     for eval_type in ["biography_completeness", "biography_groundedness"]:
         success = run_evaluation(user_id, eval_type)
         eval_results[eval_type] = "Success" if success else "Failed"
@@ -168,4 +221,7 @@ def run_experiment(user_id, model_name, use_baseline, timeout_minutes=10):
     print(f"Data directory: {data_dir}")
     print("Evaluation results:")
     for eval_type, result in eval_results.items():
-        print(f"  - {eval_type}: {result}") 
+        print(f"  - {eval_type}: {result}")
+    
+    # Add a clear separator between experiments
+    print("\n" + "="*80 + "\n") 

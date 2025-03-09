@@ -4,7 +4,7 @@
 USER_ID=""
 MODEL="gpt-4o"
 BASELINE=false
-TIMEOUT=10
+TIMEOUT=8
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do

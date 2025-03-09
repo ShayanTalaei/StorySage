@@ -12,8 +12,8 @@ def main():
         description="Run experiments with different configurations")
     parser.add_argument("--user_id", required=True, 
                         help="User ID for the experiment")
-    parser.add_argument("--timeout", type=int, default=10, 
-                        help="Timeout in minutes for each session (default: 10)")
+    parser.add_argument("--timeout", type=int, default=8, 
+                        help="Timeout in minutes for each session (default: 8)")
     parser.add_argument("--skip_baseline", action="store_true", 
                         help="Skip baseline experiments")
     args = parser.parse_args()

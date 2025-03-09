@@ -517,6 +517,12 @@ Examples of Good Tangential Questions:
 """
 
 CONSIDER_AND_PROPOSE_FOLLOWUPS_OUTPUT_FORMAT = """
+# Question ID Constraints
+- Question IDs must follow a hierarchical format (e.g., 1.2, 1.2.3)
+- Maximum depth allowed is 4 levels (e.g., 1.2.3.4)
+- If a question would exceed 4 levels, create it at the same level as its sibling instead
+  Example: If parent is 1.2.3.4, new question should be 1.2.3.5 (not 1.2.3.4.1)
+
 Follow the output format below to return your response:
 
 <output_format>
@@ -535,6 +541,7 @@ Your reasoning process on reflecting on the available information and deciding o
     ...
 
     <!-- Option 2: Propose follow-up questions; leave empty tags if not proposing any -->
+    <!-- MAX LEVELS is 4! JUST CREATE QUESTIONS AT THE SAME LEVEL AS THEIR SIBLINGS IF THEY EXCEED THIS -->
     <add_interview_question>
         <topic>Topic name</topic>
         <parent_id>ID of the parent question</parent_id>
