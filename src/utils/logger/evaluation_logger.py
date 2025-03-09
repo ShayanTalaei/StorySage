@@ -20,7 +20,7 @@ class EvaluationLogger:
             session_id: Optional session ID for session-based logging
         """
         self.user_id = user_id
-        self.session_id = session_id or ""
+        self.session_id = str(session_id) or ""
         self.base_dir = Path(os.getenv("LOGS_DIR", "logs"))
         
         # Create evaluations directory

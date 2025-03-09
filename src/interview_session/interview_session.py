@@ -436,7 +436,7 @@ class InterviewSession:
         
         # Extract recent messages from chat history
         recent_messages: List[Message] = []
-        for msg in self.chat_history[-self._max_events_len:]:
+        for msg in self.chat_history[-self.note_taker._max_events_len:]:
             if msg.type == MessageType.CONVERSATION:
                 recent_messages.append(msg)
         

@@ -178,11 +178,6 @@ Here is the conversation history of your interview session so far, along with yo
 {chat_history}
 </chat_history>
 
-<score>
-You scored the interviewer's last question a {score}/5. Here was your reasoning:
-{score_reasoning}
-</score>
-
 - The external tag of each event indicates who is speaking
 - You should pay special attention to your score and your reasoning for giving that score to the interviewer's last question
 """
@@ -199,6 +194,7 @@ RESPOND_INSTRUCTIONS_PROMPT = """
   - If a topic was discussed before, share different experiences or perspectives
   - It's better to creatively expand your story with new (but consistent) details than to repeat previous responses
   - If you feel a question has been thoroughly covered in past sessions, consider responding with "SKIP"
+  - If you already share a lot in the last session, skip the open-ended questions in the beginning of the current session
 
 - If you decide to respond:
   - Provide explicit reasoning for why you're responding, referencing:

@@ -103,8 +103,8 @@ class UserAgent(BaseAgent, User):
                 profile_background=self.profile_background,
                 conversational_style=self.conversational_style,
                 session_history=self.session_history,
-                score=self.question_score,
-                score_reasoning=self.question_score_reasoning,
+                # score=self.question_score,
+                # score_reasoning=self.question_score_reasoning,
                 chat_history=self.get_event_stream_str([{"tag": "message"}])
             )
 
