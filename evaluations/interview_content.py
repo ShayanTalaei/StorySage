@@ -70,7 +70,7 @@ EVALUATION_CRITERIA = {
     }
 }
 
-USER_EXPERIENCE_INSTRUCTIONS = """
+INSTRUCTIONS = """
 You are an expert evaluator assessing the quality of an AI interviewer. You will be given a transcript of a conversation between an AI interviewer and a human user. Your task is to evaluate the interview experience from the user's perspective.
 
 Please carefully read through the entire conversation transcript and then provide ratings and explanations for the following criteria:
@@ -84,7 +84,7 @@ For each criterion, provide:
 Your evaluation should be objective, fair, and based solely on the conversation transcript provided.
 """
 
-USER_EXPERIENCE_IO = """
+IO_FORMAT = """
 ## Input Context
 
 Conversation Transcript:
@@ -126,8 +126,8 @@ def format_evaluation_prompt(chat_history: str) -> str:
             criteria_text += f"  * {guideline}\n"
         criteria_text += "\n"
     
-    instructions = USER_EXPERIENCE_INSTRUCTIONS.format(criteria_text=criteria_text)
-    io_format = USER_EXPERIENCE_IO.format(chat_history=chat_history)
+    instructions = INSTRUCTIONS.format(criteria_text=criteria_text)
+    io_format = IO_FORMAT.format(chat_history=chat_history)
     
     return f"{instructions}\n\n{io_format}"
 
@@ -218,7 +218,7 @@ async def evaluate_interview(user_id: str, session_id: Optional[int] = None) -> 
         )
         
         # Log evaluation results to CSV
-        eval_logger.log_user_experience_evaluation(
+        eval_logger.log_interview_content_evaluation(
             evaluation_data=evaluation,
             timestamp=timestamp
         )

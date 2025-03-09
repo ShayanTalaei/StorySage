@@ -20,7 +20,7 @@ class EvaluationLogger:
             session_id: Optional session ID for session-based logging
         """
         self.user_id = user_id
-        self.session_id = session_id
+        self.session_id = session_id or ""
         self.base_dir = Path(os.getenv("LOGS_DIR", "logs"))
         
         # Create evaluations directory
@@ -113,12 +113,7 @@ class EvaluationLogger:
             proposer: Name of the agent proposing this question
             timestamp: Optional timestamp (defaults to current time)
         """
-        # Construct filename based on session_id
-        if self.session_id is not None:
-            filename = self.eval_dir / \
-                f"question_similarity_session_{self.session_id}.csv"
-        else:
-            filename = self.eval_dir / "question_similarity_evaluations.csv"
+        filename = self.eval_dir / "question_similarity.csv"
             
         file_exists = filename.exists()
         
@@ -131,6 +126,7 @@ class EvaluationLogger:
                 writer.writerow([
                     'Timestamp',
                     'Proposer',
+                    'Session ID',
                     'Target Question',
                     'Similar Questions',
                     'Similarity Scores',
@@ -142,6 +138,7 @@ class EvaluationLogger:
             writer.writerow([
                 timestamp.isoformat(),
                 proposer,
+                self.session_id,
                 target_question,
                 '; '.join(similar_questions),
                 '; '.join(f"{score:.2f}" for score in similarity_scores),
@@ -149,8 +146,112 @@ class EvaluationLogger:
                 matched_question,
                 explanation
             ])
+    
+    def log_response_latency(
+        self,
+        message_id: str,
+        user_message_timestamp: datetime,
+        response_timestamp: datetime,
+        user_message_length: int
+    ) -> None:
+        """Log the latency between user message and system response.
+        
+        Args:
+            message_id: Unique identifier for the message pair
+            user_message_timestamp: When the user sent their message
+            response_timestamp: When the response was delivered
+            user_message_length: Length of the user's message in characters
+        """
+        # Create a logs directory for response latency
+        logs_dir = self.eval_dir
+        logs_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Calculate latency in seconds
+        latency_seconds = (response_timestamp - user_message_timestamp).total_seconds()
+        
+        # Log to CSV file
+        filename = logs_dir / "response_latency.csv"
+        file_exists = filename.exists()
+        
+        with open(filename, 'a', newline='') as f:
+            writer = csv.writer(f)
+            if not file_exists:
+                writer.writerow([
+                    'User Message ID',
+                    'Session ID',
+                    'Timestamp',
+                    'Latency (seconds)',
+                    'User Message Length'
+                ])
+            
+            writer.writerow([
+                message_id,
+                self.session_id,
+                user_message_timestamp.isoformat(),
+                f"{latency_seconds:.3f}",
+                user_message_length
+            ])
 
-    def log_biography_groundedness(
+    def log_interview_content_evaluation(
+        self,
+        evaluation_data: Dict[str, Any],
+        timestamp: Optional[datetime] = None
+    ) -> None:
+        """Log user experience evaluation results to a CSV file.
+        
+        Args:
+            evaluation_data: Dictionary containing evaluation results
+            timestamp: Optional timestamp (defaults to current time)
+        """
+        # Create logs directory
+        logs_dir = self.eval_dir
+        logs_dir.mkdir(parents=True, exist_ok=True)
+        
+        if timestamp is None:
+            timestamp = datetime.now()
+            
+        # Log to CSV file
+        filename = logs_dir / "user_experience_evaluation.csv"
+        file_exists = filename.exists()
+        
+        with open(filename, 'a', newline='') as f:
+            writer = csv.writer(f)
+            
+            # Create headers if file doesn't exist
+            if not file_exists:
+                headers = [
+                    'Timestamp',
+                    'Session ID',
+                    'Smooth Score',
+                    'Smooth Score Explanation',
+                    'Flexibility Score',
+                    'Flexibility Score Explanation',
+                    'Language Quality Score',
+                    'Language Quality Score Explanation',
+                    'Comforting Score',
+                    'Comforting Score Explanation'
+                ]
+                writer.writerow(headers)
+            
+            # Extract data from evaluation_data
+            row = [timestamp.isoformat(), self.session_id]
+            
+            # Add scores and explanations
+            criteria = ['smooth_score', 'flexibility_score',
+                         'quality_score', 'comforting_score']
+            
+            for criterion in criteria:
+                if criterion in evaluation_data:
+                    row.append(evaluation_data[criterion].get('rating', ''))
+                    row.append(evaluation_data[criterion].get('explanation', ''))
+                else:
+                    row.append('')
+                    row.append('')
+            
+            # Write row
+            writer.writerow(row)
+
+    def log_biography_section_groundedness(
         self,
         section_id: str,
         section_title: str,
@@ -158,9 +259,7 @@ class EvaluationLogger:
         unsubstantiated_claims: List[str],
         unsubstantiated_details_explanation: List[str],
         overall_assessment: str,
-        biography_version: int,
-        prompt: str = None,
-        response: str = None
+        biography_version: int
     ) -> None:
         """Log biography groundedness evaluation results."""
         # Create a version-specific directory
@@ -191,20 +290,6 @@ class EvaluationLogger:
                 '; '.join(unsubstantiated_claims),
                 '; '.join(unsubstantiated_details_explanation),
             ])
-        
-        # Log prompt and response to a log file if provided
-        if prompt or response:
-            log_filename = version_dir / f"section_{section_id}.log"
-            with open(log_filename, 'w', encoding='utf-8') as log_file:
-                if prompt:
-                    log_file.write("=== PROMPT ===\n\n")
-                    log_file.write(prompt)
-                    log_file.write("\n\n")
-                
-                if response:
-                    log_file.write("=== RESPONSE ===\n\n")
-                    log_file.write(response)
-                    log_file.write("\n\n")
 
     def log_biography_completeness(
         self,
@@ -242,107 +327,6 @@ class EvaluationLogger:
                         memory['importance_score']
                     ])
 
-    def log_response_latency(
-        self,
-        message_id: str,
-        user_message_timestamp: datetime,
-        response_timestamp: datetime,
-        user_message_length: int
-    ) -> None:
-        """Log the latency between user message and system response.
-        
-        Args:
-            message_id: Unique identifier for the message pair
-            user_message_timestamp: When the user sent their message
-            response_timestamp: When the response was delivered
-            user_message_length: Length of the user's message in characters
-        """
-        # Create a logs directory for response latency
-        logs_dir = self.eval_dir
-        logs_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Calculate latency in seconds
-        latency_seconds = (response_timestamp - user_message_timestamp).total_seconds()
-        
-        # Log to CSV file
-        filename = logs_dir / "response_latency.csv"
-        file_exists = filename.exists()
-        
-        with open(filename, 'a', newline='') as f:
-            writer = csv.writer(f)
-            if not file_exists:
-                writer.writerow([
-                    'User Message ID',
-                    'Timestamp',
-                    'Latency (seconds)',
-                    'User Message Length'
-                ])
-            
-            writer.writerow([
-                message_id,
-                user_message_timestamp.isoformat(),
-                f"{latency_seconds:.3f}",
-                user_message_length
-            ])
-
-    def log_user_experience_evaluation(
-        self,
-        evaluation_data: Dict[str, Any],
-        timestamp: Optional[datetime] = None
-    ) -> None:
-        """Log user experience evaluation results to a CSV file.
-        
-        Args:
-            evaluation_data: Dictionary containing evaluation results
-            timestamp: Optional timestamp (defaults to current time)
-        """
-        # Create logs directory
-        logs_dir = self.eval_dir
-        logs_dir.mkdir(parents=True, exist_ok=True)
-        
-        if timestamp is None:
-            timestamp = datetime.now()
-            
-        # Log to CSV file
-        filename = logs_dir / "user_experience_evaluation.csv"
-        file_exists = filename.exists()
-        
-        with open(filename, 'a', newline='') as f:
-            writer = csv.writer(f)
-            
-            # Create headers if file doesn't exist
-            if not file_exists:
-                headers = [
-                    'Timestamp',
-                    'Smooth Score',
-                    'Smooth Score Explanation',
-                    'Flexibility Score',
-                    'Flexibility Score Explanation',
-                    'Language Quality Score',
-                    'Language Quality Score Explanation',
-                    'Comforting Score',
-                    'Comforting Score Explanation'
-                ]
-                writer.writerow(headers)
-            
-            # Extract data from evaluation_data
-            row = [timestamp.isoformat()]
-            
-            # Add scores and explanations
-            criteria = ['smooth_score', 'flexibility_score',
-                         'quality_score', 'comforting_score']
-            
-            for criterion in criteria:
-                if criterion in evaluation_data:
-                    row.append(evaluation_data[criterion].get('rating', ''))
-                    row.append(evaluation_data[criterion].get('explanation', ''))
-                else:
-                    row.append('')
-                    row.append('')
-            
-            # Write row
-            writer.writerow(row)
-
     def log_biography_content_evaluation(
         self,
         evaluation_data: Dict[str, Any],
@@ -373,7 +357,7 @@ class EvaluationLogger:
         filename = version_dir / "content_quality_evaluation.csv"
         file_exists = filename.exists()
         
-        with open(filename, 'a', newline='') as f:
+        with open(filename, 'w', newline='') as f:
             writer = csv.writer(f)
             
             # Create headers if file doesn't exist
@@ -405,3 +389,47 @@ class EvaluationLogger:
             
             # Write row
             writer.writerow(row) 
+
+    def log_biography_overall_groundedness(
+        self,
+        overall_score: float,
+        section_scores: List[Dict[str, Any]],
+        biography_version: int,
+        timestamp: Optional[datetime] = None
+    ) -> None:
+        """Log the overall groundedness score for the entire biography.
+        
+        Args:
+            overall_score: The overall groundedness score (0-100)
+            section_scores: List of dictionaries with section scores
+            biography_version: Version number of the biography
+            timestamp: Optional timestamp (defaults to current time)
+        """
+        # Create a version-specific directory
+        version_dir = self.eval_dir / f"biography_{biography_version}"
+        version_dir.mkdir(parents=True, exist_ok=True)
+        
+        if timestamp is None:
+            timestamp = datetime.now()
+        
+        # Log to CSV file
+        filename = version_dir / "overall_groundedness.csv"
+        file_exists = filename.exists()
+        
+        with open(filename, 'w', newline='') as f:
+            writer = csv.writer(f)
+            
+            # Write overall score
+            writer.writerow(['Timestamp', 'Overall Groundedness Score'])
+            writer.writerow([timestamp.isoformat(), f"{overall_score:.2f}%"])
+            
+            # Write section scores
+            writer.writerow([])  # Empty row for separation
+            writer.writerow(['Section ID', 'Section Title', 'Groundedness Score'])
+            
+            for section in section_scores:
+                writer.writerow([
+                    section['section_id'],
+                    section['section_title'],
+                    f"{section['evaluation']['groundedness_score']}%"
+                ]) 
