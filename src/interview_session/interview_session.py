@@ -347,13 +347,21 @@ class InterviewSession:
                     "execution_log", f"[RUN] Error during biography update: \
                           {str(e)}")
             finally:
-                # Save memory and question banks
+                # Save memory bank
                 self.memory_bank.save_to_file(self.user_id)
                 SessionLogger.log_to_file(
                     "execution_log", f"[COMPLETED] Memory bank saved")
+                
+                # Save historical question bank
                 self.historical_question_bank.save_to_file(self.user_id)
                 SessionLogger.log_to_file(
                     "execution_log", f"[COMPLETED] Question bank saved")
+                
+                # Log conversation statistics
+                self.log_conversation_statistics()
+                SessionLogger.log_to_file(
+                    "execution_log", f"[COMPLETED] Conversation statistics logged")
+                
                 self.session_completed = True
                 SessionLogger.log_to_file(
                     "execution_log", f"[COMPLETED] Session completed")
@@ -482,4 +490,48 @@ class InterviewSession:
             user_message_timestamp=user_message.timestamp,
             response_timestamp=response_message.timestamp,
             user_message_length=user_message_length
+        )
+
+    def log_conversation_statistics(self):
+        """Log statistics about the conversation."""
+        # Count turns
+        total_turns = len(self.chat_history)
+        
+        # Count characters instead of tokens
+        user_chars = 0
+        system_chars = 0
+        
+        for message in self.chat_history:
+            if message.role == "User":
+                user_chars += len(message.content)
+            else:
+                system_chars += len(message.content)
+        
+        total_chars = user_chars + system_chars
+        
+        # Calculate conversation duration
+        start_time = getattr(self, 'start_time', None)
+        if start_time:
+            conversation_duration = (datetime.now() - start_time).total_seconds()
+        else:
+            # Use first message timestamp as fallback
+            if self.chat_history:
+                first_message_time = self.chat_history[0].timestamp
+                conversation_duration = (datetime.now() - first_message_time).total_seconds()
+            else:
+                conversation_duration = 0
+        
+        # Log statistics
+        eval_logger = EvaluationLogger.setup_logger(self.user_id, self.session_id)
+        eval_logger.log_conversation_statistics(
+            total_turns=total_turns,
+            total_chars=total_chars,
+            user_chars=user_chars,
+            system_chars=system_chars,
+            conversation_duration=conversation_duration
+        )
+        
+        SessionLogger.log_to_file(
+            "execution_log", 
+            f"[STATS] Conversation statistics logged"
         )

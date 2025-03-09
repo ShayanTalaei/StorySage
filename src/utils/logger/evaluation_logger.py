@@ -25,11 +25,7 @@ class EvaluationLogger:
         
         # Create evaluations directory
         if user_id:
-            if session_id is not None:
-                self.eval_dir = self.base_dir / user_id / "evaluations" / \
-                    f"session_{session_id}"
-            else:
-                self.eval_dir = self.base_dir / user_id / "evaluations"
+            self.eval_dir = self.base_dir / user_id / "evaluations"
         else:
             self.eval_dir = self.base_dir / "evaluations"
         self.eval_dir.mkdir(parents=True, exist_ok=True)
@@ -72,7 +68,9 @@ class EvaluationLogger:
             timestamp: Optional timestamp (defaults to current time)
         """
         # Create a logs directory for prompts and responses
-        logs_dir = self.eval_dir / "prompt_response_logs"
+        logs_dir = self.eval_dir / \
+            f"prompt_response_logs{'_session_' + self.session_id \
+                                    if self.session_id else ''}"
         logs_dir.mkdir(parents=True, exist_ok=True)
         
         if timestamp is None:
@@ -251,6 +249,68 @@ class EvaluationLogger:
             # Write row
             writer.writerow(row)
 
+    def log_conversation_statistics(
+        self,
+        total_turns: int,
+        total_chars: int,
+        user_chars: int,
+        system_chars: int,
+        conversation_duration: float,
+        timestamp: Optional[datetime] = None
+    ) -> None:
+        """Log statistics about the conversation.
+        
+        Args:
+            total_turns: Total number of conversation turns
+            total_chars: Total number of characters in the conversation
+            user_chars: Number of characters in user messages
+            system_chars: Number of characters in system messages
+            conversation_duration: Duration of the conversation in seconds
+            timestamp: Optional timestamp (defaults to current time)
+        """
+        # Create logs directory
+        logs_dir = self.eval_dir
+        logs_dir.mkdir(parents=True, exist_ok=True)
+        
+        if timestamp is None:
+            timestamp = datetime.now()
+        
+        # Log to CSV file
+        filename = logs_dir / "conversation_statistics.csv"
+        file_exists = filename.exists()
+        
+        with open(filename, 'a', newline='') as f:
+            writer = csv.writer(f)
+            
+            # Create headers if file doesn't exist
+            if not file_exists:
+                headers = [
+                    'Timestamp',
+                    'Session ID',
+                    'Total Turns',
+                    'Total Characters',
+                    'User Characters',
+                    'System Characters',
+                    'Conversation Duration (seconds)',
+                    'Average Characters Per Turn'
+                ]
+                writer.writerow(headers)
+            
+            # Calculate average characters per turn
+            avg_chars_per_turn = total_chars / total_turns if total_turns > 0 else 0
+            
+            # Write row
+            writer.writerow([
+                timestamp.isoformat(),
+                self.session_id,
+                total_turns,
+                total_chars,
+                user_chars,
+                system_chars,
+                f"{conversation_duration:.2f}",
+                f"{avg_chars_per_turn:.2f}"
+            ]) 
+    
     def log_biography_section_groundedness(
         self,
         section_id: str,

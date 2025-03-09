@@ -39,18 +39,20 @@ class UserAgent(BaseAgent, User):
         # Add the interviewer's message to our event stream
         self.add_event(sender=message.role, tag="message",
                        content=message.content)
+        
         # Score the interviewer's question for potential feedback
-        score_prompt = self._get_prompt(prompt_type="score_question")
-        self.add_event(sender=self.name,
-                       tag="score_question_prompt", content=score_prompt)
+        # if os.getenv("EVAL_MODE") == "true":
+        #     score_prompt = self._get_prompt(prompt_type="score_question")
+        #     self.add_event(sender=self.name,
+        #                tag="score_question_prompt", content=score_prompt)
 
-        score_response = await self.call_engine_async(score_prompt)
-        self.add_event(sender=self.name,
-                       tag="score_question_response", content=score_response)
+        #     score_response = await self.call_engine_async(score_prompt)
+        #     self.add_event(sender=self.name,
+        #                  tag="score_question_response", content=score_response)
 
-        # # Extract the score and reasoning
-        self.question_score, self.question_score_reasoning = self._extract_response(
-            score_response)
+        #     # Extract the score and reasoning
+        #     self.question_score, self.question_score_reasoning = self._extract_response(
+        #         score_response)
 
         prompt = self._get_prompt(prompt_type="respond_to_question")
         self.add_event(sender=self.name,
@@ -71,14 +73,17 @@ class UserAgent(BaseAgent, User):
             self.add_event(sender=self.name, tag="message",
                            content=response_content)
             self.interview_session.add_message_to_chat_history(
-                role=self.title, content=response_reasoning, message_type=MessageType.FEEDBACK)
+                role=self.title, content=response_reasoning, 
+                    message_type=MessageType.FEEDBACK)
             self.interview_session.add_message_to_chat_history(
-                role=self.title, content=response_content, message_type=MessageType.CONVERSATION)
+                role=self.title, content=response_content, 
+                    message_type=MessageType.CONVERSATION)
 
         else:
             # We SKIP the response and log a feedback message
             self.interview_session.add_message_to_chat_history(
-                role=self.title, content=response_reasoning, message_type=MessageType.FEEDBACK)
+                role=self.title, content=response_reasoning, 
+                    message_type=MessageType.FEEDBACK)
             self.interview_session.add_message_to_chat_history(
                 role=self.title, message_type=MessageType.SKIP)
 
