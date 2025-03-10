@@ -213,6 +213,7 @@ class InterviewSession:
             if self.session_in_progress:
                 task = asyncio.create_task(sub.on_message(message))
                 tasks.append(task)
+        
         # Allow tasks to run concurrently without waiting for each other
         await asyncio.sleep(0)  # Explicitly yield control
         
@@ -240,20 +241,26 @@ class InterviewSession:
             timestamp=datetime.now(),
         )
 
-        # Save feedback into a file
+        # Log feedback
         if message_type != MessageType.CONVERSATION:
             save_feedback_to_csv(
                 self.chat_history[-1], message, self.user_id, self.session_id)
 
-        # Save response latency into a file
+        # Log response latency
         if message_type == MessageType.CONVERSATION:
             if role == "User":
                 # Store user message for latency calculation
                 self._last_user_message = message
             elif role == "Interviewer" and self._last_user_message is not None:
-                # Calculate and log latency when interviewer responds
+                # First, calculate and log latency when interviewer responds
                 self._log_response_latency(self._last_user_message, message)
                 self._last_user_message = None
+                
+                # Then, evaluate question duplicate
+                if os.getenv("EVAL_MODE", "FALSE").lower() == "true":
+                    self.historical_question_bank.evaluate_question_duplicate(
+                        message.content
+                    )
 
         # Notify participants if message is a skip or conversation
         if message_type == MessageType.SKIP or \
@@ -492,7 +499,7 @@ class InterviewSession:
             user_message_length=user_message_length
         )
 
-    def log_conversation_statistics(self):
+    async def log_conversation_statistics(self):
         """Log statistics about the conversation."""
         # Count turns
         total_turns = len(self.chat_history)
@@ -529,10 +536,8 @@ class InterviewSession:
             total_chars=total_chars,
             user_chars=user_chars,
             system_chars=system_chars,
-            conversation_duration=conversation_duration
-        )
-        
-        SessionLogger.log_to_file(
-            "execution_log", 
-            f"[STATS] Conversation statistics logged"
+            conversation_duration=conversation_duration,
+            total_memories=len(await \
+                               self.note_taker.get_session_memories(
+                                   include_processed=True))
         )

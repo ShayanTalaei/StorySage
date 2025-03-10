@@ -136,7 +136,7 @@ class QuestionBankBase(ABC):
         """Get all questions linked to a specific memory."""
         return [q for q in self.questions if memory_id in q.memory_ids]
     
-    def evaluate_question_duplicate(self, target_question: str, proposer: str = "unknown") -> tuple:
+    def evaluate_question_duplicate(self, target_question: str, proposer: str = "interviewer") -> tuple:
         """Check if a question is semantically equivalent to existing questions.
         
         Args:

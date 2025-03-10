@@ -160,23 +160,20 @@ class BiographyOrchestrator:
                 )
             )
 
-            # 1. First process biography updates
+            # Process biography updates
             await self.update_biography_with_memories(new_memories)
-
-            # If baseline is used, skip session note update
-            if self._section_writer._use_baseline:
-                return
             
-            # Save session note
-            if not new_memories:
+            # Save session note of the current session
+            self._interview_session.session_note.save()
+
+            # Skip session note update if baseline is used or no new memories
+            if not new_memories or self._section_writer._use_baseline:
                 self._interview_session.session_note.save(
                     increment_session_id=True
                 )
                 return
-            else:
-                self._interview_session.session_note.save()
 
-            # 2. Process session note update
+            # Process session note update
             session_note_task = asyncio.create_task(
                 self.update_session_note_with_memories()
             )
@@ -188,7 +185,7 @@ class BiographyOrchestrator:
             # Wait for session note task to complete
             await session_note_task
 
-            # Save session note after all updates are complete
+            # Save session note of the next session
             self._interview_session.session_note.save(increment_session_id=True)
 
         finally:

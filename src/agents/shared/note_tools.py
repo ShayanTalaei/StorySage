@@ -5,8 +5,8 @@ from typing import Type, Optional, Callable
 from langchain_core.callbacks.manager import CallbackManagerForToolRun
 from pydantic import BaseModel, Field, SkipValidation
 from dotenv import load_dotenv
-import asyncio
-from concurrent.futures import ThreadPoolExecutor
+# import asyncio
+# from concurrent.futures import ThreadPoolExecutor
 
 load_dotenv()
 
@@ -15,7 +15,7 @@ from content.session_note.session_note import SessionNote
 from agents.biography_team.models import FollowUpQuestion
 
 # Create a global thread pool executor for background evaluation tasks
-_thread_pool = ThreadPoolExecutor(max_workers=4)
+# _thread_pool = ThreadPoolExecutor(max_workers=4)
 
 """
 Shared tools for updating the session notes:
@@ -52,10 +52,10 @@ class AddInterviewQuestion(BaseTool):
         run_manager: Optional[CallbackManagerForToolRun] = None,
     ) -> str:
         try:
-            if os.getenv("EVAL_MODE", "FALSE").lower() == "true":
-                asyncio.create_task(
-                    self._evaluate_question_duplicate_async(question)
-                )
+            # if os.getenv("EVAL_MODE", "FALSE").lower() == "true":
+            #     asyncio.create_task(
+            #         self._evaluate_question_duplicate_async(question)
+            #     )
             
             if self.proposed_question_bank:
                 self.proposed_question_bank.add_question(question)
@@ -70,20 +70,20 @@ class AddInterviewQuestion(BaseTool):
         except Exception as e:
             raise ToolException(f"Error adding interview question: {str(e)}")
         
-    async def _evaluate_question_duplicate_async(self, question: str):
-        """Run question duplicate evaluation in background without blocking."""
-        try:
-            # Run CPU-bound operation in thread pool
-            loop = asyncio.get_running_loop()
-            await loop.run_in_executor(
-                _thread_pool,
-                lambda: self.historical_question_bank.evaluate_question_duplicate(
-                    question, self.proposer
-                )
-            )
-        except Exception as e:
-            # Log error but don't propagate - this is a background task
-            print(f"Background question evaluation error: {str(e)}")
+    # async def _evaluate_question_duplicate_async(self, question: str):
+    #     """Run question duplicate evaluation in background without blocking."""
+    #     try:
+    #         # Run CPU-bound operation in thread pool
+    #         loop = asyncio.get_running_loop()
+    #         await loop.run_in_executor(
+    #             _thread_pool,
+    #             lambda: self.historical_question_bank.evaluate_question_duplicate(
+    #                 question, self.proposer
+    #             )
+    #         )
+    #     except Exception as e:
+    #         # Log error but don't propagate - this is a background task
+    #         print(f"Background question evaluation error: {str(e)}")
 
 """
 Shared tools for proposing follow-up questions by:

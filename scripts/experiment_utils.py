@@ -7,6 +7,7 @@ import shutil
 from datetime import datetime
 import dotenv
 from typing import Optional, Dict
+import fnmatch
 
 def backup_env_file() -> Optional[str]:
     """Create a backup of the original .env file
@@ -174,7 +175,47 @@ def run_evaluation(user_id: str, eval_type: str) -> bool:
     
     return result.returncode == 0
 
-def run_experiment(user_id: str, model_name: str, use_baseline: bool, timeout_minutes: int = 8) -> None:
+def clear_user_data(user_id: str, model_name: str = None) -> None:
+    """Clear user data and logs for the specified user
+    
+    Args:
+        user_id (str): User ID whose data to clear
+        model_name (str, optional): If provided, only clear data for this model
+    """
+    def remove_user_files(directory: str) -> None:
+        if os.path.exists(directory):
+            user_pattern = f"*{user_id}*"
+            for item in os.listdir(directory):
+                if fnmatch.fnmatch(item, user_pattern):
+                    item_path = os.path.join(directory, item)
+                    if os.path.isfile(item_path):
+                        os.remove(item_path)
+                        print(f"Removed file: {item_path}")
+                    elif os.path.isdir(item_path):
+                        shutil.rmtree(item_path)
+                        print(f"Removed directory: {item_path}")
+
+    if model_name:
+        # Clear model-specific directories
+        model_logs = f"logs_{model_name.replace('-', '_')}"
+        model_data = f"data_{model_name.replace('-', '_')}"
+        remove_user_files(model_logs)
+        remove_user_files(model_data)
+    else:
+        # Clear all directories
+        directories = ['logs', 'data']
+        # Also clear any model-specific directories
+        for dir_name in os.listdir('.'):
+            if dir_name.startswith(('logs_', 'data_')):
+                directories.append(dir_name)
+        
+        for directory in directories:
+            remove_user_files(directory)
+    
+    print(f"Cleared data for user: {user_id}" + 
+          (f" (model: {model_name})" if model_name else ""))
+
+def run_experiment(user_id: str, model_name: str, use_baseline: bool, timeout_minutes: int = 8, restart: bool = False) -> str:
     """Run a single experiment with the specified configuration
     
     Args:
@@ -182,13 +223,17 @@ def run_experiment(user_id: str, model_name: str, use_baseline: bool, timeout_mi
         model_name (str): Name of the model to use
         use_baseline (bool): Whether to use baseline prompt
         timeout_minutes (int): Timeout in minutes for the session
+        restart (bool): Whether to clear existing user data before running
+    
+    Returns:
+        str: The experiment ID
     """
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     experiment_id = f"{model_name.replace('-', '_')}_baseline_{str(use_baseline).lower()}_{timestamp}"
     
     print(f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Starting experiment: {experiment_id}")
     
-    # Set up environment variables
+    # Set up environment variables and directories
     if use_baseline:
         logs_dir = f"logs_{model_name.replace('-', '_')}"
         data_dir = f"data_{model_name.replace('-', '_')}"
@@ -197,6 +242,10 @@ def run_experiment(user_id: str, model_name: str, use_baseline: bool, timeout_mi
         logs_dir = "logs"
         data_dir = "data"
         update_env_file(model_name, use_baseline)
+    
+    # Clear user data if restart is requested
+    if restart:
+        clear_user_data(user_id, model_name if use_baseline else None)
     
     # Create directories if they don't exist
     os.makedirs(logs_dir, exist_ok=True)
@@ -224,4 +273,6 @@ def run_experiment(user_id: str, model_name: str, use_baseline: bool, timeout_mi
         print(f"  - {eval_type}: {result}")
     
     # Add a clear separator between experiments
-    print("\n" + "="*80 + "\n") 
+    print("\n" + "="*80 + "\n")
+    
+    return experiment_id 

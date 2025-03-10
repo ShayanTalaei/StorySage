@@ -256,6 +256,7 @@ class EvaluationLogger:
         user_chars: int,
         system_chars: int,
         conversation_duration: float,
+        total_memories: int,
         timestamp: Optional[datetime] = None
     ) -> None:
         """Log statistics about the conversation.
@@ -266,6 +267,7 @@ class EvaluationLogger:
             user_chars: Number of characters in user messages
             system_chars: Number of characters in system messages
             conversation_duration: Duration of the conversation in seconds
+            total_memories: Total number of memories in the session
             timestamp: Optional timestamp (defaults to current time)
         """
         # Create logs directory
@@ -292,7 +294,8 @@ class EvaluationLogger:
                     'User Characters',
                     'System Characters',
                     'Conversation Duration (seconds)',
-                    'Average Characters Per Turn'
+                    'Average Characters Per Turn',
+                    'Total Memories'
                 ]
                 writer.writerow(headers)
             
@@ -308,7 +311,8 @@ class EvaluationLogger:
                 user_chars,
                 system_chars,
                 f"{conversation_duration:.2f}",
-                f"{avg_chars_per_turn:.2f}"
+                f"{avg_chars_per_turn:.2f}",
+                total_memories
             ]) 
     
     def log_biography_section_groundedness(

@@ -1,3 +1,4 @@
+from agents.biography_team.planner.prompts import SECTION_PATH_FORMAT
 from utils.llm.prompt_utils import format_prompt
 
 def get_prompt(prompt_type: str = "normal"):
@@ -16,7 +17,7 @@ def get_prompt(prompt_type: str = "normal"):
             "USER_PORTRAIT": USER_PORTRAIT,
             "INPUT_CONTEXT": BASELINE_INPUT_CONTEXT,
             "INSTRUCTIONS": BASELINE_INSTRUCTIONS,
-            "OUTPUT_FORMAT": BASELINE_OUTPUT_FORMAT
+            "OUTPUT_FORMAT": SECTION_PATH_FORMAT + BASELINE_OUTPUT_FORMAT
         })
     elif prompt_type == "user_add":
         return USER_ADD_SECTION_PROMPT
