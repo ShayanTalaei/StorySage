@@ -14,12 +14,12 @@ def main():
         description="Run experiments with different configurations")
     parser.add_argument("--user_id", required=True, 
                         help="User ID for the experiment")
-    parser.add_argument("--timeout", type=int, default=8, 
-                        help="Timeout in minutes for each session (default: 8)")
+    parser.add_argument("--timeout", type=int, default=10, 
+                        help="Timeout in minutes for each session")
     parser.add_argument("--skip_baseline", action="store_true", 
                         help="Skip baseline experiments")
     parser.add_argument("--restart", action="store_true",
-                        help="Clear existing user data before running experiments")
+                        help="Clear existing user data before experiments")
     args = parser.parse_args()
     
     # Create a backup of the original .env file

@@ -4,7 +4,6 @@
 USER_ID=""
 MODEL="gpt-4o"
 BASELINE=false
-TIMEOUT=8
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -43,7 +42,10 @@ fi
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # Build the command
-COMMAND="python ${SCRIPT_DIR}/run_single_experiment.py --user_id $USER_ID --model $MODEL --timeout $TIMEOUT"
+COMMAND="python ${SCRIPT_DIR}/experiments/run_single_experiment.py --user_id $USER_ID --model $MODEL"
+if [ ! -z "$TIMEOUT" ]; then
+  COMMAND="$COMMAND --timeout $TIMEOUT"
+fi
 if [ "$BASELINE" = true ]; then
   COMMAND="$COMMAND --baseline"
 fi

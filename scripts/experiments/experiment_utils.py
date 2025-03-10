@@ -215,7 +215,7 @@ def clear_user_data(user_id: str, model_name: str = None) -> None:
     print(f"Cleared data for user: {user_id}" + 
           (f" (model: {model_name})" if model_name else ""))
 
-def run_experiment(user_id: str, model_name: str, use_baseline: bool, timeout_minutes: int = 8, restart: bool = False) -> str:
+def run_experiment(user_id: str, model_name: str, use_baseline: bool, timeout_minutes: int, restart: bool = False) -> str:
     """Run a single experiment with the specified configuration
     
     Args:
@@ -229,7 +229,8 @@ def run_experiment(user_id: str, model_name: str, use_baseline: bool, timeout_mi
         str: The experiment ID
     """
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    experiment_id = f"{model_name.replace('-', '_')}_baseline_{str(use_baseline).lower()}_{timestamp}"
+    experiment_id = f"{model_name.replace('-', '_')}_baseline_" \
+                   f"{str(use_baseline).lower()}_{timestamp}"
     
     print(f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Starting experiment: {experiment_id}")
     
