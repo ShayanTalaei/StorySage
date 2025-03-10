@@ -21,6 +21,15 @@ class MemoryBankBase(ABC):
     
     def __init__(self):
         self.memories: List[Memory] = []
+        self.session_id: Optional[str] = None
+    
+    def set_session_id(self, session_id: str) -> None:
+        """Set the current session ID for the memory bank.
+        
+        Args:
+            session_id: The ID of the current interview session
+        """
+        self.session_id = session_id
     
     def generate_memory_id(self) -> str:
         """Generate a short, unique memory ID.
@@ -79,6 +88,7 @@ class MemoryBankBase(ABC):
             'memories': [memory.to_dict() for memory in self.memories]
         }
         
+        # Save to the main user directory
         content_filepath = os.getenv("LOGS_DIR") + f"/{user_id}/memory_bank_content.json"
         
         # Ensure directory exists
@@ -86,6 +96,15 @@ class MemoryBankBase(ABC):
         
         with open(content_filepath, 'w') as f:
             json.dump(content_data, f, indent=2)
+        
+        # If session_id is provided, save an additional copy in the session directory
+        if self.session_id:
+            session_filepath = os.getenv("LOGS_DIR") + \
+                f"/{user_id}/execution_logs/session_{self.session_id}/memory_bank_content.json"
+            os.makedirs(os.path.dirname(session_filepath), exist_ok=True)
+            
+            with open(session_filepath, 'w') as f:
+                json.dump(content_data, f, indent=2)
             
         # Implementation-specific save
         self._save_implementation_specific(user_id)

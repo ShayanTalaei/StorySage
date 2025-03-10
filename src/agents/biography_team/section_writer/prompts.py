@@ -12,7 +12,7 @@ def get_prompt(prompt_type: str = "normal"):
             "OUTPUT_FORMAT": SECTION_PATH_FORMAT + OUTPUT_FORMAT
         })
     elif prompt_type == "baseline":
-        return format_prompt(SECTION_WRITER_PROMPT_TEMPLATE, {
+        return format_prompt(SECTION_WRITER_BASELINE_TEMPLATE, {
             "PERSONA": PERSONA,
             "USER_PORTRAIT": USER_PORTRAIT,
             "INPUT_CONTEXT": BASELINE_INPUT_CONTEXT,
@@ -35,6 +35,18 @@ SECTION_WRITER_PROMPT_TEMPLATE = """
 {INSTRUCTIONS}
 
 {MISSING_MEMORIES_WARNING}
+
+{OUTPUT_FORMAT}
+"""
+
+SECTION_WRITER_BASELINE_TEMPLATE = """
+{PERSONA}
+
+{USER_PORTRAIT}
+
+{INPUT_CONTEXT}
+
+{INSTRUCTIONS}
 
 {OUTPUT_FORMAT}
 """

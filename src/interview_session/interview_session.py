@@ -79,6 +79,7 @@ class InterviewSession:
         memory_bank_type = bank_config.get("memory_bank_type", "vector_db")
         if memory_bank_type == "vector_db":
             self.memory_bank = VectorMemoryBank.load_from_file(self.user_id)
+            self.memory_bank.set_session_id(self.session_id)
         else:
             raise ValueError(f"Unknown memory bank type: {memory_bank_type}")
 
@@ -88,7 +89,8 @@ class InterviewSession:
         if historical_question_bank_type == "vector_db":
             self.historical_question_bank = \
                 QuestionBankVectorDB.load_from_file(
-                self.user_id)
+                    self.user_id)
+            self.historical_question_bank.set_session_id(self.session_id)
             self.proposed_question_bank = QuestionBankVectorDB()
         else:
             raise ValueError(

@@ -28,6 +28,15 @@ class QuestionBankBase(ABC):
     def __init__(self):
         self.questions: List[Question] = []
         self.engine = get_engine()
+        self.session_id: Optional[str] = None
+    
+    def set_session_id(self, session_id: str) -> None:
+        """Set the current session ID for the question bank.
+        
+        Args:
+            session_id: The ID of the current interview session
+        """
+        self.session_id = session_id
     
     def generate_question_id(self) -> str:
         """Generate a short, unique question ID.
@@ -80,12 +89,22 @@ class QuestionBankBase(ABC):
             'questions': [question.to_dict() for question in self.questions]
         }
         
+        # Save to the main user directory
         content_filepath = os.getenv("LOGS_DIR") + \
             f"/{user_id}/question_bank_content.json"
         os.makedirs(os.path.dirname(content_filepath), exist_ok=True)
         
         with open(content_filepath, 'w') as f:
             json.dump(content_data, f, indent=2)
+        
+        # If session_id is provided, save an additional copy in the session directory
+        if self.session_id:
+            session_filepath = os.getenv("LOGS_DIR") + \
+                f"/{user_id}/execution_logs/session_{self.session_id}/question_bank_content.json"
+            os.makedirs(os.path.dirname(session_filepath), exist_ok=True)
+            
+            with open(session_filepath, 'w') as f:
+                json.dump(content_data, f, indent=2)
             
         self._save_implementation_specific(user_id)
     
