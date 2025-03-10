@@ -4,6 +4,7 @@
 USER_ID=""
 MODEL="gpt-4o"
 BASELINE=false
+RESTART=false
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -24,6 +25,10 @@ while [[ $# -gt 0 ]]; do
       TIMEOUT="$2"
       shift 2
       ;;
+    --restart)
+      RESTART=true
+      shift
+      ;;
     *)
       echo "Unknown option: $1"
       exit 1
@@ -34,7 +39,7 @@ done
 # Check if user_id is provided
 if [ -z "$USER_ID" ]; then
   echo "Error: --user_id is required"
-  echo "Usage: ./scripts/run_single_experiment.sh --user_id <user_id> [--model <model>] [--baseline] [--timeout <minutes>]"
+  echo "Usage: ./scripts/run_single_experiment.sh --user_id <user_id> [--model <model>] [--baseline] [--timeout <minutes>] [--restart]"
   exit 1
 fi
 
@@ -48,6 +53,9 @@ if [ ! -z "$TIMEOUT" ]; then
 fi
 if [ "$BASELINE" = true ]; then
   COMMAND="$COMMAND --baseline"
+fi
+if [ "$RESTART" = true ]; then
+  COMMAND="$COMMAND --restart"
 fi
 
 # Print the command
