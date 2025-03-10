@@ -103,3 +103,21 @@ About the warning:
 If you choose to proceed without addressing the warning, append the XML tag: <proceed>true</proceed>.
 Omit this tag if you are addressing the warning.
 """
+
+SECTION_WRITER_TOOL_CALL_ERROR = """\
+<tool_call_error_warning>
+There was an error with the previous tool call:
+<error>{tool_call_error}</error>
+
+Important Reminders:
+1. Section Path vs Title:
+   - Section Path: Full path using '/' separator (e.g., '1 Early Life/1.1 Childhood')
+   - Section Title: Just the title text (e.g., 'Early Childhood Experiences')
+
+2. Accuracy Requirements:
+   - Copy the exact section path or title
+   - Double-check for typos and formatting
+   
+Please review these points and adjust your approach accordingly.
+</tool_call_error_warning>
+"""

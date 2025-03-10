@@ -11,7 +11,7 @@ from agents.biography_team.section_writer.tools import (
 )
 from agents.shared.note_tools import ProposeFollowUp
 from agents.shared.memory_tools import Recall
-from agents.shared.feedback_prompts import MISSING_MEMORIES_WARNING
+from agents.shared.feedback_prompts import SECTION_WRITER_TOOL_CALL_ERROR, MISSING_MEMORIES_WARNING
 from content.memory_bank.memory import Memory
 from utils.llm.xml_formatter import extract_tool_calls_xml
 
@@ -55,6 +55,7 @@ class SectionWriter(BiographyTeamAgent):
             all_memory_ids = set(todo_item.memory_ids)
             covered_memory_ids = set()
             previous_tool_call = None
+            tool_call_error = None
             
             while iterations < self._max_consideration_iterations:
                 try:
@@ -64,7 +65,8 @@ class SectionWriter(BiographyTeamAgent):
                         missing_memory_ids="\n".join(
                             sorted(list(all_memory_ids - \
                                        covered_memory_ids))
-                        ) if previous_tool_call else ""
+                        ) if previous_tool_call else "",
+                        tool_call_error=tool_call_error
                     )
                     
                     self.add_event(
@@ -81,8 +83,23 @@ class SectionWriter(BiographyTeamAgent):
                     )
 
                     # Handle tool call
-                    result = await self.handle_tool_calls_async(response)
-                    
+                    try:
+                        result = \
+                            await self.handle_tool_calls_async(
+                                response,
+                                raise_error=True
+                            )
+                        tool_call_error = None
+                    except Exception as e:
+                        tool_call_error = str(e)
+                        self.add_event(
+                            sender=self.name,
+                            tag="tool_call_error",
+                            content=f"Tool call error: {tool_call_error}"
+                        )
+                        iterations += 1
+                        continue
+
                     # Check if agent wants to proceed with missing memories
                     if "<proceed>yes</proceed>" in response.lower():
                         self.add_event(
@@ -149,12 +166,20 @@ class SectionWriter(BiographyTeamAgent):
         try:
             # Format warning if needed
             missing_memory_ids = kwargs.get('missing_memory_ids', "")
-            warning = (
-                MISSING_MEMORIES_WARNING.format(
+            tool_call_error = kwargs.get('tool_call_error', "")
+            
+            warning = ""
+            if missing_memory_ids:
+                warning = MISSING_MEMORIES_WARNING.format(
                     previous_tool_call=kwargs.get('previous_tool_call', ""),
                     missing_memory_ids=missing_memory_ids
-                ) if missing_memory_ids else ""
-            )
+                )
+            
+            # Add error warning if there was a tool call error
+            if tool_call_error:
+                warning += SECTION_WRITER_TOOL_CALL_ERROR.format(
+                    tool_call_error=tool_call_error
+                )
 
             if todo_item.action_type == "user_add":
                 events_str = self.get_event_stream_str(
@@ -313,7 +338,8 @@ class SectionWriter(BiographyTeamAgent):
             # Process tool calls
             await self.handle_tool_calls_async(response)
             
-            return UpdateResult(success=True, message="Biography updated with baseline approach")
+            return UpdateResult(success=True, 
+                                message="Biography updated with baseline approach")
             
         except Exception as e:
             

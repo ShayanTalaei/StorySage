@@ -144,7 +144,7 @@ class BaseAgent:
             return "\n".join([format_tool_as_xml_v2(tool) \
                                for tool in self.tools.values()])
     
-    def handle_tool_calls(self, response: str):
+    def handle_tool_calls(self, response: str, raise_error: bool = False):
         """Synchronous tool handling for non-I/O bound operations"""
         result = None
         if "<tool_calls>" in response:
@@ -174,18 +174,19 @@ class BaseAgent:
                                 "should use handle_tool_calls_async"
                             )
                     except Exception as e:
-                        self.add_event(sender="system", tag="error", 
-                                       content=f"Error calling tool"
-                                       f"{tool_name}: {e}")
+                        error_msg = f"Error calling tool {tool_name}: {e}"
+                        self.add_event(sender="system", tag="error",
+                                       content=error_msg)
                         SessionLogger.log_to_file(
                             "execution_log", 
-                            f"({self.name}) Error calling tool "
-                            f"{tool_name}: {e}", 
+                            f"({self.name}) {error_msg}", 
                             log_level="error"
                         )
+                        if raise_error:
+                            raise RuntimeError(error_msg) from e
         return result
 
-    async def handle_tool_calls_async(self, response: str):
+    async def handle_tool_calls_async(self, response: str, raise_error: bool = False):
         """Asynchronous tool handling for I/O bound operations"""
         result = None
         if "<tool_calls>" in response:
@@ -211,13 +212,14 @@ class BaseAgent:
                         self.add_event(sender="system", 
                                        tag=tool_name, content=result)
                     except Exception as e:
+                        error_msg = f"Error calling tool {tool_name}: {e}"
                         self.add_event(sender="system", tag="error",
-                                       content=f"Error calling tool "
-                                       f"{tool_name}: {e}")
+                                       content=error_msg)
                         SessionLogger.log_to_file(
                             "execution_log", 
-                            f"({self.name}) Error calling tool "
-                            f"{tool_name}: {e}", 
+                            f"({self.name}) {error_msg}", 
                             log_level="error"
                         )
+                        if raise_error:
+                            raise RuntimeError(error_msg) from e
         return result
