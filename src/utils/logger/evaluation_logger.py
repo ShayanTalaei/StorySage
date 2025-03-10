@@ -390,7 +390,7 @@ class EvaluationLogger:
             timestamp: Optional timestamp (defaults to current time)
         """
         # Create a version-specific directory
-        version_dir = "logs" / self.user_id / "evaluations" / \
+        version_dir = Path("logs") / self.user_id / "evaluations" / \
             f"biography_{biography_version}"
         version_dir.mkdir(parents=True, exist_ok=True)
         
@@ -423,28 +423,36 @@ class EvaluationLogger:
             
             # Extract metadata
             metadata = evaluation_data.get('metadata', {})
+            model_a = metadata.get('model_A', 'unknown')
+            model_b = metadata.get('model_B', 'unknown')
+            version_a = metadata.get('version_A', 'unknown')
+            version_b = metadata.get('version_B', 'unknown')
             
-            # Prepare row data
-            row = [
-                timestamp.isoformat(),
-                metadata.get('model_A', ''),
-                metadata.get('model_B', ''),
-                metadata.get('version_A', ''),
-                metadata.get('version_B', '')
-            ]
+            # Extract criteria results
+            insightfulness = evaluation_data.get('insightfulness_score', {})
+            narrativity = evaluation_data.get('narrativity_score', {})
+            coherence = evaluation_data.get('coherence_score', {})
             
-            # Add voting results
-            for criterion in ['insightfulness_score', 
-                              'narrativity_score', 'coherence_score']:
-                if criterion in evaluation_data:
-                    row.append(evaluation_data[criterion].get('voting', ''))
-                    row.append(evaluation_data[criterion].get('explanation', ''))
-                else:
-                    row.append('')
-                    row.append('')
+            # Ensure voting values are standardized
+            insightfulness_winner = insightfulness.get('voting', 'unknown')
+            narrativity_winner = narrativity.get('voting', 'unknown')
+            coherence_winner = coherence.get('voting', 'unknown')
             
             # Write row
-            writer.writerow(row) 
+            row = [
+                timestamp.isoformat(),
+                model_a,
+                model_b,
+                version_a,
+                version_b,
+                insightfulness_winner,
+                insightfulness.get('explanation', ''),
+                narrativity_winner,
+                narrativity.get('explanation', ''),
+                coherence_winner,
+                coherence.get('explanation', '')
+            ]
+            writer.writerow(row)
 
     def log_interview_comparison_evaluation(
         self,
@@ -457,15 +465,15 @@ class EvaluationLogger:
             evaluation_data: Dictionary containing evaluation results and metadata
             timestamp: Optional timestamp (defaults to current time)
         """
-        # Create logs directory
-        logs_dir = "logs" / self.user_id / "evaluations"
-        logs_dir.mkdir(parents=True, exist_ok=True)
+        # Create evaluations directory
+        eval_dir = Path("logs") / self.user_id / "evaluations"
+        eval_dir.mkdir(parents=True, exist_ok=True)
         
         if timestamp is None:
             timestamp = datetime.now()
         
         # Log to CSV file
-        filename = logs_dir / "interview_comparisons.csv"
+        filename = eval_dir / "interview_comparisons.csv"
         file_exists = filename.exists()
         
         with open(filename, 'a', newline='') as f:
@@ -475,9 +483,10 @@ class EvaluationLogger:
             if not file_exists:
                 headers = [
                     'Timestamp',
-                    'Session ID',
                     'Model A',
                     'Model B',
+                    'Session A',
+                    'Session B',
                     'Smooth Score Winner',
                     'Smooth Score Explanation',
                     'Flexibility Score Winner',
@@ -491,24 +500,37 @@ class EvaluationLogger:
             
             # Extract metadata
             metadata = evaluation_data.get('metadata', {})
+            model_a = metadata.get('model_A', 'unknown')
+            model_b = metadata.get('model_B', 'unknown')
+            session_a = metadata.get('session_A', 'unknown')
+            session_b = metadata.get('session_B', 'unknown')
             
-            # Prepare row data
-            row = [
-                timestamp.isoformat(),
-                self.session_id,
-                metadata.get('model_A', ''),
-                metadata.get('model_B', '')
-            ]
+            # Extract criteria results
+            smooth = evaluation_data.get('smooth_score', {})
+            flexibility = evaluation_data.get('flexibility_score', {})
+            quality = evaluation_data.get('quality_score', {})
+            comforting = evaluation_data.get('comforting_score', {})
             
-            # Add voting results
-            for criterion in ['smooth_score', 'flexibility_score', 
-                              'quality_score', 'comforting_score']:
-                if criterion in evaluation_data:
-                    row.append(evaluation_data[criterion].get('voting', ''))
-                    row.append(evaluation_data[criterion].get('explanation', ''))
-                else:
-                    row.append('')
-                    row.append('')
+            # Ensure voting values are standardized
+            smooth_winner = smooth.get('voting', 'unknown')
+            flexibility_winner = flexibility.get('voting', 'unknown')
+            quality_winner = quality.get('voting', 'unknown')
+            comforting_winner = comforting.get('voting', 'unknown')
             
             # Write row
+            row = [
+                timestamp.isoformat(),
+                model_a,
+                model_b,
+                session_a,
+                session_b,
+                smooth_winner,
+                smooth.get('explanation', ''),
+                flexibility_winner,
+                flexibility.get('explanation', ''),
+                quality_winner,
+                quality.get('explanation', ''),
+                comforting_winner,
+                comforting.get('explanation', '')
+            ]
             writer.writerow(row) 

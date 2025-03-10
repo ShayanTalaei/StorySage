@@ -68,7 +68,7 @@ Please carefully read through both biographies and then vote based on these crit
 {criteria_text}
 
 For each criterion:
-1. Vote for either Biography A or Biography B
+1. Vote for either Biography A, Biography B, or "Tie" if they are equally good
 2. Provide a detailed explanation (2-3 sentences) justifying your choice with specific examples from both biographies
 
 Your evaluation should be objective, fair, and based solely on the biographies provided. Do not try to guess which system generated which biography.
@@ -78,29 +78,32 @@ BIOGRAPHY_EVALUATION_IO = """
 ## Input Context
 
 Biography A:
-<biography_a>
+<A>
 {biography_a_content}
-</biography_a>
+</A>
 
 Biography B:
-<biography_b>
+<B>
 {biography_b_content}
-</biography_b>
+</B>
 
 ## Output Format
 Use the tool calls to output your evaluation.
 
+Reminder: Just specify A, B, or Tie for the voting, other formats like "Biography A", "Biography B", "model_A" or "model_B", "version_A" or "model_Tie", are not allowed.
+Just specify A, B, or Tie!!!
+
 <tool_calls>
 <insightfulness_score>
-    <voting>A or B</voting>
+    <voting>A or B or Tie</voting>
     <explanation>Your explanation comparing both biographies</explanation>
 </insightfulness_score>
 <narrativity_score>
-    <voting>A or B</voting>
+    <voting>A or B or Tie</voting>
     <explanation>Your explanation comparing both biographies</explanation>
 </narrativity_score>
 <coherence_score>
-    <voting>A or B</voting>
+    <voting>A or B or Tie</voting>
     <explanation>Your explanation comparing both biographies</explanation>
 </coherence_score>
 </tool_calls>
@@ -148,8 +151,18 @@ def parse_evaluation_response(response: str) -> Dict[str, Any]:
         
         if voting and explanation:
             try:
+                # Normalize voting value to handle different formats
+                vote_value = voting[0].strip()
+                # Convert to standard format (A, B, or Tie)
+                if vote_value.lower() in ['a', 'biography a']:
+                    vote_value = 'A'
+                elif vote_value.lower() in ['b', 'biography b']:
+                    vote_value = 'B'
+                elif vote_value.lower() in ['tie', 'equal', 'both']:
+                    vote_value = 'Tie'
+                
                 result[criterion] = {
-                    "voting": voting[0],
+                    "voting": vote_value,
                     "explanation": explanation[0]
                 }
             except (ValueError, IndexError) as e:
@@ -273,7 +286,7 @@ async def evaluate_biography_pair(user_id: str, pair: Dict[str, Any], our_versio
         )
         
         # Get engine
-        engine = get_engine()
+        engine = get_engine("gpt-4o")
         
         # Call engine
         print(f"Evaluating biography pair for user {user_id}...")
@@ -316,7 +329,8 @@ async def evaluate_biography_pair(user_id: str, pair: Dict[str, Any], our_versio
         raise
 
 async def main_async():
-    parser = argparse.ArgumentParser(description="Evaluate biography content quality through comparison")
+    parser = argparse.ArgumentParser(
+        description="Evaluate biography content quality through comparison")
     parser.add_argument("--user_id", required=True, help="User ID")
     parser.add_argument("--biography_version", type=int, 
                         help="Biography version for our work (optional)")
@@ -359,16 +373,6 @@ async def main_async():
             
             evaluation = \
                 await evaluate_biography_pair(args.user_id, pair, our_version)
-            
-            # Print results
-            print("\nResults:")
-            for criterion in ['insightfulness_score', 'narrativity_score', 
-                              'coherence_score']:
-                if criterion in evaluation:
-                    winner = evaluation[criterion]['voting']
-                    winner_model = pair[f'model_{winner}']
-                    print(f"- {criterion.replace('_', ' ').title()}: "
-                          f"{winner_model} wins")
             
             print(f"\nComparison {i} completed")
             

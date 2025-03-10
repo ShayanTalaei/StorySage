@@ -64,50 +64,53 @@ EVALUATION_CRITERIA = {
 }
 
 INTERVIEW_EVALUATION_INSTRUCTIONS = """
-You are an expert evaluator assessing the quality of AI interviewers. You will be given two interview transcripts (A and B) to compare. Your task is to evaluate them based on specific criteria and vote for the better one in each category.
+You are an expert in conversation analysis and therapeutic dialogue. You will be given two interview transcripts (A and B) to compare. Your task is to evaluate them based on specific criteria and vote for the better one in each category.
 
-Please carefully read through both interview transcripts and then vote based on these criteria:
+Please carefully read through both interviews and then vote based on these criteria:
 
 {criteria_text}
 
 For each criterion:
-1. Vote for either Interview A or Interview B
+1. Vote for either Interview A, Interview B, or "Tie" if they are equally good
 2. Provide a detailed explanation (2-3 sentences) justifying your choice with specific examples from both interviews
 
-Your evaluation should be objective, fair, and based solely on the interviews provided. Do not try to guess which system conducted which interview.
+Your evaluation should be objective, fair, and based solely on the interviews provided. Do not try to guess which system generated which interview.
 """
 
 INTERVIEW_EVALUATION_IO = """
 ## Input Context
 
 Interview A:
-<interview_a>
+<A>
 {interview_a_content}
-</interview_a>
+</A>
 
 Interview B:
-<interview_b>
+<B>
 {interview_b_content}
-</interview_b>
+</B>
 
 ## Output Format
 Use the tool calls to output your evaluation.
 
+Reminder: Just specify A, B, or Tie for the voting, other formats like "Interviewer A", "Interviewer B", "model_A", "model_B", "version_Tie", are not allowed.
+Just specify A, B, or Tie!!!
+
 <tool_calls>
 <smooth_score>
-    <voting>A or B</voting>
+    <voting>A or B or Tie</voting>
     <explanation>Your explanation comparing both interviews</explanation>
 </smooth_score>
 <flexibility_score>
-    <voting>A or B</voting>
+    <voting>A or B or Tie</voting>
     <explanation>Your explanation comparing both interviews</explanation>
 </flexibility_score>
 <quality_score>
-    <voting>A or B</voting>
+    <voting>A or B or Tie</voting>
     <explanation>Your explanation comparing both interviews</explanation>
 </quality_score>
 <comforting_score>
-    <voting>A or B</voting>
+    <voting>A or B or Tie</voting>
     <explanation>Your explanation comparing both interviews</explanation>
 </comforting_score>
 </tool_calls>
@@ -136,7 +139,8 @@ def parse_evaluation_response(response: str) -> Dict[str, Any]:
     result = {}
     
     # Define criteria to extract
-    criteria = ["smooth_score", "flexibility_score", "quality_score", "comforting_score"]
+    criteria = ["smooth_score", "flexibility_score", 
+                "quality_score", "comforting_score"]
     
     # Extract ratings and explanations for each criterion
     for criterion in criteria:
@@ -146,8 +150,18 @@ def parse_evaluation_response(response: str) -> Dict[str, Any]:
         
         if voting and explanation:
             try:
+                # Normalize voting value to handle different formats
+                vote_value = voting[0].strip()
+                # Convert to standard format (A, B, or Tie)
+                if vote_value.lower() in ['a', 'interview a']:
+                    vote_value = 'A'
+                elif vote_value.lower() in ['b', 'interview b']:
+                    vote_value = 'B'
+                elif vote_value.lower() in ['tie', 'equal', 'both']:
+                    vote_value = 'Tie'
+                
                 result[criterion] = {
-                    "voting": voting[0],
+                    "voting": vote_value,
                     "explanation": explanation[0]
                 }
             except (ValueError, IndexError) as e:
@@ -258,10 +272,11 @@ async def evaluate_interview_pair(user_id: str, session_id: int, pair: Dict[str,
         )
         
         # Get engine
-        engine = get_engine()
+        engine = get_engine("gpt-4o")
         
         # Call engine
-        print(f"Evaluating interview pair for user {user_id}, session {session_id}...")
+        print(f"Evaluating interview pair for user {user_id},"
+              f" session {session_id}...")
         response = invoke_engine(engine, prompt)
         
         # Parse response
@@ -298,23 +313,27 @@ async def evaluate_interview_pair(user_id: str, session_id: int, pair: Dict[str,
         raise
 
 async def main_async():
-    parser = argparse.ArgumentParser(description="Evaluate interview experience through comparison")
+    parser = argparse.ArgumentParser(
+        description="Evaluate interview experience through comparison")
     parser.add_argument("--user_id", required=True, help="User ID")
-    parser.add_argument("--session_id", type=int, help="Session ID (optional, uses most recent if not provided)")
+    parser.add_argument("--session_id", type=int, 
+        help="Session ID (optional, uses most recent if not provided)")
     
     args = parser.parse_args()
     
     try:
         # If session_id is not provided, find the most recent session
         if args.session_id is None:
-            user_dir = Path(os.getenv("LOGS_DIR", "logs")) / args.user_id / "execution_logs"
+            user_dir = Path(os.getenv("LOGS_DIR", "logs")) / \
+                  args.user_id / "execution_logs"
             if not user_dir.exists():
                 raise FileNotFoundError(f"User directory not found: {user_dir}")
             
             session_dirs = [d for d in user_dir.iterdir() if d.is_dir() \
                              and d.name.startswith("session_")]
             if not session_dirs:
-                raise FileNotFoundError(f"No session directories found for user {args.user_id}")
+                raise FileNotFoundError(f"No session directories"
+                                        f" found for user {args.user_id}")
             
             # Extract session numbers and find the highest
             session_numbers = [int(d.name.split("_")[1]) for d in session_dirs]
@@ -326,7 +345,7 @@ async def main_async():
         pairs = await prepare_interview_pairs(args.user_id, args.session_id)
         
         if not pairs:
-            print("No interview pairs found for comparison")
+            print("No interview pairs fFound for comparison")
             return
             
         # Evaluate each pair
@@ -337,17 +356,8 @@ async def main_async():
             print(f"Model A: {pair['model_A']}")
             print(f"Model B: {pair['model_B']}")
             
-            evaluation = await evaluate_interview_pair(args.user_id, args.session_id, pair)
-            
-            # Print results
-            print("\nResults:")
-            for criterion in ['smooth_score', 'flexibility_score', 
-                              'quality_score', 'comforting_score']:
-                if criterion in evaluation:
-                    winner = evaluation[criterion]['voting']
-                    winner_model = pair[f'model_{winner}']
-                    print(f"- {criterion.replace('_', ' ').title()}: "
-                          f"{winner_model} wins")
+            evaluation = await evaluate_interview_pair(args.user_id, 
+                                                       args.session_id, pair)
             
             print(f"\nComparison {i} completed")
             

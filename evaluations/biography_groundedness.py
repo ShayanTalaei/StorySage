@@ -244,7 +244,7 @@ def main():
     args = parser.parse_args()
     
     # Initialize LLM engine
-    engine = get_engine()
+    engine = get_engine("gpt-4o")
     
     # Load biography and memory bank
     biography = Biography.load_from_file(args.user_id, args.version)
