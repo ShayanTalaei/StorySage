@@ -391,69 +391,6 @@ class EvaluationLogger:
                         memory['importance_score']
                     ])
 
-    def log_biography_content_evaluation(
-        self,
-        evaluation_data: Dict[str, Any],
-        biography_version: Optional[int] = None,
-        timestamp: Optional[datetime] = None
-    ) -> None:
-        """Log biography content evaluation results to a CSV file.
-        
-        Args:
-            evaluation_data: Dictionary containing evaluation results
-            biography_version: Version number of the biography (optional)
-            timestamp: Optional timestamp (defaults to current time)
-        """
-        if biography_version is None:
-            # Load the biography to get the version
-            from content.biography.biography import Biography
-            biography = Biography.load_from_file(self.user_id)
-            biography_version = biography.version
-        
-        # Create a version-specific directory
-        version_dir = self.eval_dir / f"biography_{biography_version}"
-        version_dir.mkdir(parents=True, exist_ok=True)
-        
-        if timestamp is None:
-            timestamp = datetime.now()
-            
-        # Log to CSV file
-        filename = version_dir / "content_quality_evaluation.csv"
-        file_exists = filename.exists()
-        
-        with open(filename, 'w', newline='') as f:
-            writer = csv.writer(f)
-            
-            # Create headers if file doesn't exist
-            if not file_exists:
-                headers = [
-                    'Timestamp',
-                    'Insightfulness Score',
-                    'Insightfulness Explanation',
-                    'Narrativity Score',
-                    'Narrativity Explanation',
-                    'Coherence Score',
-                    'Coherence Explanation'
-                ]
-                writer.writerow(headers)
-            
-            # Extract data from evaluation_data
-            row = [timestamp.isoformat()]
-            
-            # Add scores and explanations
-            criteria = ['insightfulness_score', 'narrativity_score', 'coherence_score']
-            
-            for criterion in criteria:
-                if criterion in evaluation_data:
-                    row.append(evaluation_data[criterion].get('rating', ''))
-                    row.append(evaluation_data[criterion].get('explanation', ''))
-                else:
-                    row.append('')
-                    row.append('')
-            
-            # Write row
-            writer.writerow(row) 
-
     def log_biography_overall_groundedness(
         self,
         overall_score: float,
@@ -497,3 +434,73 @@ class EvaluationLogger:
                     section['section_title'],
                     f"{section['evaluation']['groundedness_score']}%"
                 ]) 
+
+    def log_biography_comparison_evaluation(
+        self,
+        evaluation_data: Dict[str, Any],
+        biography_version: int,
+        timestamp: Optional[datetime] = None
+    ) -> None:
+        """Log comparative evaluation results between two biographies.
+        
+        Args:
+            evaluation_data: Dictionary containing evaluation results and metadata
+            biography_version: Version number of our biography
+            timestamp: Optional timestamp (defaults to current time)
+        """
+        # Create a version-specific directory
+        version_dir = "logs" / self.user_id / "evaluations" / \
+            f"biography_{biography_version}"
+        version_dir.mkdir(parents=True, exist_ok=True)
+        
+        if timestamp is None:
+            timestamp = datetime.now()
+        
+        # Log to CSV file
+        filename = version_dir / "biography_comparisons.csv"
+        file_exists = filename.exists()
+        
+        with open(filename, 'a', newline='') as f:
+            writer = csv.writer(f)
+            
+            # Create headers if file doesn't exist
+            if not file_exists:
+                headers = [
+                    'Timestamp',
+                    'Model A',
+                    'Model B',
+                    'Version A',
+                    'Version B',
+                    'Insightfulness Winner',
+                    'Insightfulness Explanation',
+                    'Narrativity Winner',
+                    'Narrativity Explanation',
+                    'Coherence Winner',
+                    'Coherence Explanation'
+                ]
+                writer.writerow(headers)
+            
+            # Extract metadata
+            metadata = evaluation_data.get('metadata', {})
+            
+            # Prepare row data
+            row = [
+                timestamp.isoformat(),
+                metadata.get('model_A', ''),
+                metadata.get('model_B', ''),
+                metadata.get('version_A', ''),
+                metadata.get('version_B', '')
+            ]
+            
+            # Add voting results
+            for criterion in ['insightfulness_score', 
+                              'narrativity_score', 'coherence_score']:
+                if criterion in evaluation_data:
+                    row.append(evaluation_data[criterion].get('voting', ''))
+                    row.append(evaluation_data[criterion].get('explanation', ''))
+                else:
+                    row.append('')
+                    row.append('')
+            
+            # Write row
+            writer.writerow(row) 

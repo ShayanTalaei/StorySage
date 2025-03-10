@@ -5,8 +5,8 @@ import json
 from pathlib import Path
 from datetime import datetime
 import asyncio
-from typing import Dict, Any, Optional
-import csv
+from typing import Dict, Any, Optional, List
+import random
 
 # Add the src directory to Python path
 src_dir = str(Path(__file__).parent.parent / "src")
@@ -61,59 +61,75 @@ EVALUATION_CRITERIA = {
 }
 
 BIOGRAPHY_EVALUATION_INSTRUCTIONS = """
-You are an expert literary critic specializing in biographies. You will be given a complete biography to evaluate for its content quality. Your task is to assess the biography based on specific criteria.
+You are an expert literary critic specializing in biographies. You will be given two biographies (A and B) to compare. Your task is to evaluate them based on specific criteria and vote for the better one in each category.
 
-Please carefully read through the entire biography and then provide ratings and explanations for the following criteria:
+Please carefully read through both biographies and then vote based on these criteria:
 
 {criteria_text}
 
-For each criterion, provide:
-1. A numerical rating based on the scale
-2. A detailed explanation (2-3 sentences) justifying your rating with specific examples from the biography
+For each criterion:
+1. Vote for either Biography A or Biography B
+2. Provide a detailed explanation (2-3 sentences) justifying your choice with specific examples from both biographies
 
-Your evaluation should be objective, fair, and based solely on the biography provided.
+Your evaluation should be objective, fair, and based solely on the biographies provided. Do not try to guess which system generated which biography.
 """
 
 BIOGRAPHY_EVALUATION_IO = """
 ## Input Context
 
-Biography:
-<biography>
-{biography_content}
-</biography>
+Biography A:
+<biography_a>
+{biography_a_content}
+</biography_a>
+
+Biography B:
+<biography_b>
+{biography_b_content}
+</biography_b>
 
 ## Output Format
 Use the tool calls to output your evaluation.
 
 <tool_calls>
 <insightfulness_score>
-    <rating>[0-5]</rating>
-    <explanation>Your explanation here</explanation>
+    <voting>A or B</voting>
+    <explanation>Your explanation comparing both biographies</explanation>
 </insightfulness_score>
 <narrativity_score>
-    <rating>[0-5]</rating>
-    <explanation>Your explanation here</explanation>
+    <voting>A or B</voting>
+    <explanation>Your explanation comparing both biographies</explanation>
 </narrativity_score>
 <coherence_score>
-    <rating>[0-5]</rating>
-    <explanation>Your explanation here</explanation>
+    <voting>A or B</voting>
+    <explanation>Your explanation comparing both biographies</explanation>
 </coherence_score>
 </tool_calls>
 """
 
-def format_evaluation_prompt(biography_content: str) -> str:
-    """Format the evaluation prompt with the biography content."""
+def format_evaluation_prompt(biography_a_content: str, biography_b_content: str) -> str:
+    """Format the evaluation prompt with the biography content.
     
+    Args:
+        biography_a_content: Content of biography A
+        biography_b_content: Content of biography B
+    
+    Returns:
+        Formatted prompt string
+    """
     criteria_text = ""
     for criterion, details in EVALUATION_CRITERIA.items():
         criteria_text += (f"- {criterion.replace('_', ' ').title()}: "
-                f"{details['description']}. Rate from {details['scale']}.\n")
+                f"{details['description']}\n")
         for guideline in details['guidelines']:
             criteria_text += f"  * {guideline}\n"
         criteria_text += "\n"
     
-    instructions = BIOGRAPHY_EVALUATION_INSTRUCTIONS.format(criteria_text=criteria_text)
-    io_format = BIOGRAPHY_EVALUATION_IO.format(biography_content=biography_content)
+    instructions = \
+        BIOGRAPHY_EVALUATION_INSTRUCTIONS.format(criteria_text=criteria_text)
+    io_format = BIOGRAPHY_EVALUATION_IO.format(
+        biography_a_content=biography_a_content,
+        biography_b_content=biography_b_content
+    )
     
     return f"{instructions}\n\n{io_format}"
 
@@ -127,68 +143,152 @@ def parse_evaluation_response(response: str) -> Dict[str, Any]:
     # Extract ratings and explanations for each criterion
     for criterion in criteria:
         # Extract from first-level tags
-        rating = extract_tool_arguments(response, criterion, "rating")
+        voting = extract_tool_arguments(response, criterion, "voting")
         explanation = extract_tool_arguments(response, criterion, "explanation")
         
-        if rating and explanation:
+        if voting and explanation:
             try:
                 result[criterion] = {
-                    "rating": int(rating[0]),
+                    "voting": voting[0],
                     "explanation": explanation[0]
                 }
             except (ValueError, IndexError) as e:
                 print(f"Error parsing {criterion}: {e}")
-                print(f"Rating: {rating}, Explanation: {explanation}")
+                print(f"Voting: {voting}, Explanation: {explanation}")
     
     # Print the extracted data for debugging
     print(f"Extracted evaluation data: {json.dumps(result, indent=2)}")
     
     return result
 
-async def get_biography_markdown(user_id: str, biography_version: Optional[int] = None) -> tuple:
+async def get_biography_markdown(
+    user_id: str, 
+    biography_version: Optional[int] = None,
+    model_name: Optional[str] = None
+) -> tuple:
     """Get the biography content in markdown format.
     
     Args:
         user_id: User ID
         biography_version: Optional biography version (uses latest if not provided)
+        model_name: Optional model name for loading from baseline directories
         
     Returns:
         Tuple of (biography content in markdown format, actual version used)
     """
-    # Load the biography
-    biography = Biography.load_from_file(user_id, version=biography_version or -1)
-    
-    # Export to markdown
-    markdown_content = await biography.export_to_markdown()
-    
-    return markdown_content, biography.version
+    # Determine the base path based on model name
+    if model_name:
+        base_path = f"data_{model_name}/{user_id}"
+        print(f"Loading from base path: {base_path}")  # Debug print
+    else:
+        base_path = None  # Use default path from env
+        
+    try:
+        # Load the biography
+        biography = Biography.load_from_file(
+            user_id, 
+            version=biography_version or -1,
+            base_path=base_path
+        )
+        
+        # Export to markdown
+        markdown_content = await biography.export_to_markdown()
+        
+        return markdown_content, biography.version
+    except Exception as e:
+        print(f"Error loading biography for {model_name}: {e}")
+        raise
 
-async def evaluate_biography(user_id: str, biography_version: Optional[int] = None) -> Dict[str, Any]:
-    """Evaluate the entire biography for content quality.
+async def prepare_biography_pairs(user_id: str, biography_version: Optional[int] = None) -> List[Dict[str, Any]]:
+    """Prepare pairs of biographies (ours vs baselines) for voting.
     
     Args:
         user_id: User ID
-        biography_version: Optional biography version (uses latest if not provided)
+        biography_version: Optional biography version for our biography
+        
+    Returns:
+        List of biography pairs with metadata
+    """
+    pairs = []
+    
+    # Get our biography
+    our_bio, our_version = await get_biography_markdown(user_id, biography_version)
+    
+    # Get baseline biographies from model-specific directories
+    for dir_name in os.listdir('.'):
+        if dir_name.startswith('logs_'):
+            # Extract and normalize model name
+            model_name = dir_name[5:]  # Remove 'logs_' prefix
+            
+            try:
+                baseline_bio, baseline_version = await get_biography_markdown(
+                    user_id, 
+                    biography_version=None,  # Always use latest for baseline
+                    model_name=model_name
+                )
+                
+                # Randomly assign positions (A or B) for fair comparison
+                if random.random() < 0.5:
+                    pair = {
+                        'biography_A': our_bio,
+                        'biography_B': baseline_bio,
+                        'model_A': 'ours',
+                        'model_B': model_name,
+                        'version_A': our_version,
+                        'version_B': baseline_version
+                    }
+                else:
+                    pair = {
+                        'biography_A': baseline_bio,
+                        'biography_B': our_bio,
+                        'model_A': model_name,
+                        'model_B': 'ours',
+                        'version_A': baseline_version,
+                        'version_B': our_version
+                    }
+                pairs.append(pair)
+                
+            except Exception as e:
+                print(f"Error loading baseline biography for {model_name}: {e}")
+                continue
+    
+    return pairs
+
+async def evaluate_biography_pair(user_id: str, pair: Dict[str, Any], our_version: int) -> Dict[str, Any]:
+    """Evaluate a pair of biographies through comparative voting.
+    
+    Args:
+        user_id: User ID
+        pair: Dictionary containing biography pair data
+        our_version: Version number of our biography
         
     Returns:
         Evaluation results
     """
     try:
-        # Get biography content in markdown format
-        biography_content, actual_version = await get_biography_markdown(user_id, biography_version)
-        
         # Format prompt
-        prompt = format_evaluation_prompt(biography_content)
+        prompt = format_evaluation_prompt(
+            biography_a_content=pair['biography_A'],
+            biography_b_content=pair['biography_B']
+        )
         
         # Get engine
         engine = get_engine()
         
         # Call engine
-        print(f"Evaluating biography for user {user_id}, version {actual_version}...")
+        print(f"Evaluating biography pair for user {user_id}...")
         response = invoke_engine(engine, prompt)
         
         # Parse response
         evaluation = parse_evaluation_response(response)
+        
+        # Add metadata to evaluation results
+        evaluation['metadata'] = {
+            'model_A': pair['model_A'],
+            'model_B': pair['model_B'],
+            'version_A': pair['version_A'],
+            'version_B': pair['version_B']
+        }
         
         # Setup evaluation logger
         eval_logger = EvaluationLogger.setup_logger(user_id)
@@ -196,36 +296,82 @@ async def evaluate_biography(user_id: str, biography_version: Optional[int] = No
         # Log evaluation
         timestamp = datetime.now()
         eval_logger.log_prompt_response(
-            evaluation_type="biography_content",
+            evaluation_type="biography_content_comparison",
             prompt=prompt,
             response=response,
             timestamp=timestamp
         )
         
-        # Log evaluation results to CSV
-        eval_logger.log_biography_content_evaluation(
+        # Log comparative evaluation results
+        eval_logger.log_biography_comparison_evaluation(
             evaluation_data=evaluation,
-            biography_version=actual_version,
+            biography_version=our_version,  # Pass our version
             timestamp=timestamp
         )
-        
-        print(f"Content evaluation completed for biography version {actual_version}")
         
         return evaluation
     
     except Exception as e:
-        print(f"Error evaluating biography: {str(e)}")
+        print(f"Error evaluating biography pair: {str(e)}")
         raise
 
 async def main_async():
-    parser = argparse.ArgumentParser(description="Evaluate biography content quality")
+    parser = argparse.ArgumentParser(description="Evaluate biography content quality through comparison")
     parser.add_argument("--user_id", required=True, help="User ID")
-    parser.add_argument("--biography_version", type=int, help="Biography version (optional, uses latest if not provided)")
+    parser.add_argument("--biography_version", type=int, 
+                        help="Biography version for our work (optional)")
     
     args = parser.parse_args()
     
     try:
-        await evaluate_biography(args.user_id, args.biography_version)
+        # Prepare biography pairs
+        print(f"\nPreparing biography pairs for user {args.user_id}...")
+        pairs = await prepare_biography_pairs(args.user_id, args.biography_version)
+        
+        if not pairs:
+            print("No biography pairs found for comparison")
+            return
+        
+        # Get our biography version (either specified or latest)
+        our_version = args.biography_version
+        if our_version is None:
+            # Get latest version from first pair
+            for pair in pairs:
+                if pair['model_A'] == 'ours':
+                    our_version = pair['version_A']
+                    break
+                elif pair['model_B'] == 'ours':
+                    our_version = pair['version_B']
+                    break
+        
+        if our_version is None:
+            print("Could not determine our biography version")
+            return
+            
+        # Evaluate each pair
+        print(f"\nFound {len(pairs)} pairs for comparison")
+        print(f"Using our biography version: {our_version}")
+        
+        for i, pair in enumerate(pairs, 1):
+            print(f"\nEvaluating pair {i} of {len(pairs)}:")
+            print(f"Model A: {pair['model_A']}")
+            print(f"Model B: {pair['model_B']}")
+            
+            evaluation = \
+                await evaluate_biography_pair(args.user_id, pair, our_version)
+            
+            # Print results
+            print("\nResults:")
+            for criterion in ['insightfulness_score', 'narrativity_score', 
+                              'coherence_score']:
+                if criterion in evaluation:
+                    winner = evaluation[criterion]['voting']
+                    winner_model = pair[f'model_{winner}']
+                    print(f"- {criterion.replace('_', ' ').title()}: "
+                          f"{winner_model} wins")
+            
+            print(f"\nComparison {i} completed")
+            
     except Exception as e:
         print(f"Error: {str(e)}")
         sys.exit(1)
