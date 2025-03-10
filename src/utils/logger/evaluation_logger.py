@@ -190,65 +190,6 @@ class EvaluationLogger:
                 user_message_length
             ])
 
-    def log_interview_content_evaluation(
-        self,
-        evaluation_data: Dict[str, Any],
-        timestamp: Optional[datetime] = None
-    ) -> None:
-        """Log user experience evaluation results to a CSV file.
-        
-        Args:
-            evaluation_data: Dictionary containing evaluation results
-            timestamp: Optional timestamp (defaults to current time)
-        """
-        # Create logs directory
-        logs_dir = self.eval_dir
-        logs_dir.mkdir(parents=True, exist_ok=True)
-        
-        if timestamp is None:
-            timestamp = datetime.now()
-            
-        # Log to CSV file
-        filename = logs_dir / "user_experience_evaluation.csv"
-        file_exists = filename.exists()
-        
-        with open(filename, 'a', newline='') as f:
-            writer = csv.writer(f)
-            
-            # Create headers if file doesn't exist
-            if not file_exists:
-                headers = [
-                    'Timestamp',
-                    'Session ID',
-                    'Smooth Score',
-                    'Smooth Score Explanation',
-                    'Flexibility Score',
-                    'Flexibility Score Explanation',
-                    'Language Quality Score',
-                    'Language Quality Score Explanation',
-                    'Comforting Score',
-                    'Comforting Score Explanation'
-                ]
-                writer.writerow(headers)
-            
-            # Extract data from evaluation_data
-            row = [timestamp.isoformat(), self.session_id]
-            
-            # Add scores and explanations
-            criteria = ['smooth_score', 'flexibility_score',
-                         'quality_score', 'comforting_score']
-            
-            for criterion in criteria:
-                if criterion in evaluation_data:
-                    row.append(evaluation_data[criterion].get('rating', ''))
-                    row.append(evaluation_data[criterion].get('explanation', ''))
-                else:
-                    row.append('')
-                    row.append('')
-            
-            # Write row
-            writer.writerow(row)
-
     def log_conversation_statistics(
         self,
         total_turns: int,
@@ -495,6 +436,73 @@ class EvaluationLogger:
             # Add voting results
             for criterion in ['insightfulness_score', 
                               'narrativity_score', 'coherence_score']:
+                if criterion in evaluation_data:
+                    row.append(evaluation_data[criterion].get('voting', ''))
+                    row.append(evaluation_data[criterion].get('explanation', ''))
+                else:
+                    row.append('')
+                    row.append('')
+            
+            # Write row
+            writer.writerow(row) 
+
+    def log_interview_comparison_evaluation(
+        self,
+        evaluation_data: Dict[str, Any],
+        timestamp: Optional[datetime] = None
+    ) -> None:
+        """Log comparative evaluation results between two interviews.
+        
+        Args:
+            evaluation_data: Dictionary containing evaluation results and metadata
+            timestamp: Optional timestamp (defaults to current time)
+        """
+        # Create logs directory
+        logs_dir = "logs" / self.user_id / "evaluations"
+        logs_dir.mkdir(parents=True, exist_ok=True)
+        
+        if timestamp is None:
+            timestamp = datetime.now()
+        
+        # Log to CSV file
+        filename = logs_dir / "interview_comparisons.csv"
+        file_exists = filename.exists()
+        
+        with open(filename, 'a', newline='') as f:
+            writer = csv.writer(f)
+            
+            # Create headers if file doesn't exist
+            if not file_exists:
+                headers = [
+                    'Timestamp',
+                    'Session ID',
+                    'Model A',
+                    'Model B',
+                    'Smooth Score Winner',
+                    'Smooth Score Explanation',
+                    'Flexibility Score Winner',
+                    'Flexibility Score Explanation',
+                    'Quality Score Winner',
+                    'Quality Score Explanation',
+                    'Comforting Score Winner',
+                    'Comforting Score Explanation'
+                ]
+                writer.writerow(headers)
+            
+            # Extract metadata
+            metadata = evaluation_data.get('metadata', {})
+            
+            # Prepare row data
+            row = [
+                timestamp.isoformat(),
+                self.session_id,
+                metadata.get('model_A', ''),
+                metadata.get('model_B', '')
+            ]
+            
+            # Add voting results
+            for criterion in ['smooth_score', 'flexibility_score', 
+                              'quality_score', 'comforting_score']:
                 if criterion in evaluation_data:
                     row.append(evaluation_data[criterion].get('voting', ''))
                     row.append(evaluation_data[criterion].get('explanation', ''))
