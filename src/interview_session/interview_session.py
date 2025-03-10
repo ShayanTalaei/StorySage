@@ -365,7 +365,7 @@ class InterviewSession:
                     "execution_log", f"[COMPLETED] Question bank saved")
                 
                 # Log conversation statistics
-                self.log_conversation_statistics()
+                await self._log_conversation_statistics()
                 SessionLogger.log_to_file(
                     "execution_log", f"[COMPLETED] Conversation statistics logged")
                 
@@ -499,7 +499,7 @@ class InterviewSession:
             user_message_length=user_message_length
         )
 
-    async def log_conversation_statistics(self):
+    async def _log_conversation_statistics(self):
         """Log statistics about the conversation."""
         # Count turns
         total_turns = len(self.chat_history)

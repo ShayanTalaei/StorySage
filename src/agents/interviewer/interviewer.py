@@ -48,7 +48,8 @@ class Interviewer(BaseAgent, Participant):
             "recall": Recall(memory_bank=self.interview_session.memory_bank),
             "respond_to_user": RespondToUser(
                 tts_config=config.get("tts", {}),
-                base_path=f"{os.getenv('DATA_DIR', 'data')}/{config.get("user_id")}/",
+                base_path= \
+                    f"{os.getenv('DATA_DIR', 'data')}/{config.get("user_id")}/",
                 on_response=lambda response: \
                     self.interview_session.add_message_to_chat_history(
                         role=self.title,
@@ -109,10 +110,7 @@ class Interviewer(BaseAgent, Participant):
                 )
 
     def _get_prompt(self):
-        '''
-        Gets the prompt for the interviewer. 
-        The logic for this is in the get_prompt function in interviewer/prompts.py
-        '''
+        '''Gets the prompt for the interviewer. '''
         # Use the baseline prompt if enabled
         prompt_type = "baseline" if self._use_baseline else "normal"
 

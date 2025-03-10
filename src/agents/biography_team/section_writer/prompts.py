@@ -9,7 +9,7 @@ def get_prompt(prompt_type: str = "normal"):
             "INPUT_CONTEXT": INPUT_CONTEXT,
             "INSTRUCTIONS": INSTRUCTIONS,
             "MISSING_MEMORIES_WARNING": MISSING_MEMORIES_WARNING,
-            "OUTPUT_FORMAT": OUTPUT_FORMAT
+            "OUTPUT_FORMAT": SECTION_PATH_FORMAT + OUTPUT_FORMAT
         })
     elif prompt_type == "baseline":
         return format_prompt(SECTION_WRITER_PROMPT_TEMPLATE, {
@@ -249,7 +249,7 @@ Then, provide your action using tool calls:
 
     # First, update/create the section:
     <add_section>
-        <path>...</path>
+        <path>full path to the section, required for adding a new section (e.g., '1 Early Life/1.1 Childhood')</path>
         <content>...</content>
     </add_section>
 

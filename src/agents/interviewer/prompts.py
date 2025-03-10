@@ -228,11 +228,16 @@ OUTPUT_FORMAT = """
 <output_format>
 Your output should include the tools you need to call according to the following format:
 <tool_calls>
-    <tool1>
-        <arg1>value1</arg1>
-        <arg2>value2</arg2>
-        ...
-    </tool1>
+    # Option 1: If you need to gather information from the user:
+    <recall>
+        <reasoning>...</reasoning>
+        <query>...</query>
+    </recall>
+
+    # Option 2: If you need to respond to the user: 
+    <respond_to_user>
+        <response>value</response>
+    </respond_to_user>
     ...
 </tool_calls>
 - You should fill in the <tool_name>s and <arg_name>s with the actual tool names and argument names according to the tool descriptions.
@@ -330,14 +335,8 @@ Step 2: Question Formulation
 
 Then, structure your output using the following tool call format:
 <tool_calls>
-    <tool1>
-        <arg1>value1</arg1>
-        <arg2>value2</arg2>
-        ...
-    </tool1>
-    ...
+    <respond_to_user>
+        <response>value</response>
+    </respond_to_user>
 </tool_calls>
-- You should fill in the <tool_name>s and <arg_name>s with the actual tool names and argument names according to the tool descriptions.
-- You should not include any other text outside of the <tool_calls> tag.
-</output_format>
 """
