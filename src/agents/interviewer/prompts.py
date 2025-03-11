@@ -84,8 +84,13 @@ Here is the stream of the events that have happened in the interview session so 
 <chat_history>
 {chat_history}
 </chat_history>
-- The external tag of each event indicates the role of the sender of the event. You might have used some tools in the past, the results of the tool calls are also included in the event.
-- You need to act accordingly to the last event in the list.
+
+This is the most recent user message that you need to respond to:
+<user_message>
+{user_message}
+</user_message>
+
+The chat history is provided for you to understand the context of the interview session. Focus on how to respond to the recent user's message.
 """
 
 QUESTIONS_AND_NOTES = """

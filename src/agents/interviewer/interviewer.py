@@ -154,6 +154,7 @@ class Interviewer(BaseAgent, Participant):
             "user_portrait": user_portrait_str,
             "last_meeting_summary": last_meeting_summary_str,
             "chat_history": '\n'.join(recent_events),
+            "user_message": recent_events[-1],
             "tool_descriptions": tool_descriptions_str
         }
         
