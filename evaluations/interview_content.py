@@ -317,7 +317,7 @@ async def main_async():
         description="Evaluate interview experience through comparison")
     parser.add_argument("--user_id", required=True, help="User ID")
     parser.add_argument("--session_id", type=int, 
-        help="Session ID (optional, uses most recent if not provided)")
+        help="Session ID (optional, uses the first session if not provided)")
     
     args = parser.parse_args()
     
@@ -336,8 +336,7 @@ async def main_async():
                                         f" found for user {args.user_id}")
             
             # Extract session numbers and find the highest
-            session_numbers = [int(d.name.split("_")[1]) for d in session_dirs]
-            args.session_id = max(session_numbers)
+            args.session_id = 1
             print(f"Using most recent session: {args.session_id}")
         
         # Prepare interview pairs

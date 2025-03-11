@@ -5,12 +5,17 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # Default values
 RUN_TIMES=20
+BIO_VERSION=""
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
         --run_times)
             RUN_TIMES="$2"
+            shift 2
+            ;;
+        --bio_version)
+            BIO_VERSION="$2"
             shift 2
             ;;
         *)
@@ -23,7 +28,7 @@ done
 # Check if at least one user ID is provided
 if [ ${#USER_IDS[@]} -eq 0 ]; then
     echo "Error: At least one user ID is required"
-    echo "Usage: ./scripts/show_comparisons.sh [--run_times N] <user_id1> [user_id2 ...]"
+    echo "Usage: ./scripts/run_comparisons.sh [--run_times N] [--bio_version V] <user_id1> [user_id2 ...]"
     exit 1
 fi
 
@@ -42,15 +47,27 @@ count_csv_rows() {
 for user_id in "${USER_IDS[@]}"; do
     echo "Running evaluations for user: $user_id"
     
-    # Find latest biography version directory
-    latest_bio_dir=$(ls -d logs/"$user_id"/evaluations/biography_* 2>/dev/null | sort -V | tail -n 1)
+    # Find biography directory based on version parameter or latest
+    if [ -n "$BIO_VERSION" ]; then
+        bio_dir="logs/$user_id/evaluations/biography_$BIO_VERSION"
+        echo "Using specified biography version: $BIO_VERSION"
+    else
+        bio_dir=$(ls -d logs/"$user_id"/evaluations/biography_* 2>/dev/null | sort -V | tail -n 1)
+        if [ -n "$bio_dir" ]; then
+            BIO_VERSION=$(basename "$bio_dir" | cut -d'_' -f2)
+            echo "Using latest biography version: $BIO_VERSION"
+        else
+            echo "No biography versions found for user $user_id"
+            BIO_VERSION=""
+        fi
+    fi
     
     # Check existing comparison counts
     bio_comparisons=0
     interview_comparisons=0
     
-    if [ -n "$latest_bio_dir" ]; then
-        bio_csv="$latest_bio_dir/biography_comparisons.csv"
+    if [ -n "$bio_dir" ] && [ -d "$bio_dir" ]; then
+        bio_csv="$bio_dir/biography_comparisons.csv"
         bio_comparisons=$(count_csv_rows "$bio_csv")
     fi
     
@@ -83,7 +100,11 @@ for user_id in "${USER_IDS[@]}"; do
         echo "Running biography evaluations..."
         for ((i=1; i<=$bio_needed; i++)); do
             echo "Biography run $i of $bio_needed..."
-            python evaluations/biography_content.py --user_id "$user_id"
+            if [ -n "$BIO_VERSION" ]; then
+                python evaluations/biography_content.py --user_id "$user_id" --biography_version "$BIO_VERSION"
+            else
+                python evaluations/biography_content.py --user_id "$user_id"
+            fi
             echo "Completed biography run $i"
         done
     fi
@@ -104,6 +125,9 @@ done
 
 # Build the command to show comparison results
 COMMAND="python ${SCRIPT_DIR}/analysis/comparison_results.py --user_ids ${USER_IDS[@]}"
+if [ -n "$BIO_VERSION" ]; then
+    COMMAND="$COMMAND --biography_version $BIO_VERSION"
+fi
 
 # Print the command
 echo "Showing final comparison results..."

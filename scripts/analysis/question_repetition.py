@@ -2,7 +2,7 @@
 import argparse
 import pandas as pd
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Optional
 from collections import defaultdict
 
 def load_question_similarity_data(user_id: str, model_name: Optional[str] = None) -> pd.DataFrame:

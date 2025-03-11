@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import os
 import argparse
 import pandas as pd
 from pathlib import Path
@@ -15,10 +14,12 @@ def load_interview_comparisons(user_id: str) -> Dict[str, Dict[str, Tuple[int, i
     Returns:
         Dictionary mapping baseline models to their metrics (wins, ties, total)
     """
-    results = defaultdict(lambda: defaultdict(lambda: [0, 0, 0]))  # [wins, ties, total]
+    # Results: [wins, ties, total]
+    results = defaultdict(lambda: defaultdict(lambda: [0, 0, 0]))
     
     # Load from the main logs directory
-    comparison_file = Path("logs") / user_id / "evaluations" / "interview_comparisons.csv"
+    comparison_file = Path("logs") / user_id / "evaluations" / \
+        "interview_comparisons.csv"
     
     if comparison_file.exists():
         df = pd.read_csv(comparison_file)
@@ -32,11 +33,11 @@ def load_interview_comparisons(user_id: str) -> Dict[str, Dict[str, Tuple[int, i
                     winner_col = f'{criterion} Winner'
                     if winner_col in df.columns:
                         winner = row[winner_col]
-                        results[baseline_model][criterion][2] += 1  # Increment total
+                        results[baseline_model][criterion][2] += 1
                         if winner == 'A':  # Our model won
-                            results[baseline_model][criterion][0] += 1  # Increment wins
+                            results[baseline_model][criterion][0] += 1
                         elif winner == 'Tie':  # Tie
-                            results[baseline_model][criterion][1] += 1  # Increment ties
+                            results[baseline_model][criterion][1] += 1
             else:
                 baseline_model = row['Model A']
                 for criterion in ['Smooth Score', 'Flexibility Score', 
@@ -44,39 +45,47 @@ def load_interview_comparisons(user_id: str) -> Dict[str, Dict[str, Tuple[int, i
                     winner_col = f'{criterion} Winner'
                     if winner_col in df.columns:
                         winner = row[winner_col]
-                        results[baseline_model][criterion][2] += 1  # Increment total
+                        results[baseline_model][criterion][2] += 1
                         if winner == 'B':  # Our model won
-                            results[baseline_model][criterion][0] += 1  # Increment wins
+                            results[baseline_model][criterion][0] += 1
                         elif winner == 'Tie':  # Tie
-                            results[baseline_model][criterion][1] += 1  # Increment ties
+                            results[baseline_model][criterion][1] += 1
     
     return results
 
-def load_biography_comparisons(user_id: str) -> Dict[str, Dict[str, Tuple[int, int, int]]]:
+def load_biography_comparisons(user_id: str, biography_version: Optional[int] = None) -> Dict[str, Dict[str, Tuple[int, int, int]]]:
     """Load biography comparison results for a user.
     
     Args:
         user_id: The user ID to analyze
+        biography_version: Optional specific biography version to analyze
         
     Returns:
         Dictionary mapping baseline models to their metrics (wins, ties, total)
     """
-    results = defaultdict(lambda: defaultdict(lambda: [0, 0, 0]))  # [wins, ties, total]
+    # Results: [wins, ties, total]
+    results = defaultdict(lambda: defaultdict(lambda: [0, 0, 0]))
     
-    # Find the latest biography version directory
+    # Find the biography version directory
     eval_dir = Path("logs") / user_id / "evaluations"
     
     if not eval_dir.exists():
         return results
-        
-    bio_dirs = [d for d in eval_dir.glob("biography_*") if d.is_dir()]
-    if not bio_dirs:
-        return results
-        
-    latest_bio_dir = max(bio_dirs, key=lambda d: int(d.name.split('_')[1]))
+    
+    # Use specified version or find latest
+    if biography_version is not None:
+        bio_dir = eval_dir / f"biography_{biography_version}"
+        if not bio_dir.exists() or not bio_dir.is_dir():
+            print(f"Warning: Biography version {biography_version} not found for user {user_id}")
+            return results
+    else:
+        bio_dirs = [d for d in eval_dir.glob("biography_*") if d.is_dir()]
+        if not bio_dirs:
+            return results
+        bio_dir = max(bio_dirs, key=lambda d: int(d.name.split('_')[1]))
     
     # Load comparison results
-    comparison_file = latest_bio_dir / "biography_comparisons.csv"
+    comparison_file = bio_dir / "biography_comparisons.csv"
     
     if comparison_file.exists():
         df = pd.read_csv(comparison_file)
@@ -89,27 +98,27 @@ def load_biography_comparisons(user_id: str) -> Dict[str, Dict[str, Tuple[int, i
                     winner_col = f'{criterion} Winner'
                     if winner_col in df.columns:
                         winner = row[winner_col]
-                        results[baseline_model][criterion][2] += 1  # Increment total
+                        results[baseline_model][criterion][2] += 1
                         if winner == 'A':  # Our model won
-                            results[baseline_model][criterion][0] += 1  # Increment wins
+                            results[baseline_model][criterion][0] += 1
                         elif winner == 'Tie':  # Tie
-                            results[baseline_model][criterion][1] += 1  # Increment ties
+                            results[baseline_model][criterion][1] += 1
             else:
                 baseline_model = row['Model A']
                 for criterion in ['Insightfulness', 'Narrativity', 'Coherence']:
                     winner_col = f'{criterion} Winner'
                     if winner_col in df.columns:
                         winner = row[winner_col]
-                        results[baseline_model][criterion][2] += 1  # Increment total
+                        results[baseline_model][criterion][2] += 1  # total
                         if winner == 'B':  # Our model won
-                            results[baseline_model][criterion][0] += 1  # Increment wins
+                            results[baseline_model][criterion][0] += 1  # wins
                         elif winner == 'Tie':  # Tie
-                            results[baseline_model][criterion][1] += 1  # Increment ties
+                            results[baseline_model][criterion][1] += 1  # ties
     
     return results
 
 def format_table_cell(wins: int, ties: int, total: int) -> str:
-    """Format a table cell with win rate and loss rate.
+    """Format a table cell with win rate and loss rate as percentages.
     
     Args:
         wins: Number of wins
@@ -117,15 +126,15 @@ def format_table_cell(wins: int, ties: int, total: int) -> str:
         total: Total number of comparisons
         
     Returns:
-        Formatted string with win rate and loss rate
+        Formatted string with win rate and loss rate as percentages
     """
     if total == 0:
         return "- -"
     
-    win_rate = wins / total
-    loss_rate = (total - wins - ties) / total
+    win_rate = (wins / total) * 100
+    loss_rate = ((total - wins - ties) / total) * 100
     
-    return f"{win_rate:.2f} {loss_rate:.2f}"
+    return f"{win_rate:.0f} {loss_rate:.0f}"
 
 def display_results(interview_results: Dict[str, Dict[str, List[int]]], 
                    biography_results: Dict[str, Dict[str, List[int]]]) -> None:
@@ -135,16 +144,37 @@ def display_results(interview_results: Dict[str, Dict[str, List[int]]],
         interview_results: Dictionary of interview comparison results
         biography_results: Dictionary of biography comparison results
     """
-    print("\n" + "=" * 120)
-    print("COMPARISON RESULTS")
-    print("=" * 120)
+    # Define column widths
+    col_width = 12
+    first_col_width = 20
     
-    # Print header
-    print(f"{'':20} | {'Smooth':^12} | {'Flexibility':^12} | {'Quality':^12} | " + 
-          f"{'Comfort':^12} | {'Insight':^12} | {'Narrative':^12} | {'Coherence':^12}")
-    print(f"{'Ours vs Baselines':20} | {'W':>3} {'L':>3} | {'W':>3} {'L':>3} | {'W':>3} {'L':>3} | " + 
-          f"{'W':>3} {'L':>3} | {'W':>3} {'L':>3} | {'W':>3} {'L':>3} | {'W':>3} {'L':>3}")
-    print("-" * 120)
+    # Calculate total width
+    total_width = first_col_width + 7 * (col_width + 3) - 1
+    
+    print("\n" + "=" * total_width)
+    print("COMPARISON RESULTS")
+    print("=" * total_width)
+    
+    # Print category headers
+    category_header = f"{'':{first_col_width}} |"
+    category_header += f" {'INTERVIEW METRICS':^{4*col_width+9}} |"
+    category_header += f" {'BIOGRAPHY METRICS':^{3*col_width+6}} |"
+    print(category_header)
+    
+    # Print header row with metric names
+    header = f"{'':{first_col_width}} |"
+    for metric in ["Smooth", "Flexibility", "Quality", "Comfort", "Insight", "Narrative", "Coherence"]:
+        header += f" {metric:^{col_width}} |"
+    print(header)
+    
+    # Print subheader with W/L indicators
+    subheader = f"{'Ours vs Baselines':{first_col_width}} |"
+    for _ in range(7):
+        subheader += f" {'W':^6}{'L':^6} |"
+    print(subheader)
+    
+    # Print separator
+    print("-" * total_width)
     
     # Combine all baseline models
     all_models = set(interview_results.keys()) | set(biography_results.keys())
@@ -162,23 +192,23 @@ def display_results(interview_results: Dict[str, Dict[str, List[int]]],
         coherence_stats = biography_results[model].get('Coherence', [0, 0, 0])
         
         # Format the row
-        print(f"{model:20} | {format_table_cell(*smooth_stats):^12} | " +
-              f"{format_table_cell(*flex_stats):^12} | " +
-              f"{format_table_cell(*quality_stats):^12} | " +
-              f"{format_table_cell(*comfort_stats):^12} | " +
-              f"{format_table_cell(*insight_stats):^12} | " +
-              f"{format_table_cell(*narrative_stats):^12} | " +
-              f"{format_table_cell(*coherence_stats):^12}")
+        row = f"{model:{first_col_width}} |"
+        for stats in [smooth_stats, flex_stats, quality_stats, comfort_stats, 
+                     insight_stats, narrative_stats, coherence_stats]:
+            row += f" {format_table_cell(*stats):^{col_width}} |"
+        print(row)
     
-    print("=" * 120)
+    print("=" * total_width)
     print("W = Win Rate, L = Loss Rate (Ties are counted separately but not displayed)")
-    print("=" * 120)
+    print("=" * total_width)
 
 def main():
     parser = argparse.ArgumentParser(
         description="Display comparison results in a formatted table")
     parser.add_argument('--user_ids', nargs='+', required=True,
                       help='One or more user IDs to analyze')
+    parser.add_argument('--biography_version', type=int,
+                      help='Specific biography version to analyze')
     args = parser.parse_args()
     
     # Aggregate results across all users
@@ -186,9 +216,12 @@ def main():
     all_biography_results = defaultdict(lambda: defaultdict(lambda: [0, 0, 0]))
     
     for user_id in args.user_ids:
-        # Load results for this user
+        # Load interview comparisons
         interview_results = load_interview_comparisons(user_id)
-        biography_results = load_biography_comparisons(user_id)
+        
+        # Load biography comparisons
+        biography_results = load_biography_comparisons(user_id, 
+                                                       args.biography_version)
         
         # Aggregate results
         for model in interview_results:
