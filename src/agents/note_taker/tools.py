@@ -56,8 +56,8 @@ class UpdateMemoryBankInput(BaseModel):
         "A score of 1 indicates everyday routine activities like brushing teeth or making the bed. "
         "A score of 10 indicates major life events like a relationship ending or getting accepted to college. "
         "Use this scale to rate how significant this memory is likely to be."
-    ),
-    default=0
+        ),
+        default=0
     )
 
 

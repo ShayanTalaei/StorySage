@@ -108,11 +108,15 @@ INSTRUCTIONS = """\
 - Adhere to style guidelines
 - Include memory citations using [memory_id] format at the end of relevant sentences
 - Each statement should be traceable to a source memory through citations
+- IMPORTANT: Write pure content only - DO NOT include section headings or markdown formatting
+  ✗ Don't: "### 2.1 My Father\nContent here..."
+  ✓ Do: "Content here..."
 
 For New Sections:
 - Use add_section tool
 - Write content from available memories
 - Cite memories for each piece of information
+- Write pure narrative content without any structural elements or headings
 
 For Existing Sections:
 - Use update_section tool
@@ -120,6 +124,7 @@ For Existing Sections:
 - Maintain narrative coherence
 - Preserve existing memory citations
 - Add new citations for new content
+- Keep only the content - section structure is handled separately
 
 2. Follow-up Questions (Required)
 Generate 1-3 focused questions that:
@@ -157,8 +162,11 @@ Generate 1-3 focused questions that:
 - Preserve direct quotes from <source_interview_response> when well-toned and well-phrased
 - Apply minimal editing only to enhance readability while maintaining original meaning
 - Always include memory citations, even for verbatim quotes
+- Write pure narrative content without markdown headings or structural elements
 
 ✗ Don't (Important!!!)
+- Include any markdown headings or section numbers in the content
+- Add structural formatting (###, ##, etc.) to the content
 - Condense or oversimplify user statements from <source_interview_response> tags
 - Reduce content length (e.g., summarizing 350 words into 100 words); this causes critical information loss and is strictly prohibited
 - Over-rephrase in ways that alter original meaning
@@ -195,11 +203,15 @@ General Guidelines:
 - Adhere to style guidelines
 - Include memory citations using [memory_id] format at the end of relevant sentences
 - Each statement should be traceable to a source memory through citations
+- IMPORTANT: Write pure content only - DO NOT include section headings or markdown formatting
+  ✗ Don't: "### 2.1 My Father\nContent here..."
+  ✓ Do: "Content here..."
 
 For New Sections:
 - Use add_section tool
 - Write content from available memories
 - Cite memories for each piece of information
+- Write pure narrative content without any structural elements or headings
 
 For Existing Sections:
 - Use update_section tool
@@ -207,6 +219,7 @@ For Existing Sections:
 - Maintain narrative coherence
 - Preserve existing memory citations
 - Add new citations for new content
+- Keep only the content - section structure is handled separately
 
 ## Content Guidelines
 
@@ -214,6 +227,7 @@ For Existing Sections:
 1.1 Content Sources:
 - Use ONLY information from provided memories
 - NO speculation or embellishment
+- NO markdown headings or structural elements in content
 
 1.2 Clarity and Specificity:
 - Replace generic terms with specific references:
@@ -221,6 +235,7 @@ For Existing Sections:
     ✓ Use actual name from `<user_portrait>` (if provided)
 - Always provide concrete details when available
 - Maintain factual accuracy throughout
+- Write pure narrative content without section numbers or headings
 
 2. Citation Format
 ✓ Do:
@@ -230,7 +245,8 @@ For Existing Sections:
 - Group related information from the same memory to avoid repetitive citations
 
 ✗ Don't:
-- Omit citations for factual statements
+- Include any markdown headings (###, ##, etc.) in the content
+- Add section numbers or structural formatting to the content
 
 ## Available Tools:
 <tool_descriptions>
