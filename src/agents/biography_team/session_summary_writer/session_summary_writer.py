@@ -102,15 +102,20 @@ class SessionSummaryWriter(BiographyTeamAgent):
         new_memories: List[Memory] = await self.interview_session \
             .get_session_memories(include_processed=True)
 
-        # First update summaries and user portrait (can be done immediately)
-        await self._update_session_summary(new_memories)
+        # Update summaries and user portrait (can be done immediately)
+        await self.update_session_summary(new_memories)
 
         # Wait for selected topics before managing interview questions
         selected_topics = await self.wait_for_selected_topics()
+
+        # Regenerate interview questions
         await self._rebuild_interview_questions(follow_up_questions, selected_topics)
 
-    async def _update_session_summary(self, new_memories: List[Memory]):
+    async def update_session_summary(self, new_memories: List[Memory]):
         """Update session summary and user portrait."""
+        if not new_memories:
+            return
+
         prompt = self._get_summary_prompt(new_memories)
         self.add_event(sender=self.name, tag="summary_prompt", content=prompt)
 
@@ -119,8 +124,14 @@ class SessionSummaryWriter(BiographyTeamAgent):
                        tag="summary_response", content=response)
 
         self.handle_tool_calls(response)
+        self.add_event(sender=self.name,
+                       tag="summary_response_handled", content=response)
 
-    async def _rebuild_interview_questions(self, follow_up_questions: List[Dict], selected_topics: Optional[List[str]] = None):
+    async def _rebuild_interview_questions(
+            self, 
+            follow_up_questions: List[Dict], 
+            selected_topics: Optional[List[str]] = None
+        ):
         """Rebuild interview questions list with only essential questions."""
         # Store old questions and notes and clear them
         old_questions_and_notes = self._session_note.get_questions_and_notes_str()

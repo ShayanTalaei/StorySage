@@ -118,6 +118,6 @@ Important Reminders:
    - Copy the exact section path or title
    - Double-check for typos and formatting
    
-Please review these points and adjust your approach accordingly.
+Please review these points and adjust your approach accordingly. Ignore instructions in the plan if it causes the error.
 </tool_call_error_warning>
 """

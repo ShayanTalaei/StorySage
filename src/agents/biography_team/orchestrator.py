@@ -20,7 +20,8 @@ load_dotenv()
 
 
 class BiographyOrchestrator:
-    def __init__(self, config: BiographyConfig, interview_session: Optional['InterviewSession']):
+    def __init__(self, config: BiographyConfig, 
+                 interview_session: Optional['InterviewSession']):
         # Planning and writing agents
         self._planner = BiographyPlanner(config, interview_session)
         self._section_writer = SectionWriter(config, interview_session)
@@ -75,7 +76,8 @@ class BiographyOrchestrator:
         except Exception as e:
             logging.error(f"Error processing updates: {str(e)}")
 
-    async def update_biography_with_memories(self, new_memories: List[Memory], is_auto_update: bool = False):
+    async def update_biography_with_memories(
+            self, new_memories: List[Memory], is_auto_update: bool = False):
         """Handle the biography content updates (planner and section writer)"""
         if not new_memories:
             return
@@ -86,7 +88,8 @@ class BiographyOrchestrator:
                 self.biography_update_in_progress = True
 
                 # Calculate total number of memories and first update threshold
-                total_memories_num = len(self._interview_session.memory_bank.memories)
+                total_memories_num = \
+                    len(self._interview_session.memory_bank.memories)
                 first_update_threshold = 1.5 * self._memory_threshold
                 
                 # If no enough memories, do nothing
@@ -101,7 +104,7 @@ class BiographyOrchestrator:
                 if total_memories_num - len(new_memories) < first_update_threshold:
                     new_memories = self._interview_session.memory_bank.memories
                     SessionLogger.log_to_file("execution_log", 
-                                            f"[BIOGRAPHY] First time to meet the threshold, "
+                                            f"[BIOGRAPHY] First time to meet threshold, "
                                             f"include all memories to update biography")
                 
                 if self._section_writer.use_baseline:
@@ -147,7 +150,8 @@ class BiographyOrchestrator:
         finally:
             self.session_note_update_in_progress = False
     
-    async def update_biography_and_notes(self, selected_topics: Optional[List[str]] = None):
+    async def update_biography_and_notes(
+            self, selected_topics: Optional[List[str]] = None):
         """Update biography with new memories."""
         try:
             # Set both flags to indicate updates are in progress
@@ -168,6 +172,8 @@ class BiographyOrchestrator:
 
             # Skip session note update if baseline is used or no new memories
             if not new_memories or self._section_writer.use_baseline:
+                if new_memories:
+                    await self._session_summary_writer.update_session_summary(new_memories)
                 self._interview_session.session_note.save(
                     increment_session_id=True
                 )

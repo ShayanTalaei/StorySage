@@ -300,7 +300,10 @@ class SectionWriter(BiographyTeamAgent):
             
             # Format all new memories
             formatted_memories = "\n\n".join([
-                memory.to_xml(include_memory_info=False) for memory in new_memories
+                memory.to_xml(
+                    include_source=True, 
+                    include_memory_info=False
+                ) for memory in new_memories
             ])
             
             # Get the current biography content
