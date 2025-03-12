@@ -164,23 +164,6 @@ class SectionWriter(BiographyTeamAgent):
     def _get_plan_prompt(self, todo_item: Plan, **kwargs) -> str:
         """Create a prompt for the section writer to update a biography section."""
         try:
-            # Format warning if needed
-            missing_memory_ids = kwargs.get('missing_memory_ids', "")
-            tool_call_error = kwargs.get('tool_call_error', "")
-            
-            warning = ""
-            if missing_memory_ids:
-                warning = MISSING_MEMORIES_WARNING.format(
-                    previous_tool_call=kwargs.get('previous_tool_call', ""),
-                    missing_memory_ids=missing_memory_ids
-                )
-            
-            # Add error warning if there was a tool call error
-            if tool_call_error:
-                warning += SECTION_WRITER_TOOL_CALL_ERROR.format(
-                    tool_call_error=tool_call_error
-                )
-
             if todo_item.action_type == "user_add":
                 events_str = self.get_event_stream_str(
                     filter=[{"sender": self.name, "tag": "recall_response"}]
@@ -235,6 +218,23 @@ class SectionWriter(BiographyTeamAgent):
                         if todo_item.section_title else None
                 )
                 current_content = curr_section.content if curr_section else ""
+                
+                # Format warning if needed
+                missing_memory_ids = kwargs.get('missing_memory_ids', "")
+                tool_call_error = kwargs.get('tool_call_error', "")
+                
+                warning = ""
+                if missing_memory_ids:
+                    warning = MISSING_MEMORIES_WARNING.format(
+                        previous_tool_call=kwargs.get('previous_tool_call', ""),
+                        missing_memory_ids=missing_memory_ids
+                    )
+                
+                # Add error warning if there was a tool call error
+                if tool_call_error:
+                    warning += SECTION_WRITER_TOOL_CALL_ERROR.format(
+                        tool_call_error=tool_call_error
+                    )
                 
                 # Create section identifier XML
                 if todo_item.section_path:
@@ -297,55 +297,91 @@ class SectionWriter(BiographyTeamAgent):
     async def update_biography_baseline(self, new_memories: List[Memory]) -> UpdateResult:
         """Update the biography using the baseline approach with all new memories."""
         try:
+            iterations = 0
+            tool_call_error = None
             
-            # Format all new memories
-            formatted_memories = "\n\n".join([
-                memory.to_xml(
-                    include_source=True, 
-                    include_memory_info=False
-                ) for memory in new_memories
-            ])
-            
-            # Get the current biography content
-            current_biography = await self.biography.export_to_markdown()
-            
-            # Get user portrait
-            user_portrait = self.interview_session.session_note \
-                .get_user_portrait_str()
-            
-            # Create the baseline prompt
-            prompt = get_prompt("baseline").format(
-                user_portrait=user_portrait,
-                new_information=formatted_memories,
-                current_biography=current_biography,
-                tool_descriptions=self.get_tools_description(
-                    ["add_section", "update_section"]
-                )
-            )
-            
-            # Call the LLM
-            self.add_event(
-                sender=self.name,
-                tag="baseline_prompt",
-                content=prompt
-            )
+            while iterations < self._max_consideration_iterations:
+                try:
+                    # Format all new memories
+                    formatted_memories = "\n\n".join([
+                        memory.to_xml(
+                            include_source=True, 
+                            include_memory_info=False
+                        ) for memory in new_memories
+                    ])
+                    
+                    # Get the current biography content
+                    current_biography = await self.biography.export_to_markdown()
+                    
+                    # Get user portrait
+                    user_portrait = self.interview_session.session_note \
+                        .get_user_portrait_str()
+                    
+                    # Create error warning if needed
+                    error_warning = ""
+                    if tool_call_error:
+                        error_warning = SECTION_WRITER_TOOL_CALL_ERROR.format(
+                            tool_call_error=tool_call_error
+                        )
+                    
+                    # Create the baseline prompt
+                    prompt = get_prompt("baseline").format(
+                        user_portrait=user_portrait,
+                        new_information=formatted_memories,
+                        current_biography=current_biography,
+                        tool_descriptions=self.get_tools_description(
+                            ["add_section", "update_section"]
+                        ),
+                        error_warning=error_warning
+                    )
+                    
+                    # Call the LLM
+                    self.add_event(
+                        sender=self.name,
+                        tag=f"baseline_prompt_{iterations}",
+                        content=prompt
+                    )
 
-            response = await self.call_engine_async(prompt)
-            
-            self.add_event(
-                sender=self.name,
-                tag="baseline_response",
-                content=response
-            )
+                    response = await self.call_engine_async(prompt)
+                    
+                    self.add_event(
+                        sender=self.name,
+                        tag=f"baseline_response_{iterations}",
+                        content=response
+                    )
 
-            # Process tool calls
-            await self.handle_tool_calls_async(response)
+                    # Process tool calls
+                    try:
+                        await self.handle_tool_calls_async(response, raise_error=True)
+                        # If we get here, the tool call was successful
+                        return UpdateResult(success=True, 
+                                            message="Biography updated with baseline approach")
+                    except Exception as e:
+                        tool_call_error = str(e)
+                        self.add_event(
+                            sender=self.name,
+                            tag="tool_call_error",
+                            content=f"Tool call error: {tool_call_error}"
+                        )
+                        iterations += 1
+                        continue
+                
+                except Exception as e:
+                    self.add_event(
+                        sender=self.name,
+                        tag="error",
+                        content=f"Error in baseline iteration {iterations}: {str(e)}"
+                    )
+                    return UpdateResult(success=False, message=str(e))
             
-            return UpdateResult(success=True, 
-                                message="Biography updated with baseline approach")
-            
+            # If we reach here, we've hit the max iterations without success
+            return UpdateResult(
+                success=False,
+                message=f"Max iterations ({self._max_consideration_iterations}) "
+                        f"reached without successful update"
+            )
+        
         except Exception as e:
-            
             self.add_event(
                 sender=self.name,
                 tag="error",

@@ -48,6 +48,8 @@ SECTION_WRITER_BASELINE_TEMPLATE = """
 
 {INSTRUCTIONS}
 
+{error_warning}
+
 {OUTPUT_FORMAT}
 """
 
@@ -411,9 +413,10 @@ Choose one of the following:
 </tool_calls>
 
 2. To add the section:
+Since the section path is already provided by the user, you can directly add the section by specifying the PATH and content as below:
 <tool_calls>
     <add_section>
-        <path>...</path>
+        <path>{section_path}</path>
         <content>...</content>
     </add_section>
 </tool_calls>
@@ -494,6 +497,8 @@ Choose one of the following:
 </tool_calls>
 
 2. To update the section:
+Since the section title is already provided by the user, you can directly update the section by specifying the TITLE and content as below:
+
 <tool_calls>
     <update_section>
         <title>{section_title}</title>
