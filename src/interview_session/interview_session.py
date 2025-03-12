@@ -2,12 +2,13 @@ import asyncio
 import os
 import uuid
 from datetime import datetime, timedelta
-from typing import Dict, List, TypedDict
+from typing import Dict, List, Optional, TypedDict
 import signal
 import contextlib
 from dotenv import load_dotenv
 import time
 
+from agents.base_agent import BaseAgent
 from interview_session.session_models import Message, MessageType, Participant
 from agents.interviewer.interviewer import Interviewer, InterviewerConfig, TTSConfig
 from agents.note_taker.note_taker import NoteTaker, NoteTakerConfig
@@ -50,7 +51,8 @@ class BankConfig(TypedDict, total=False):
 class InterviewSession:
 
     def __init__(self, interaction_mode: str = 'terminal', user_config: UserConfig = {},
-                 interview_config: InterviewConfig = {}, bank_config: BankConfig = {}):
+                 interview_config: InterviewConfig = {}, bank_config: BankConfig = {},
+                 use_baseline: Optional[bool] = None):
         """Initialize the interview session.
 
         Args:
@@ -66,7 +68,16 @@ class InterviewSession:
                     Options: "vector_db", etc.
                 historical_question_bank_type: Type of question bank 
                     Options: "vector_db", etc.
+            use_baseline: Whether to use baseline prompt (default: read from .env)
         """
+
+        # Set the baseline mode for all agents
+        if use_baseline is not None:
+            # Set the class variable directly to affect all agent instances
+            BaseAgent.use_baseline = use_baseline
+        else:
+            BaseAgent.use_baseline = \
+                os.getenv("USE_BASELINE_PROMPT", "false").lower() == "true"
 
         # User setup
         self.user_id = user_config.get("user_id", "default_user")
@@ -195,7 +206,8 @@ class InterviewSession:
             "execution_log", f"[INIT] User ID: {self.user_id}")
         SessionLogger.log_to_file(
             "execution_log", f"[INIT] Session ID: {self.session_id}")
-
+        SessionLogger.log_to_file(
+            "execution_log", f"[INIT] Use baseline: {BaseAgent.use_baseline}")
 
     async def _notify_participants(self, message: Message):
         """Notify subscribers asynchronously"""
@@ -226,7 +238,8 @@ class InterviewSession:
                 not self.auto_biography_update_in_progress):
                 asyncio.create_task(self._check_and_trigger_biography_update())
 
-    def add_message_to_chat_history(self, role: str, content: str = "", message_type: str = MessageType.CONVERSATION):
+    def add_message_to_chat_history(self, role: str, content: str = "", 
+                                    message_type: str = MessageType.CONVERSATION):
         """Add a message to the chat history"""
 
         # Set fixed content for skip and like messages

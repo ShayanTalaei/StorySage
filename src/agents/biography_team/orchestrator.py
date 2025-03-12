@@ -104,7 +104,7 @@ class BiographyOrchestrator:
                                             f"[BIOGRAPHY] First time to meet the threshold, "
                                             f"include all memories to update biography")
                 
-                if self._section_writer._use_baseline:
+                if self._section_writer.use_baseline:
                     # Use baseline approach
                     await self._section_writer.update_biography_baseline(new_memories)
                     SessionLogger.log_to_file("execution_log", 
@@ -167,7 +167,7 @@ class BiographyOrchestrator:
             self._interview_session.session_note.save()
 
             # Skip session note update if baseline is used or no new memories
-            if not new_memories or self._section_writer._use_baseline:
+            if not new_memories or self._section_writer.use_baseline:
                 self._interview_session.session_note.save(
                     increment_session_id=True
                 )

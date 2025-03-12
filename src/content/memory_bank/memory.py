@@ -27,7 +27,7 @@ class Memory(BaseModel):
             'question_ids': self.question_ids
         }
 
-    def to_xml(self, include_source: bool = False) -> str:
+    def to_xml(self, include_source: bool = False, include_memory_info: bool = True) -> str:
         """Convert memory to XML format string without source handling.
         
         Args:
@@ -37,10 +37,12 @@ class Memory(BaseModel):
         """
         lines = [
             '<memory>',
-            f'<title>{self.title}</title>',
-            f'<summary>{self.text}</summary>',
             f'<id>{self.id}</id>'
         ]
+
+        if include_memory_info:
+            lines.append(f'<title>{self.title}</title>')
+            lines.append(f'<summary>{self.text}</summary>')
         
         if include_source:
             lines.append(

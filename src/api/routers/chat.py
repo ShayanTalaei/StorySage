@@ -25,6 +25,8 @@ router = APIRouter(
     tags=["chat"]
 )
 
+BASELINE_ACCOUNTS_PREFIX = "1m2kl5"
+
 
 async def remove_inactive_sessions():
     while True:
@@ -68,7 +70,8 @@ async def send_message(
                 interaction_mode='api',
                 user_config={
                     "user_id": current_user
-                }
+                },
+                use_baseline=current_user.startswith(BASELINE_ACCOUNTS_PREFIX)
             )
             
             # Get sequence ID from interview session
@@ -95,6 +98,7 @@ async def send_message(
             # Start the inactive session checker if it's not already running
             asyncio.create_task(remove_inactive_sessions())
         else:
+            # Get session ID from interview session if it exists
             session_id = session.get_db_session_id()
         
         # Store user message

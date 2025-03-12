@@ -21,6 +21,9 @@ load_dotenv(override=True)
 class BaseAgent:
     """Base class for all agents. All agents inherits from this class."""
 
+    # Class variable shared by all instances
+    use_baseline: bool = False
+    
     class Event(BaseModel):
         """Event class for all events. All events inherits from this class."""
         sender: str
@@ -45,8 +48,6 @@ class BaseAgent:
         self._max_consideration_iterations = \
             int(os.getenv("MAX_CONSIDERATION_ITERATIONS", "3"))
         self._max_events_len = int(os.getenv("MAX_EVENTS_LEN", 30))
-        self._use_baseline = \
-            os.getenv("USE_BASELINE_PROMPT", "false").lower() == "true"
 
     def workout(self):
         pass

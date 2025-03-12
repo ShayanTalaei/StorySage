@@ -112,7 +112,7 @@ class Interviewer(BaseAgent, Participant):
     def _get_prompt(self):
         '''Gets the prompt for the interviewer. '''
         # Use the baseline prompt if enabled
-        prompt_type = "baseline" if self._use_baseline else "normal"
+        prompt_type = "baseline" if self.use_baseline else "normal"
 
         main_prompt = get_prompt(prompt_type)
         # Get user portrait and last meeting summary from session note
@@ -139,7 +139,7 @@ class Interviewer(BaseAgent, Participant):
         #     # Don't end_conversation directly if API participant is present
         #     tools_set.discard("end_conversation")
         
-        if self._use_baseline:
+        if self.use_baseline:
             # For baseline mode, remove recall tool
             tools_set.discard("recall")
         
@@ -159,7 +159,7 @@ class Interviewer(BaseAgent, Participant):
         }
         
         # Only add questions_and_notes for normal mode
-        if not self._use_baseline:
+        if not self.use_baseline:
             questions_and_notes_str = self.interview_session.session_note \
                 .get_questions_and_notes_str(
                     hide_answered="qa"
