@@ -33,9 +33,16 @@ def main():
         # If restart is requested, clear user data upfront
         if args.restart:
             print("\nClearing existing user data...")
-            # If baseline, only clear data for this specific model
-            model_name = args.model if args.baseline else None
-            clear_user_data(args.user_id, model_name)
+            # Determine which model's data to clear
+            if args.baseline:
+                # For baseline, only clear data for this specific model
+                model_name = args.model
+                print(f"Clearing data only for model: {model_name}")
+                clear_user_data(args.user_id, model_name)
+            else:
+                # For our model, only clear data in the main logs/data directories
+                print("Clearing data for our model")
+                clear_user_data(args.user_id, None)
         
         # Run the experiment
         print("\n" + "="*80)
@@ -46,8 +53,7 @@ def main():
         run_experiment(args.user_id, 
                       args.model, 
                       args.baseline, 
-                      args.timeout,
-                      args.restart)
+                      args.timeout)
         
         print("\nExperiment completed!")
     

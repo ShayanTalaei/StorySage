@@ -16,8 +16,6 @@ def main():
                         help="User ID for the experiment")
     parser.add_argument("--timeout", type=int, default=10, 
                         help="Timeout in minutes for each session")
-    parser.add_argument("--skip_baseline", action="store_true", 
-                        help="Skip baseline experiments")
     parser.add_argument("--restart", action="store_true",
                         help="Clear existing user data before experiments")
     args = parser.parse_args()
@@ -32,20 +30,14 @@ def main():
         # If restart is requested, clear all user data upfront
         if args.restart:
             print("\nClearing all existing user data...")
-            clear_user_data(args.user_id)
+            clear_user_data(args.user_id, clear_all=True)
         
         # Configuration for experiments
-        experiments = []
-        
-        # Always add our work
-        experiments.append({"model_name": "gpt-4o", "use_baseline": False})
-        
-        # Add baselines if not skipped
-        if not args.skip_baseline:
-            experiments.extend([
-                {"model_name": "gpt-4o", "use_baseline": True},
-                {"model_name": "gemini-1.5-pro", "use_baseline": True}
-            ])
+        experiments = [
+            {"model_name": "gpt-4o", "use_baseline": False},
+            {"model_name": "gpt-4o", "use_baseline": True},
+            {"model_name": "gemini-1.5-pro", "use_baseline": True},
+        ]
         
         # Create a summary file
         summary_file = f"experiment_summary_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
@@ -67,8 +59,7 @@ def main():
                 user_id=args.user_id,
                 model_name=exp["model_name"],
                 use_baseline=exp["use_baseline"],
-                timeout_minutes=args.timeout,
-                restart=args.restart
+                timeout_minutes=args.timeout
             )
             
             # Add to summary
