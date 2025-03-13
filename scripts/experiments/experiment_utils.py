@@ -56,6 +56,7 @@ def update_env_file(model_name: str, use_baseline: bool, logs_dir: Optional[str]
                 env_vars[key] = value
     
     # Update values
+    env_vars["EVAL_MODE"] = "true"
     env_vars['MODEL_NAME'] = f'"{model_name}"'
     env_vars['USE_BASELINE_PROMPT'] = f'"{str(use_baseline).lower()}"'
     

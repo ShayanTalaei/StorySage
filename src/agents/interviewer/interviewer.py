@@ -113,8 +113,8 @@ class Interviewer(BaseAgent, Participant):
         '''Gets the prompt for the interviewer. '''
         # Use the baseline prompt if enabled
         prompt_type = "baseline" if self.use_baseline else "normal"
-
         main_prompt = get_prompt(prompt_type)
+
         # Get user portrait and last meeting summary from session note
         user_portrait_str = self.interview_session.session_note \
             .get_user_portrait_str()
@@ -122,8 +122,9 @@ class Interviewer(BaseAgent, Participant):
             self.interview_session.session_note
             .get_last_meeting_summary_str()
         )
+
         # Get chat history from event stream where these are the senders
-        chat_history_str = self.get_event_stream_str(
+        chat_history_events = self.get_event_stream_str(
             [
                 {"sender": "Interviewer", "tag": "message"},
                 {"sender": "User", "tag": "message"},
@@ -131,6 +132,18 @@ class Interviewer(BaseAgent, Participant):
             ],
             as_list=True
         )
+        
+        recent_events = chat_history_events[-self._max_events_len:] if \
+            len(chat_history_events) > self._max_events_len else chat_history_events
+        current_events = recent_events[-2:] if len(recent_events) >= 2 else recent_events
+
+        # Get interviewer's recent message
+        all_interviewer_messages = self.get_event_stream_str(
+            [{"sender": "Interviewer", "tag": "message"}],
+            as_list=True
+        )
+        recent_interviewer_messages = all_interviewer_messages[-5:] if \
+            len(all_interviewer_messages) >= 5 else all_interviewer_messages
 
         # Start with all available tools
         tools_set = set(self.tools.keys())
@@ -145,16 +158,16 @@ class Interviewer(BaseAgent, Participant):
         
         # Get tool descriptions for the filtered tools
         tool_descriptions_str = self.get_tools_description(list(tools_set))
-        
-        recent_events = chat_history_str[-self._max_events_len:] if \
-            len(chat_history_str) > self._max_events_len else chat_history_str
 
         # Create format parameters based on prompt type
         format_params = {
             "user_portrait": user_portrait_str,
             "last_meeting_summary": last_meeting_summary_str,
             "chat_history": '\n'.join(recent_events),
-            "user_message": recent_events[-1] if recent_events else "",
+            "current_events": '\n'.join(current_events),
+            "recent_interviewer_messages": '\n'.join(
+                [ msg[:120] + "..." if len(msg) > 150 else msg \
+                    for msg in recent_interviewer_messages]),
             "tool_descriptions": tool_descriptions_str
         }
         
