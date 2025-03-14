@@ -39,6 +39,25 @@ python scripts/run_experiments.py --user_id coates --timeout 15
 python scripts/run_single_experiment.py --user_id coates --model gpt-4o --baseline --timeout 15
 ```
 
+## Running Comparisons Evaluations
+
+```bash
+# Run all comparisons (both biography and interview)
+./scripts/run_comparisons.sh coates
+
+# Run only biography comparisons
+./scripts/run_comparisons.sh coates --type bio
+
+# Run only interview comparisons
+./scripts/run_comparisons.sh coates --type interview
+
+# Run with specific number of comparisons
+./scripts/run_comparisons.sh coates --run_times 20
+
+# Run with specific biography version
+./scripts/run_comparisons.sh coates --bio_version 2
+```
+
 ### Analyzing Results
 
 ```bash

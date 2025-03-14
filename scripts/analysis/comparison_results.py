@@ -148,8 +148,13 @@ def display_results(interview_results: Dict[str, Dict[str, List[int]]],
     col_width = 12
     first_col_width = 20
     
+    # Define metrics to display
+    interview_metrics = ["Smooth", "Flexibility", "Comfort"]
+    biography_metrics = ["Insight", "Narrative", "Coherence"]
+    all_metrics = interview_metrics + biography_metrics
+    
     # Calculate total width
-    total_width = first_col_width + 7 * (col_width + 3) - 1
+    total_width = first_col_width + len(all_metrics) * (col_width + 3) - 1
     
     print("\n" + "=" * total_width)
     print("COMPARISON RESULTS")
@@ -157,19 +162,19 @@ def display_results(interview_results: Dict[str, Dict[str, List[int]]],
     
     # Print category headers
     category_header = f"{'':{first_col_width}} |"
-    category_header += f" {'INTERVIEW METRICS':^{4*col_width+9}} |"
-    category_header += f" {'BIOGRAPHY METRICS':^{3*col_width+6}} |"
+    category_header += f" {'INTERVIEW METRICS':^{len(interview_metrics)*(col_width+3)-3}} |"
+    category_header += f" {'BIOGRAPHY METRICS':^{len(biography_metrics)*(col_width+3)-3}} |"
     print(category_header)
     
     # Print header row with metric names
     header = f"{'':{first_col_width}} |"
-    for metric in ["Smooth", "Flexibility", "Quality", "Comfort", "Insight", "Narrative", "Coherence"]:
+    for metric in all_metrics:
         header += f" {metric:^{col_width}} |"
     print(header)
     
     # Print subheader with W/L indicators
     subheader = f"{'Ours vs Baselines':{first_col_width}} |"
-    for _ in range(7):
+    for _ in range(len(all_metrics)):
         subheader += f" {'W':^6}{'L':^6} |"
     print(subheader)
     
@@ -183,7 +188,6 @@ def display_results(interview_results: Dict[str, Dict[str, List[int]]],
         # Get interview metrics
         smooth_stats = interview_results[model].get('Smooth Score', [0, 0, 0])
         flex_stats = interview_results[model].get('Flexibility Score', [0, 0, 0])
-        quality_stats = interview_results[model].get('Quality Score', [0, 0, 0])
         comfort_stats = interview_results[model].get('Comforting Score', [0, 0, 0])
         
         # Get biography metrics
@@ -193,7 +197,7 @@ def display_results(interview_results: Dict[str, Dict[str, List[int]]],
         
         # Format the row
         row = f"{model:{first_col_width}} |"
-        for stats in [smooth_stats, flex_stats, quality_stats, comfort_stats, 
+        for stats in [smooth_stats, flex_stats, comfort_stats, 
                      insight_stats, narrative_stats, coherence_stats]:
             row += f" {format_table_cell(*stats):^{col_width}} |"
         print(row)

@@ -485,14 +485,10 @@ class EvaluationLogger:
                     'Timestamp',
                     'Model A',
                     'Model B',
-                    'Session A',
-                    'Session B',
                     'Smooth Score Winner',
                     'Smooth Score Explanation',
                     'Flexibility Score Winner',
                     'Flexibility Score Explanation',
-                    'Quality Score Winner',
-                    'Quality Score Explanation',
                     'Comforting Score Winner',
                     'Comforting Score Explanation'
                 ]
@@ -502,19 +498,15 @@ class EvaluationLogger:
             metadata = evaluation_data.get('metadata', {})
             model_a = metadata.get('model_A', 'unknown')
             model_b = metadata.get('model_B', 'unknown')
-            session_a = metadata.get('session_A', 'unknown')
-            session_b = metadata.get('session_B', 'unknown')
             
             # Extract criteria results
             smooth = evaluation_data.get('smooth_score', {})
             flexibility = evaluation_data.get('flexibility_score', {})
-            quality = evaluation_data.get('quality_score', {})
             comforting = evaluation_data.get('comforting_score', {})
             
             # Ensure voting values are standardized
             smooth_winner = smooth.get('voting', 'unknown')
             flexibility_winner = flexibility.get('voting', 'unknown')
-            quality_winner = quality.get('voting', 'unknown')
             comforting_winner = comforting.get('voting', 'unknown')
             
             # Write row
@@ -522,14 +514,10 @@ class EvaluationLogger:
                 timestamp.isoformat(),
                 model_a,
                 model_b,
-                session_a,
-                session_b,
                 smooth_winner,
                 smooth.get('explanation', ''),
                 flexibility_winner,
                 flexibility.get('explanation', ''),
-                quality_winner,
-                quality.get('explanation', ''),
                 comforting_winner,
                 comforting.get('explanation', '')
             ]

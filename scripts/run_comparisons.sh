@@ -4,8 +4,9 @@
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # Default values
-RUN_TIMES=20
+RUN_TIMES=10
 BIO_VERSION=""
+COMPARISON_TYPE="all"  # Default to running both types
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -18,6 +19,10 @@ while [[ $# -gt 0 ]]; do
             BIO_VERSION="$2"
             shift 2
             ;;
+        --type)
+            COMPARISON_TYPE="$2"
+            shift 2
+            ;;
         *)
             USER_IDS+=("$1")
             shift
@@ -28,7 +33,14 @@ done
 # Check if at least one user ID is provided
 if [ ${#USER_IDS[@]} -eq 0 ]; then
     echo "Error: At least one user ID is required"
-    echo "Usage: ./scripts/run_comparisons.sh [--run_times N] [--bio_version V] <user_id1> [user_id2 ...]"
+    echo "Usage: ./scripts/run_comparisons.sh [--run_times N] [--bio_version V] [--type all|bio|interview] <user_id1> [user_id2 ...]"
+    exit 1
+fi
+
+# Validate comparison type
+if [[ "$COMPARISON_TYPE" != "all" && "$COMPARISON_TYPE" != "bio" && "$COMPARISON_TYPE" != "interview" ]]; then
+    echo "Error: Invalid comparison type. Must be 'all', 'bio', or 'interview'"
+    echo "Usage: ./scripts/run_comparisons.sh [--run_times N] [--bio_version V] [--type all|bio|interview] <user_id1> [user_id2 ...]"
     exit 1
 fi
 
@@ -79,20 +91,28 @@ for user_id in "${USER_IDS[@]}"; do
     
     # Calculate how many more biography runs needed
     bio_needed=0
-    if [ $bio_comparisons -lt $RUN_TIMES ]; then
-        bio_needed=$((RUN_TIMES - bio_comparisons))
-        echo "Need $bio_needed more biography evaluations to reach target of $RUN_TIMES"
+    if [[ "$COMPARISON_TYPE" == "all" || "$COMPARISON_TYPE" == "bio" ]]; then
+        if [ $bio_comparisons -lt $RUN_TIMES ]; then
+            bio_needed=$((RUN_TIMES - bio_comparisons))
+            echo "Need $bio_needed more biography evaluations to reach target of $RUN_TIMES"
+        else
+            echo "Already have enough biography comparisons (target: $RUN_TIMES)"
+        fi
     else
-        echo "Already have enough biography comparisons (target: $RUN_TIMES)"
+        echo "Skipping biography comparisons as per --type parameter"
     fi
     
     # Calculate how many more interview runs needed
     interview_needed=0
-    if [ $interview_comparisons -lt $RUN_TIMES ]; then
-        interview_needed=$((RUN_TIMES - interview_comparisons))
-        echo "Need $interview_needed more interview evaluations to reach target of $RUN_TIMES"
+    if [[ "$COMPARISON_TYPE" == "all" || "$COMPARISON_TYPE" == "interview" ]]; then
+        if [ $interview_comparisons -lt $RUN_TIMES ]; then
+            interview_needed=$((RUN_TIMES - interview_comparisons))
+            echo "Need $interview_needed more interview evaluations to reach target of $RUN_TIMES"
+        else
+            echo "Already have enough interview comparisons (target: $RUN_TIMES)"
+        fi
     else
-        echo "Already have enough interview comparisons (target: $RUN_TIMES)"
+        echo "Skipping interview comparisons as per --type parameter"
     fi
     
     # Run biography evaluations if needed

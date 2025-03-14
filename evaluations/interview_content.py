@@ -24,41 +24,25 @@ EVALUATION_CRITERIA = {
     "smooth_score": {
         "description": "How smooth were the topic transitions in the conversation",
         "guidelines": [
-            "Interview A has very abrupt transitions while B is smoother",
-            "Interview A has somewhat smoother transitions than B",
-            "Both interviews have similar transition quality",
-            "Interview B has somewhat smoother transitions than A",
-            "Interview B has much smoother transitions than A"
+            "- Ensure transitions are smooth and natural.",
+            "- Avoid reverting to previous topics or introducing new ones during an ongoing story.",
+            "- Switch topics if the user shows disinterest in the current one like only sharing a few words and wanting to skip the question.",
+            "- Avoid repetitive questions on the same topic."
         ]
     },
     "flexibility_score": {
         "description": "How flexible was the interview process in adapting to user responses",
         "guidelines": [
-            "Interview A is much more flexible and responsive than B",
-            "Interview A is somewhat more flexible than B",
-            "Both interviews show similar flexibility",
-            "Interview B is somewhat more flexible than A",
-            "Interview B is much more flexible and responsive than A"
-        ]
-    },
-    "quality_score": {
-        "description": "Quality of language (grammar, spelling, punctuation, word choice, sentence structure)",
-        "guidelines": [
-            "Interview A has much better language quality than B",
-            "Interview A has somewhat better language quality than B",
-            "Both interviews have similar language quality",
-            "Interview B has somewhat better language quality than A",
-            "Interview B has much better language quality than A"
+            "- Adapt flexibly to user responses and ask deeper questions.",
+            "- Change topics if the user is uninterested in the current one.",
+            "- Allow the user to ask questions and express their thoughts."
         ]
     },
     "comforting_score": {
         "description": "How comfortable and natural the interview experience felt",
         "guidelines": [
-            "Interview A feels much more comfortable and natural than B",
-            "Interview A feels somewhat more comfortable than B",
-            "Both interviews feel similarly comfortable",
-            "Interview B feels somewhat more comfortable than A",
-            "Interview B feels much more comfortable and natural than A"
+            "- Respond to the user's emotions and feelings.",
+            "- Create a supportive environment by engaging deeply with the user's experiences and allowing space for detailed storytelling."
         ]
     }
 }
@@ -105,10 +89,6 @@ Just specify A, B, or Tie!!!
     <voting>A or B or Tie</voting>
     <explanation>Your explanation comparing both interviews</explanation>
 </flexibility_score>
-<quality_score>
-    <voting>A or B or Tie</voting>
-    <explanation>Your explanation comparing both interviews</explanation>
-</quality_score>
 <comforting_score>
     <voting>A or B or Tie</voting>
     <explanation>Your explanation comparing both interviews</explanation>
@@ -139,8 +119,7 @@ def parse_evaluation_response(response: str) -> Dict[str, Any]:
     result = {}
     
     # Define criteria to extract
-    criteria = ["smooth_score", "flexibility_score", 
-                "quality_score", "comforting_score"]
+    criteria = ["smooth_score", "flexibility_score", "comforting_score"]
     
     # Extract ratings and explanations for each criterion
     for criterion in criteria:
@@ -199,7 +178,7 @@ async def get_interview_content(user_id: str, session_id: int, model_name: Optio
     
     # Read first 100 lines of chat history
     with open(chat_history_path, "r", encoding="utf-8") as f:
-        lines = f.readlines()[:100]  # Limit to first 100 lines
+        lines = f.readlines()[:200]  # Limit to first 100 lines
         return "".join(lines)
 
 async def prepare_interview_pairs(user_id: str, session_id: int) -> List[Dict[str, Any]]:
@@ -316,35 +295,35 @@ async def main_async():
     parser = argparse.ArgumentParser(
         description="Evaluate interview experience through comparison")
     parser.add_argument("--user_id", required=True, help="User ID")
-    parser.add_argument("--session_id", type=int, 
-        help="Session ID (optional, uses the first session if not provided)")
+    parser.add_argument(
+        "--session_id", type=int, 
+        help="Session ID (optional, uses the first session if not provided)",
+        default=1
+    )
     
     args = parser.parse_args()
     
     try:
+        print(f"Comparing session: {args.session_id}")
+
         # If session_id is not provided, find the most recent session
-        if args.session_id is None:
-            user_dir = Path(os.getenv("LOGS_DIR", "logs")) / \
-                  args.user_id / "execution_logs"
-            if not user_dir.exists():
-                raise FileNotFoundError(f"User directory not found: {user_dir}")
-            
-            session_dirs = [d for d in user_dir.iterdir() if d.is_dir() \
-                             and d.name.startswith("session_")]
-            if not session_dirs:
-                raise FileNotFoundError(f"No session directories"
-                                        f" found for user {args.user_id}")
-            
-            # Extract session numbers and find the highest
-            args.session_id = 1
-            print(f"Using most recent session: {args.session_id}")
+        user_dir = Path(os.getenv("LOGS_DIR", "logs")) / \
+                args.user_id / "execution_logs"
+        if not user_dir.exists():
+            raise FileNotFoundError(f"User directory not found: {user_dir}")
+        
+        session_dirs = [d for d in user_dir.iterdir() if d.is_dir() \
+                            and d.name.startswith("session_")]
+        if not session_dirs:
+            raise FileNotFoundError(f"No session directories"
+                                    f" found for user {args.user_id}")
         
         # Prepare interview pairs
         print(f"\nPreparing interview pairs for user {args.user_id}...")
         pairs = await prepare_interview_pairs(args.user_id, args.session_id)
         
         if not pairs:
-            print("No interview pairs fFound for comparison")
+            print("No interview pairs Found for comparison")
             return
             
         # Evaluate each pair
