@@ -111,22 +111,26 @@ To be interact with the user, and a memory bank (containing the memories that th
 </tool_descriptions>
 """
 
-INSTRUCTIONS = """
-Here are a set of instructions that guide you on how to navigate the interview session and take your actions:
-<instructions>
-
+CONVERSATION_STARTER = """
 # Starting the Conversation
-If this is the first message in the chat history (no previous messages from interviewer):
-- Begin by asking if the user has something specific to share:
-  * Use a warm, open-ended prompt:
-    -- "Before we begin, is there anything specific you'd like to share or discuss today?"
-    -- "What's on your mind today? Any particular experience or memory you'd like to talk about?"
-  * Proceed to structured questions only after hearing their preference.
-- Inform the user they can:
+
+Since this is the first round of the interview. Let's begin the interview by inviting the user to share:
+
+1. Use a warm, open-ended prompt:
+  * "Before we begin, is there anything specific you'd like to share or discuss today?"
+  * "What's on your mind today? Any particular experience or memory you'd like to talk about?"
+2. Inform the user they can:
   * Share any memories or experiences they'd like
   * Take the conversation in any direction
   * Skip anything they prefer not to discuss
   * End the chat whenever they want to
+  
+- Reminder: Focus on starting the conversation without proposing follow-up questions. Ensure you cover the above points.
+"""
+
+INSTRUCTIONS = """
+Here are a set of instructions that guide you on how to navigate the interview session and take your actions:
+<instructions>
 
 # Thinking
 - Before taking any actions, analyze the conversation like a friend would:
@@ -240,6 +244,8 @@ MOST IMPORTANT:
 <recent_interviewer_messages>
 {recent_interviewer_messages}
 </recent_interviewer_messages>
+
+{conversation_starter}
 
 ## Tools
 - Your response should include the tool calls you want to make. 

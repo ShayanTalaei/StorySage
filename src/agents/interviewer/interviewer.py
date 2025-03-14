@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 
 from agents.base_agent import BaseAgent
-from agents.interviewer.prompts import get_prompt
+from agents.interviewer.prompts import CONVERSATION_STARTER, get_prompt
 from agents.interviewer.tools import EndConversation, RespondToUser
 from agents.shared.memory_tools import Recall
 from utils.llm.prompt_utils import format_prompt
@@ -111,6 +111,7 @@ class Interviewer(BaseAgent, Participant):
 
     def _get_prompt(self):
         '''Gets the prompt for the interviewer. '''
+        
         # Use the baseline prompt if enabled
         prompt_type = "baseline" if self.use_baseline else "normal"
         main_prompt = get_prompt(prompt_type)
@@ -137,7 +138,6 @@ class Interviewer(BaseAgent, Participant):
             len(chat_history_events) > self._max_events_len else chat_history_events
         current_events = recent_events[-2:] if len(recent_events) >= 2 else recent_events
 
-        # Get interviewer's recent message
         all_interviewer_messages = self.get_event_stream_str(
             [{"sender": "Interviewer", "tag": "message"}],
             as_list=True
@@ -168,6 +168,10 @@ class Interviewer(BaseAgent, Participant):
             "recent_interviewer_messages": '\n'.join(
                 [ msg[:120] + "..." if len(msg) > 150 else msg \
                     for msg in recent_interviewer_messages]),
+            "conversation_starter": CONVERSATION_STARTER \
+                if len(all_interviewer_messages) == 0 and \
+                int(self.interview_session.session_id) != 1 \
+                else "",
             "tool_descriptions": tool_descriptions_str
         }
         
