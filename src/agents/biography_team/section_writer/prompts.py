@@ -1,4 +1,5 @@
 from agents.biography_team.planner.prompts import SECTION_PATH_FORMAT
+from content.biography.biography_styles import FIRST_PERSON_INSTRUCTIONS
 from utils.llm.prompt_utils import format_prompt
 
 def get_prompt(prompt_type: str = "normal"):
@@ -17,6 +18,7 @@ def get_prompt(prompt_type: str = "normal"):
             "USER_PORTRAIT": USER_PORTRAIT,
             "INPUT_CONTEXT": BASELINE_INPUT_CONTEXT,
             "INSTRUCTIONS": BASELINE_INSTRUCTIONS,
+            "FIRST_PERSON_INSTRUCTIONS": FIRST_PERSON_INSTRUCTIONS,
             "OUTPUT_FORMAT": SECTION_PATH_FORMAT + BASELINE_OUTPUT_FORMAT
         })
     elif prompt_type == "user_add":
@@ -47,6 +49,8 @@ SECTION_WRITER_BASELINE_TEMPLATE = """
 {INPUT_CONTEXT}
 
 {INSTRUCTIONS}
+
+{FIRST_PERSON_INSTRUCTIONS}
 
 {error_warning}
 
