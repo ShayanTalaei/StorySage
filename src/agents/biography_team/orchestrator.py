@@ -41,7 +41,7 @@ class BiographyOrchestrator:
         
         # Threshold for auto-update
         self._memory_threshold = int(
-            os.getenv("MEMORY_THRESHOLD_FOR_UPDATE", 12))
+            os.getenv("MEMORY_THRESHOLD_FOR_UPDATE", 10))
 
         # Flags to track different types of updates in progress
         self.biography_update_in_progress = False
@@ -90,7 +90,7 @@ class BiographyOrchestrator:
                 # Calculate total number of memories and first update threshold
                 total_memories_num = \
                     len(self._interview_session.memory_bank.memories)
-                first_update_threshold = 1.5 * self._memory_threshold
+                first_update_threshold = 1.4 * self._memory_threshold
                 
                 # If no enough memories, do nothing
                 if total_memories_num < first_update_threshold:
