@@ -129,9 +129,10 @@ class InterviewSession:
         # Conversation summary for auto-updates
         self.conversation_summary = ""
         
-        # Counter for user messages to trigger biography update check
+        # Counter for user messages to trigger auto-updates check
         self._user_message_count = 0
-        self._check_interval = max(1, self.memory_threshold // 3)
+        self._check_interval = max(1, self.memory_threshold // 4)
+        self._accumulated_auto_update_time = 0
 
         # Last message timestamp tracking for session timeout
         self._last_message_time = datetime.now()
@@ -347,8 +348,7 @@ class InterviewSession:
                                 f"Waiting for session scribe to finish processing..."
                             )
                         )
-                        await self.biography_orchestrator \
-                            .update_biography_and_notes(selected_topics=[])
+                        await self.final_biography_update(selected_topics=[])
 
                 # Wait for biography update to complete if it's in progress
                 start_time = time.time()
@@ -433,11 +433,18 @@ class InterviewSession:
                     await self.session_scribe.get_session_memories(
                         clear_processed=True, wait_for_processing=False)
                 
+                # Measure the time auto-update would take
+                start_time = time.time()
+                
                 # Update biography with these memories and the conversation summary
                 await self.biography_orchestrator.update_biography_with_memories(
                     memories_to_process,
                     is_auto_update=True
                 )
+                
+                # Record the time it took
+                update_time = time.time() - start_time
+                self._accumulated_auto_update_time += update_time
                 
                 SessionLogger.log_to_file(
                     "execution_log",
@@ -466,6 +473,14 @@ class InterviewSession:
         if recent_messages:
             self.conversation_summary = \
                 summarize_conversation(recent_messages)
+    
+    async def final_biography_update(self, selected_topics: Optional[List[str]] = None):
+        """Trigger final biography update"""
+        # Proceed with the final update
+        await self.biography_orchestrator.final_update_biography_and_notes(
+            selected_topics=selected_topics,
+            wait_time=self._accumulated_auto_update_time if BaseAgent.use_baseline else None
+        )
 
     def end_session(self):
         """End the session without triggering biography update"""

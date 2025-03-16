@@ -90,7 +90,7 @@ class BiographyOrchestrator:
                 # Calculate total number of memories and first update threshold
                 total_memories_num = \
                     len(self._interview_session.memory_bank.memories)
-                first_update_threshold = 1.4 * self._memory_threshold
+                first_update_threshold = self._memory_threshold
                 
                 # If no enough memories, do nothing
                 if total_memories_num < first_update_threshold:
@@ -150,14 +150,23 @@ class BiographyOrchestrator:
         finally:
             self.session_note_update_in_progress = False
     
-    async def update_biography_and_notes(
-            self, selected_topics: Optional[List[str]] = None):
-        """Update biography with new memories."""
+    async def final_update_biography_and_notes(
+            self, selected_topics: Optional[List[str]] = None,
+            wait_time: Optional[float] = None):
+        """Update biography and session note with new memories."""
         try:
             # Set both flags to indicate updates are in progress
             self.biography_update_in_progress = True
             self.session_note_update_in_progress = True
 
+            # Simulate disabling auto-updates in baseline mode
+            if wait_time and self._section_writer.use_baseline:
+                await asyncio.sleep(wait_time)
+                SessionLogger.log_to_file("execution_log", 
+                                        f"[BIOGRAPHY] Baseline mode: Simulated wait time"
+                                        f"without auto-updates: {wait_time:.2f}s")
+
+            # Get new memories for update
             new_memories: List[Memory] = await (
                 self._interview_session.get_session_memories(
                     include_processed=False

@@ -35,7 +35,7 @@ async def remove_inactive_sessions():
             removed_users = session_manager.remove_inactive_sessions()
             
             if removed_users:
-                print(f"{RED}Removed sessions for users: {removed_users}{RESET}")
+                print(f"{RED}Removed interview sessions for users: {removed_users}{RESET}")
                     
         except Exception as e:
             print(f"{RED}Error in remove_inactive_sessions:\n{e}\n{RESET}")
@@ -269,8 +269,7 @@ async def prepare_end_session(
             await asyncio.sleep(0.1)
         
         # Start biography update in background
-        asyncio.create_task(session.biography_orchestrator\
-                            .update_biography_and_notes())
+        asyncio.create_task(session.final_biography_update(selected_topics=None))
         
         # Get topics from new memories
         topics = await session.biography_orchestrator.get_session_topics()
@@ -328,7 +327,7 @@ async def end_session(
         # End session without triggering another biography update
         session.end_session()
         
-        # Wait only for biography update to complete
+        # Wait for biography update to complete
         start_time = time.time()
         while session.biography_orchestrator.biography_update_in_progress:
             await asyncio.sleep(0.1)
