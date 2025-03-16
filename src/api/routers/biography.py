@@ -94,7 +94,7 @@ async def edit_biography(
             if edit.type == "RENAME":
                 if not edit.data or not edit.data.newTitle:
                     raise ValueError("New title is required for RENAME operation")
-                bio.update_section(title=edit.title, new_title=edit.data.newTitle)
+                await bio.update_section(title=edit.title, new_title=edit.data.newTitle)
                 
             elif edit.type == "DELETE":
                 if not bio.delete_section(title=edit.title):
@@ -103,7 +103,7 @@ async def edit_biography(
             elif edit.type == "CONTENT_CHANGE":
                 if not edit.data or not edit.data.newContent:
                     raise ValueError("New content is required for CONTENT_CHANGE operation")
-                bio.update_section(title=edit.title, content=edit.data.newContent)
+                await bio.update_section(title=edit.title, content=edit.data.newContent)
                 
         except Exception as e:
             raise HTTPException(
@@ -113,7 +113,7 @@ async def edit_biography(
     
     # Save changes from basic edits
     if basic_edits:
-        bio.save()
+        await bio.save()
     
     # Process AI-powered edits if any exist
     if ai_edits:
