@@ -19,8 +19,8 @@ from agents.biography_team.models import FollowUpQuestion
 
 """
 Shared tools for updating the session notes:
-- Note taker
-- Session summary writer
+- Session scribe
+- Session coordinator
 """
 
 class AddInterviewQuestionInput(BaseModel):

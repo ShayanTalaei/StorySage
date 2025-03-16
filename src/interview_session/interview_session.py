@@ -11,7 +11,7 @@ import time
 from agents.base_agent import BaseAgent
 from interview_session.session_models import Message, MessageType, Participant
 from agents.interviewer.interviewer import Interviewer, InterviewerConfig, TTSConfig
-from agents.note_taker.note_taker import NoteTaker, NoteTakerConfig
+from agents.session_scribe.session_scribe import SessionScribe, SessionScribeConfig
 from agents.user.user_agent import UserAgent
 from content.session_note.session_note import SessionNote
 from utils.data_process import save_feedback_to_csv
@@ -162,8 +162,8 @@ class InterviewSession:
             ),
             interview_session=self
         )
-        self.note_taker: NoteTaker = NoteTaker(
-            config=NoteTakerConfig(
+        self.session_scribe: SessionScribe = SessionScribe(
+            config=SessionScribeConfig(
                 user_id=self.user_id
             ),
             interview_session=self
@@ -180,9 +180,9 @@ class InterviewSession:
         # Subscriptions of participants to each other
         self._subscriptions: Dict[str, List[Participant]] = {
             # Subscribers of Interviewer: Note-taker and User (in following code)
-            "Interviewer": [self.note_taker],
+            "Interviewer": [self.session_scribe],
             # Subscribers of User: Interviewer and Note-taker
-            "User": [self._interviewer, self.note_taker]
+            "User": [self._interviewer, self.session_scribe]
         }
 
         # User participant for terminal interaction
@@ -310,7 +310,7 @@ class InterviewSession:
                 await self._interviewer.on_message(None)
 
             # Monitor the session for completion and timeout
-            while self.session_in_progress or self.note_taker.processing_in_progress:
+            while self.session_in_progress or self.session_scribe.processing_in_progress:
                 await asyncio.sleep(0.1)
 
                 # Check for timeout
@@ -344,7 +344,7 @@ class InterviewSession:
                             "execution_log", 
                             (
                                 f"[BIOGRAPHY] Trigger final biography update. "
-                                f"Waiting for note taker to finish processing..."
+                                f"Waiting for session scribe to finish processing..."
                             )
                         )
                         await self.biography_orchestrator \
@@ -395,7 +395,7 @@ class InterviewSession:
             include_processed: If True, returns all memories from the session
                               If False, returns only the unprocessed memories
         """
-        return await self.note_taker.get_session_memories(
+        return await self.session_scribe.get_session_memories(
             clear_processed=False, 
             wait_for_processing=True,
             include_processed=include_processed
@@ -410,7 +410,7 @@ class InterviewSession:
             return
             
         # Get current memory count without clearing or waiting
-        memories = await self.note_taker \
+        memories = await self.session_scribe \
             .get_session_memories(clear_processed=False,
                                    wait_for_processing=False)
         
@@ -428,9 +428,9 @@ class InterviewSession:
                 # Generate a summary of recent conversation
                 await self._update_conversation_summary()
                 
-                # Get memories and clear them from the note taker
+                # Get memories and clear them from the session scribe
                 memories_to_process = \
-                    await self.note_taker.get_session_memories(
+                    await self.session_scribe.get_session_memories(
                         clear_processed=True, wait_for_processing=False)
                 
                 # Update biography with these memories and the conversation summary
@@ -458,7 +458,7 @@ class InterviewSession:
         
         # Extract recent messages from chat history
         recent_messages: List[Message] = []
-        for msg in self.chat_history[-self.note_taker._max_events_len:]:
+        for msg in self.chat_history[-self.session_scribe._max_events_len:]:
             if msg.type == MessageType.CONVERSATION:
                 recent_messages.append(msg)
         
@@ -553,6 +553,6 @@ class InterviewSession:
             system_chars=system_chars,
             conversation_duration=conversation_duration,
             total_memories=len(await \
-                               self.note_taker.get_session_memories(
+                               self.session_scribe.get_session_memories(
                                    include_processed=True))
         )

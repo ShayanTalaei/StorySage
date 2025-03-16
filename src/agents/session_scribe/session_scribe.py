@@ -4,8 +4,8 @@ import time
 
 
 from agents.base_agent import BaseAgent
-from agents.note_taker.prompts import get_prompt
-from agents.note_taker.tools import UpdateSessionNote, UpdateMemoryBank, AddHistoricalQuestion
+from agents.session_scribe.prompts import get_prompt
+from agents.session_scribe.tools import UpdateSessionNote, UpdateMemoryBank, AddHistoricalQuestion
 from agents.shared.memory_tools import Recall
 from agents.shared.note_tools import AddInterviewQuestion
 from agents.shared.feedback_prompts import SIMILAR_QUESTIONS_WARNING, WARNING_OUTPUT_FORMAT
@@ -22,19 +22,19 @@ if TYPE_CHECKING:
 
 
 
-class NoteTakerConfig(TypedDict, total=False):
-    """Configuration for the NoteTaker agent."""
+class SessionScribeConfig(TypedDict, total=False):
+    """Configuration for the SessionScribe agent."""
     user_id: str
 
 
-class NoteTaker(BaseAgent, Participant):
-    def __init__(self, config: NoteTakerConfig, interview_session: 'InterviewSession'):
+class SessionScribe(BaseAgent, Participant):
+    def __init__(self, config: SessionScribeConfig, interview_session: 'InterviewSession'):
         BaseAgent.__init__(
-            self, name="NoteTaker",
+            self, name="SessionScribe",
             description="Agent that takes notes and manages the user's memory bank",
             config=config
         )
-        Participant.__init__(self, title="NoteTaker",
+        Participant.__init__(self, title="SessionScribe",
                              interview_session=interview_session)
         
         # Current unprocessed memories
@@ -75,7 +75,7 @@ class NoteTaker(BaseAgent, Participant):
                 historical_question_bank= \
                     self.interview_session.historical_question_bank,
                 proposed_question_bank=self.interview_session.proposed_question_bank,
-                proposer="NoteTaker"
+                proposer="SessionScribe"
             ),
             "recall": Recall(
                 memory_bank=self.interview_session.memory_bank
@@ -86,7 +86,7 @@ class NoteTaker(BaseAgent, Participant):
         '''Handle incoming messages'''
         SessionLogger.log_to_file(
             "execution_log",
-            f"[NOTIFY] Note taker received message from {message.role}"
+            f"[NOTIFY] Session scribe received message from {message.role}"
         )
 
         if message.role == "Interviewer":
@@ -296,7 +296,7 @@ class NoteTaker(BaseAgent, Participant):
         self.handle_tool_calls(response)
 
     def _get_formatted_prompt(self, prompt_type: str, **kwargs) -> str:
-        '''Gets the formatted prompt for the NoteTaker agent.'''
+        '''Gets the formatted prompt for the SessionScribe agent.'''
         prompt = get_prompt(prompt_type)
         if prompt_type == "consider_and_propose_followups":
             # Get all message events
@@ -381,7 +381,7 @@ class NoteTaker(BaseAgent, Participant):
             })
 
     async def get_session_memories(self, clear_processed=False, wait_for_processing=True, include_processed=False) -> List[Memory]:
-        """Get memories added by note taker during current session.
+        """Get memories added by session scribe during current session.
         
         Args:
             clear_processed: 

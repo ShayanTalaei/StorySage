@@ -2,12 +2,12 @@ from typing import Dict, List, TYPE_CHECKING, Optional
 import asyncio
 from agents.biography_team.base_biography_agent import BiographyConfig, BiographyTeamAgent
 
-from agents.biography_team.session_summary_writer.prompts import (
+from agents.biography_team.session_coordinator.prompts import (
     SESSION_SUMMARY_PROMPT,
     INTERVIEW_QUESTIONS_PROMPT,
     TOPIC_EXTRACTION_PROMPT
 )
-from agents.biography_team.session_summary_writer.tools import UpdateLastMeetingSummary, UpdateUserPortrait, DeleteInterviewQuestion
+from agents.biography_team.session_coordinator.tools import UpdateLastMeetingSummary, UpdateUserPortrait, DeleteInterviewQuestion
 from agents.shared.feedback_prompts import SIMILAR_QUESTIONS_WARNING, WARNING_OUTPUT_FORMAT
 from content.memory_bank.memory import Memory
 from agents.biography_team.models import FollowUpQuestion
@@ -21,10 +21,10 @@ if TYPE_CHECKING:
     from interview_session.interview_session import InterviewSession
 
 
-class SessionSummaryWriter(BiographyTeamAgent):
+class SessionCoordinator(BiographyTeamAgent):
     def __init__(self, config: BiographyConfig, interview_session: 'InterviewSession'):
         super().__init__(
-            name="SessionSummaryWriter",
+            name="SessionCoordinator",
             description="Prepares end-of-session summaries "
                         "and manages interview questions",
             config=config,
@@ -50,7 +50,7 @@ class SessionSummaryWriter(BiographyTeamAgent):
             "add_interview_question": AddInterviewQuestion(
                 session_note=self._session_note,
                 historical_question_bank=self.interview_session.historical_question_bank,
-                proposer="SessionSummaryWriter"
+                proposer="SessionCoordinator"
             ),
             "delete_interview_question": DeleteInterviewQuestion(
                 session_note=self._session_note

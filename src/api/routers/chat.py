@@ -264,8 +264,8 @@ async def prepare_end_session(
         # Get the active session
         session = session_manager.get_active_session(current_user)
 
-        # Wait for note taker to finish processing
-        while session.note_taker.processing_in_progress:
+        # Wait for session scribe to finish processing
+        while session.session_scribe.processing_in_progress:
             await asyncio.sleep(0.1)
         
         # Start biography update in background

@@ -7,7 +7,7 @@ import logging
 from agents.biography_team.base_biography_agent import BiographyConfig
 from agents.biography_team.planner.planner import BiographyPlanner
 from agents.biography_team.section_writer.section_writer import SectionWriter
-from agents.biography_team.session_summary_writer.session_summary_writer import SessionSummaryWriter
+from agents.biography_team.session_coordinator.session_coordinator import SessionCoordinator
 from agents.biography_team.models import Plan
 from content.memory_bank.memory import Memory
 from utils.logger.session_logger import setup_default_logger, SessionLogger
@@ -28,7 +28,7 @@ class BiographyOrchestrator:
 
         # Session note agent if it is an post-interview update
         if interview_session:
-            self._session_summary_writer = SessionSummaryWriter(
+            self._session_coordinator = SessionCoordinator(
                 config, interview_session)
             self._interview_session = interview_session
         else:
@@ -143,7 +143,7 @@ class BiographyOrchestrator:
             follow_up_questions = self._collect_follow_up_questions()
             
             # 2. Regenerate session note with new memories and follow-ups
-            await self._session_summary_writer.regenerate_session_note(
+            await self._session_coordinator.regenerate_session_note(
                 follow_up_questions=follow_up_questions
             )
             
@@ -173,7 +173,7 @@ class BiographyOrchestrator:
             # Skip session note update if baseline is used or no new memories
             if not new_memories or self._section_writer.use_baseline:
                 if new_memories:
-                    await self._session_summary_writer.update_session_summary(new_memories)
+                    await self._session_coordinator.update_session_summary(new_memories)
                 self._interview_session.session_note.save(
                     increment_session_id=True
                 )
@@ -186,7 +186,7 @@ class BiographyOrchestrator:
 
             # If topics are provided now, set them immediately
             if selected_topics is not None:
-                self._session_summary_writer.set_selected_topics(selected_topics)
+                self._session_coordinator.set_selected_topics(selected_topics)
 
             # Wait for session note task to complete
             await session_note_task
@@ -222,11 +222,11 @@ class BiographyOrchestrator:
     
     async def get_session_topics(self) -> List[str]:
         """To user: Get list of topics covered in this session"""
-        return await self._session_summary_writer.extract_session_topics()
+        return await self._session_coordinator.extract_session_topics()
 
     async def set_selected_topics(self, topics: List[str]):
         """From user: Set the selected topics for session note update"""
-        self._session_summary_writer.set_selected_topics(topics)
+        self._session_coordinator.set_selected_topics(topics)
         
     def _collect_follow_up_questions(self) -> List[Dict]:
         """Collect follow-up questions from planner and section writer."""

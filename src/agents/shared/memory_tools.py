@@ -10,10 +10,10 @@ from content.memory_bank.memory_bank_base import MemoryBankBase
 
 """
 Shared tools to access the memory bank by:
-- Section writer
-- Session summary writer
 - Interviewer
-- Note taker
+- Biography section writer
+- Session coordinator
+- Session scribe
 """
 class RecallInput(BaseModel):
     reasoning: str = Field(
