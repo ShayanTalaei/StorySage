@@ -206,6 +206,10 @@ USER_EDIT_INSTRUCTIONS = """\
    * If unclear, interpret the intent and rephrase for clarity
    * When experiences or stories are mentioned, explicitly mention using the recall tool to gather relevant memories in the plan
 
+## Important Reminders:
+- When user mentions specific memories, include memory search as a separate step in your plan
+- Set <memory_ids> as an empty list [] in add_plan tool call (we'll populate it later with search results)
+
 ## Style Guidelines:
 <biography_style_instructions>
 {style_instructions}

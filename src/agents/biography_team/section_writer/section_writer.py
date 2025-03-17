@@ -41,10 +41,7 @@ class SectionWriter(BiographyTeamAgent):
                     self.follow_up_questions.append(q)
             ),
             "recall": Recall(
-                memory_bank=self.interview_session.memory_bank \
-                            if interview_session else None,
-                user_id=self.config.get("user_id") \
-                         if not interview_session else None
+                memory_bank=self._memory_bank
             )
         }
     
@@ -129,7 +126,7 @@ class SectionWriter(BiographyTeamAgent):
                     previous_tool_call = extract_tool_calls_xml(response)
 
                     # Check if all memories are covered
-                    if covered_memory_ids >= all_memory_ids:
+                    if covered_memory_ids >= all_memory_ids or len(all_memory_ids) == 0:
                         self.add_event(
                             sender=self.name,
                             tag=f"feedback_loop_{iterations}",
@@ -169,7 +166,7 @@ class SectionWriter(BiographyTeamAgent):
                     filter=[{"sender": self.name, "tag": "recall_response"}]
                 )
                 return get_prompt("user_add").format(
-                    user_portrait=self.interview_session.session_note \
+                    user_portrait=self._session_note \
                         .get_user_portrait_str(),
                     section_path=todo_item.section_path,
                     update_plan=todo_item.update_plan,
@@ -192,8 +189,8 @@ class SectionWriter(BiographyTeamAgent):
                     title=todo_item.section_title
                 )
                 current_content = curr_section.content if curr_section else ""
-                return get_prompt("user_comment").format(
-                    user_portrait=self.interview_session.session_note \
+                return get_prompt("user_update").format(
+                    user_portrait=self._session_note \
                         .get_user_portrait_str(),
                     section_title=todo_item.section_title,
                     current_content=current_content,
@@ -251,14 +248,14 @@ class SectionWriter(BiographyTeamAgent):
                     )
                 
                 # Format the relevant memories
-                relevant_memories = self.interview_session.memory_bank \
+                relevant_memories = self._memory_bank \
                     .get_formatted_memories_from_ids(
                         todo_item.memory_ids,
                         include_source=True
                     )
                 
                 return get_prompt("normal").format(
-                    user_portrait=self.interview_session.session_note \
+                    user_portrait=self._session_note \
                         .get_user_portrait_str(),
                     section_identifier_xml=section_identifier_xml,
                     current_content=current_content,
@@ -283,7 +280,7 @@ class SectionWriter(BiographyTeamAgent):
             )
             raise
 
-    async def save_biography(self, is_auto_update: bool) -> str:
+    async def save_biography(self, is_auto_update: bool=False) -> str:
         """Save the current state of the biography to file."""
         try:
             await self.biography.save(save_markdown=not is_auto_update,
@@ -314,7 +311,7 @@ class SectionWriter(BiographyTeamAgent):
                     current_biography = await self.biography.export_to_markdown()
                     
                     # Get user portrait
-                    user_portrait = self.interview_session.session_note \
+                    user_portrait = self._session_note \
                         .get_user_portrait_str()
                     
                     # Create error warning if needed

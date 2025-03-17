@@ -215,15 +215,22 @@ class BiographyOrchestrator:
 
         for edit in edits:
             # Get detailed plan from planner
-            plan: Plan = await self._planner.create_user_edit_plan(edit)
-            if plan:
-                plan.section_title = edit["title"] \
-                      if edit["type"] != "ADD" else None
-                plan.section_path = edit["data"]["newPath"] \
-                      if edit["type"] == "ADD" else None
-                todo_items.append(plan)
+            try:
+                plan: Plan = await self._planner.create_user_edit_plan(edit)
+                if plan:
+                    plan.section_title = edit["title"] \
+                        if edit["type"] != "ADD" else None
+                    plan.section_path = edit["data"]["newPath"] \
+                        if edit["type"] == "ADD" else None
+                
+                    plan.action_type = "user_add" if edit["type"] == "ADD" \
+                        else "user_update"
 
-        # Process items in batches
+                    todo_items.append(plan)
+                
+            except Exception as e:
+                print(f"[DEBUG] Error creating plan for edit: {type(e).__name__}: {e}")
+
         await self._process_updates_in_batches(todo_items)
 
         # Save biography after all updates are complete

@@ -23,7 +23,7 @@ def get_prompt(prompt_type: str = "normal"):
         })
     elif prompt_type == "user_add":
         return USER_ADD_SECTION_PROMPT
-    elif prompt_type == "user_comment":
+    elif prompt_type == "user_update":
         return USER_COMMENT_EDIT_PROMPT
 
 # Main template for section writer prompt

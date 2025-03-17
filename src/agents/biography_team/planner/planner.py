@@ -177,8 +177,9 @@ class BiographyPlanner(BiographyTeamAgent):
             prompt_type: Type of prompt to format
             **kwargs: Additional parameters specific to the prompt type
         """
+        # Create base parameters common to all prompt types
         base_params = {
-            "user_portrait": self.interview_session.session_note \
+            "user_portrait": self._session_note \
                 .get_user_portrait_str(),
             "biography_structure": json.dumps(
                 self.get_biography_structure(), indent=2
@@ -188,43 +189,47 @@ class BiographyPlanner(BiographyTeamAgent):
                 self.config.get("biography_style")
             )
         }
-
-        missing_memory_ids = kwargs.get('missing_memory_ids', "")
-        warning = (
-            MISSING_MEMORIES_WARNING.format(
-                previous_tool_call=kwargs.get('previous_tool_call', ""),
-                missing_memory_ids=missing_memory_ids
-            ) if missing_memory_ids else ""
-        )
-
-        prompt_params = {
-            "add_new_memory_planner": {
+        
+        # Create specific parameters based on prompt type
+        if prompt_type == "add_new_memory_planner":
+            missing_memory_ids = kwargs.get('missing_memory_ids', "")
+            warning = (
+                MISSING_MEMORIES_WARNING.format(
+                    previous_tool_call=kwargs.get('previous_tool_call', ""),
+                    missing_memory_ids=missing_memory_ids
+                ) if missing_memory_ids else ""
+            )
+            
+            prompt_params = {
                 **base_params,
                 "new_information": '\n\n'.join(
-                    [memory.to_xml() for memory in \
-                      kwargs.get('new_memories', [])]
+                    [memory.to_xml() for memory in kwargs.get('new_memories', [])]
                 ),
                 "conversation_summary": self.interview_session.conversation_summary,
                 "missing_memories_warning": warning,
                 "tool_descriptions": self.get_tools_description(
                     ["add_plan", "propose_follow_up"]),
-            },
-            "user_add_planner": {
+            }
+        elif prompt_type == "user_add_planner":
+            prompt_params = {
                 **base_params,
                 "section_path": kwargs.get('section_path'),
                 "section_prompt": kwargs.get('section_prompt'),
                 "tool_descriptions": self.get_tools_description(["add_plan"])
-            },
-            "user_comment_planner": {
+            }
+        elif prompt_type == "user_comment_planner":
+            prompt_params = {
                 **base_params,
                 "section_title": kwargs.get('section_title'),
                 "selected_text": kwargs.get('selected_text'),
                 "user_comment": kwargs.get('user_comment'),
                 "tool_descriptions": self.get_tools_description(["add_plan"])
             }
-        }
+        else:
+            raise ValueError(f"Unknown prompt type: {prompt_type}")
 
-        return get_prompt(prompt_type).format(**prompt_params[prompt_type])
+        # Get and format the prompt template with the parameters
+        return get_prompt(prompt_type).format(**prompt_params)
 
     def _handle_plan_added(self, new_plan: Plan) -> None:
         """Handle adding a new plan, replacing any existing plans for the same section."""

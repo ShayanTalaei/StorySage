@@ -102,7 +102,8 @@ async def edit_biography(
                 
             elif edit.type == "CONTENT_CHANGE":
                 if not edit.data or not edit.data.newContent:
-                    raise ValueError("New content is required for CONTENT_CHANGE operation")
+                    raise ValueError("New content is required for "
+                                     "CONTENT_CHANGE operation")
                 await bio.update_section(title=edit.title, content=edit.data.newContent)
                 
         except Exception as e:
