@@ -256,14 +256,6 @@ MOST IMPORTANT:
 OUTPUT_FORMAT = """
 <output_format>
 Your output should include the tools you need to call according to the following format:
-
-<thinking>
-- Think through each step of your response process:
-  * Pick Next Question to Ask
-  * Formulate Response
-- Limit your thinking to 150 words.
-</thinking>
-
 <tool_calls>
     # Option 1: If you need to gather information from the user:
     <recall>
