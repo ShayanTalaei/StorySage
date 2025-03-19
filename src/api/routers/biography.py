@@ -78,61 +78,50 @@ async def edit_biography(
     # Load the latest biography
     bio = Biography.load_from_file(current_user)
     
-    # Separate AI-powered edits from basic edits
-    ai_edits: List[BiographyEdit] = []
-    basic_edits: List[BiographyEdit] = []
+    # Sort all edits by timestamp
+    sorted_edits = sorted(edits, key=lambda x: x.timestamp)
     
-    for edit in edits:
-        if edit.type in ["ADD", "COMMENT"]:
-            ai_edits.append(edit)
-        else:
-            basic_edits.append(edit)
-    
-    # Process basic edits first
-    for edit in sorted(basic_edits, key=lambda x: x.timestamp):
+    # Process each edit in chronological order
+    for edit in sorted_edits:
         try:
             if edit.type == "RENAME":
                 if not edit.data or not edit.data.newTitle:
                     raise ValueError("New title is required for RENAME operation")
                 await bio.update_section(title=edit.title, new_title=edit.data.newTitle)
+                await bio.save()
                 
             elif edit.type == "DELETE":
-                if not bio.delete_section(title=edit.title):
-                    raise ValueError(f"Section not found: {edit.title}")
+                if not edit.title:
+                    raise ValueError("Title is required for DELETE operation")
+                await bio.delete_section(title=edit.title)
+                await bio.save()
                 
             elif edit.type == "CONTENT_CHANGE":
                 if not edit.data or not edit.data.newContent:
-                    raise ValueError("New content is required for "
-                                     "CONTENT_CHANGE operation")
+                    raise ValueError("New content is required for CONTENT_CHANGE operation")
                 await bio.update_section(title=edit.title, content=edit.data.newContent)
+                await bio.save()
+                
+            elif edit.type in ["ADD", "COMMENT"]:
+                # Handle AI-powered edits
+                config = BiographyConfig(user_id=current_user)
+                orchestrator = BiographyOrchestrator(config=config, interview_session=None)
+                
+                try:
+                    # Load a fresh copy of biography before AI processing
+                    bio = Biography.load_from_file(current_user)
+                    await orchestrator.process_user_edits([edit.dict()])
+                except Exception as e:
+                    raise ValueError(f"Error processing AI edit: {str(e)}")
                 
         except Exception as e:
             raise HTTPException(
                 status_code=400,
                 detail=f"Error processing edit {edit.type} for section '{edit.title}': {str(e)}"
             )
-    
-    # Save changes from basic edits
-    if basic_edits:
-        await bio.save()
-    
-    # Process AI-powered edits if any exist
-    if ai_edits:
-        # Create orchestrator instance for AI-powered edits
-        config = BiographyConfig(user_id=current_user)
-        orchestrator = BiographyOrchestrator(config=config, interview_session=None)
-        
-        # Convert edits to dict format expected by orchestrator
-        edit_dicts = [edit.dict() for edit in ai_edits]
-        
-        # Process edits through the orchestrator
-        try:
-            await orchestrator.process_user_edits(edit_dicts)
-        except Exception as e:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Error processing AI edits: {str(e)}"
-            )
+            
+        # Reload biography after each edit to ensure we have the latest state
+        bio = Biography.load_from_file(current_user)
     
     # Return the latest saved biography
     latest_bio = get_latest_biography(current_user)

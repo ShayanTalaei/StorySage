@@ -196,19 +196,30 @@ This is the portrait of the user:
 USER_EDIT_INSTRUCTIONS = """\
 <instructions>
 ## Core Responsibilities:
-1. Create a clear, actionable, concise plan that:
-   * Implements the user's request faithfully
-   * Integrates smoothly with existing content
-   * Is very concise and to the point - limit it to 1-3 bullet points
+Create a plan to implement the user's request. The plan must include:
 
-2. Handle user's prompt appropriately:
-   * Use the prompt as-is when clear and specific
-   * If unclear, interpret the intent and rephrase for clarity
-   * When experiences or stories are mentioned, explicitly mention using the recall tool to gather relevant memories in the plan
+1. Context Summary:
+   Original Request: [User's exact request]
+   Selected Section: [Section title/path being modified]
+   Current Content: [Brief summary of relevant existing content]
+
+2. Action Plan:
+   - [First action step]
+   - [Second action step if needed]
+   - [Third action step if needed]
+
+## Planning Guidelines:
+- Keep actions clear, specific, and concise (1-3 steps)
+- Ensure each step directly implements the user's request
+- When memories are mentioned:
+  * Add memory search as a separate step
+  * Specify which experiences to search for
+  * Use recall tool to gather relevant content
 
 ## Important Reminders:
-- When user mentions specific memories, include memory search as a separate step in your plan
-- Set <memory_ids> as an empty list [] in add_plan tool call (we'll populate it later with search results)
+- Always set <memory_ids> as empty list [] in add_plan tool call since we didn't provide any memories yet
+- Maintain narrative flow with existing content
+- Follow section numbering rules (if creating new sections)
 
 ## Style Guidelines:
 <biography_style_instructions>
@@ -303,7 +314,11 @@ Provide your response using tool calls:
     <add_plan>
         <action_type>user_update</action_type>
         <section_title>{section_title}</section_title>
-        <update_plan>...</update_plan>
+        <update_plan>
+        Create a plan to to include:
+        1. Context Summary: ...
+        2. Action Plan: ...
+        </update_plan>
     </add_plan>
 </tool_calls>
 """

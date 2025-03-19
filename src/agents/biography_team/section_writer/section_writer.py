@@ -96,17 +96,8 @@ class SectionWriter(BiographyTeamAgent):
                         )
                         iterations += 1
                         continue
-
-                    # Check if agent wants to proceed with missing memories
-                    if "<proceed>yes</proceed>" in response.lower():
-                        self.add_event(
-                            sender=self.name,
-                            tag=f"feedback_loop_{iterations}",
-                            content="Agent chose to proceed with missing memories"
-                        )
-                        return UpdateResult(success=True, 
-                                         message="Section updated successfully")
-
+                    
+                    # Agent uses recall tool
                     if "<recall>" in response:
                         self.add_event(
                             sender=self.name, 
@@ -115,6 +106,17 @@ class SectionWriter(BiographyTeamAgent):
                         )
                         iterations += 1
                         continue
+
+                    # Situations when we don't need to do memory coverage check
+                    if "<proceed>yes</proceed>" in response.lower() or \
+                        todo_item.action_type.startswith("user"):
+                        self.add_event(
+                            sender=self.name,
+                            tag=f"feedback_loop_{iterations}",
+                            content="No memory coverage check needed"
+                        )
+                        return UpdateResult(success=True, 
+                                         message="Section updated successfully")
 
                     # Extract memory IDs from section content in tool calls
                     current_memory_ids = set(

@@ -9,6 +9,7 @@ def get_prompt(prompt_type: str = "normal"):
             "USER_PORTRAIT": USER_PORTRAIT,
             "INPUT_CONTEXT": INPUT_CONTEXT,
             "INSTRUCTIONS": INSTRUCTIONS,
+            "AVAILABLE_TOOLS": AVAILABLE_TOOLS,
             "MISSING_MEMORIES_WARNING": MISSING_MEMORIES_WARNING,
             "OUTPUT_FORMAT": SECTION_PATH_FORMAT + OUTPUT_FORMAT
         })
@@ -17,14 +18,30 @@ def get_prompt(prompt_type: str = "normal"):
             "PERSONA": PERSONA,
             "USER_PORTRAIT": USER_PORTRAIT,
             "INPUT_CONTEXT": BASELINE_INPUT_CONTEXT,
-            "INSTRUCTIONS": BASELINE_INSTRUCTIONS,
-            "FIRST_PERSON_INSTRUCTIONS": FIRST_PERSON_INSTRUCTIONS,
+            "INSTRUCTIONS": WRITING_INSTRUCTIONS + FIRST_PERSON_INSTRUCTIONS,
+            "AVAILABLE_TOOLS": AVAILABLE_TOOLS,
             "OUTPUT_FORMAT": SECTION_PATH_FORMAT + BASELINE_OUTPUT_FORMAT
         })
     elif prompt_type == "user_add":
-        return USER_ADD_SECTION_PROMPT
+        return format_prompt(USER_ADD_SECTION_PROMPT_TEMPLATE, {
+            "PERSONA": USER_ADD_SECTION_PERSONA,
+            "USER_PORTRAIT": USER_PORTRAIT,
+            "INPUT_CONTEXT": USER_ADD_SECTION_INPUT_CONTEXT,
+            "INSTRUCTIONS": USER_ADD_SECTION_INSTRUCTIONS,
+            "WRITING_INSTRUCTIONS": WRITING_INSTRUCTIONS,
+            "AVAILABLE_TOOLS": AVAILABLE_TOOLS,
+            "OUTPUT_FORMAT": USER_ADD_SECTION_OUTPUT_FORMAT
+        })
     elif prompt_type == "user_update":
-        return USER_COMMENT_EDIT_PROMPT
+        return format_prompt(USER_COMMENT_EDIT_PROMPT_TEMPLATE, {
+            "PERSONA": USER_COMMENT_EDIT_PERSONA,
+            "USER_PORTRAIT": USER_PORTRAIT,
+            "INPUT_CONTEXT": USER_COMMENT_EDIT_INPUT_CONTEXT,
+            "INSTRUCTIONS": USER_COMMENT_EDIT_INSTRUCTIONS,
+            "WRITING_INSTRUCTIONS": WRITING_INSTRUCTIONS,
+            "AVAILABLE_TOOLS": AVAILABLE_TOOLS,
+            "OUTPUT_FORMAT": USER_COMMENT_EDIT_OUTPUT_FORMAT
+        })
 
 # Main template for section writer prompt
 SECTION_WRITER_PROMPT_TEMPLATE = """
@@ -34,7 +51,11 @@ SECTION_WRITER_PROMPT_TEMPLATE = """
 
 {INPUT_CONTEXT}
 
+<instructions>
 {INSTRUCTIONS}
+</instructions>
+
+{AVAILABLE_TOOLS}
 
 {MISSING_MEMORIES_WARNING}
 
@@ -48,9 +69,11 @@ SECTION_WRITER_BASELINE_TEMPLATE = """
 
 {INPUT_CONTEXT}
 
+<instructions>
 {INSTRUCTIONS}
+</instructions>
 
-{FIRST_PERSON_INSTRUCTIONS}
+{AVAILABLE_TOOLS}
 
 {error_warning}
 
@@ -106,7 +129,6 @@ BASELINE_INPUT_CONTEXT = """\
 
 # Instructions component
 INSTRUCTIONS = """\
-<instructions>
 ## Section Writing Process
 
 1. Section Updates
@@ -191,18 +213,17 @@ General style instructions (High Priority):
 
 {style_instructions}
 </style_instructions>
+"""
 
+AVAILABLE_TOOLS = """\
 ## Available Tools:
 <tool_descriptions>
 {tool_descriptions}
 </tool_descriptions>
-
-</instructions>
 """
 
 # Instructions component
-BASELINE_INSTRUCTIONS = """\
-<instructions>
+WRITING_INSTRUCTIONS = """\
 ## Section Writing Process
 
 General Guidelines:
@@ -245,7 +266,7 @@ For Existing Sections:
 
 2. Citation Format
 ✓ Do:
-- Place memory citations at the end of sentences using [memory_id] format
+- If you are provided new memories to include, place memory citations at the end of sentences using [memory_id] format
 - Multiple citations can be used if a statement draws from multiple memories: [memory_1][memory_2]
 - Place citations before punctuation: "This happened [memory_1]."
 - Group related information from the same memory to avoid repetitive citations
@@ -253,13 +274,6 @@ For Existing Sections:
 ✗ Don't:
 - Include any markdown headings (###, ##, etc.) in the content
 - Add section numbers or structural formatting to the content
-
-## Available Tools:
-<tool_descriptions>
-{tool_descriptions}
-</tool_descriptions>
-
-</instructions>
 """
 
 # Missing memories warning component
@@ -345,18 +359,32 @@ Then, provide your action using only these tool calls:
 </output_format>
 """
 
-# Keep the existing USER_ADD_SECTION_PROMPT and USER_COMMENT_EDIT_PROMPT
-USER_ADD_SECTION_PROMPT = """\
+USER_ADD_SECTION_PROMPT_TEMPLATE = """\
+{PERSONA}
+
+{USER_PORTRAIT}
+
+{INPUT_CONTEXT}
+
+<instructions>
+{INSTRUCTIONS}
+
+{WRITING_INSTRUCTIONS}
+</instructions>
+
+{AVAILABLE_TOOLS}
+
+{OUTPUT_FORMAT}
+"""
+
+USER_ADD_SECTION_PERSONA = """\
 <section_writer_persona>
 You are a biography section writer and are tasked with creating a new section in the biography based on user request.
 You must only write content based on actual memories - no speculation or hallucination when describing experiences.
 </section_writer_persona>
+"""
 
-<user_portrait>
-This is the portrait of the user:
-{user_portrait}
-</user_portrait>
-
+USER_ADD_SECTION_INPUT_CONTEXT = """\
 <input_context>
 <section_path>
 {section_path}
@@ -371,44 +399,14 @@ Memory search results from the previous recalls:
 {event_stream}
 </event_stream>
 </input_context>
+"""
 
-<instructions>
-## Key Rules:
-1. NEVER make up or hallucinate information about experiences
-2. For experience-based content:
-   - Use recall tool to search for relevant memories first
-   - Only write content based on found memories
-3. For style/structure changes:
-   - Focus on improving writing style and organization
-   - No need to search memories if only reformatting existing content
-
-## Process:
-1. Analyze update plan:
-   - If about experiences/events: Use recall tool first
-   - If about style/formatting: Proceed directly to writing
-
-2. When writing about experiences:
-   - Make search queries broad enough to find related information
-   - Create section only using found memories
-   - If insufficient memories found, note this in the section
-
-
-## Writing Style:
-<style_instructions>
-{style_instructions}
-</style_instructions>
-
-## Available Tools:
-<tool_descriptions>
-{tool_descriptions}
-</tool_descriptions>
-
-</instructions>
-
+USER_ADD_SECTION_OUTPUT_FORMAT = """\
 <output_format>
 Choose one of the following:
 
 1. To gather information:
+Don't gather information if it is already provided in the <event_stream> tags.
 <tool_calls>
     <recall>
         <reasoning>...</reasoning>
@@ -427,17 +425,59 @@ Since the section path is already provided by the user, you can directly add the
 </output_format>
 """
 
-USER_COMMENT_EDIT_PROMPT = """\
+USER_ADD_SECTION_INSTRUCTIONS = """\
+## Key Rules:
+1. NEVER make up or hallucinate information about experiences
+2. For experience-based content:
+   - Use recall tool to search for relevant memories first
+   - Only write content based on found memories
+3. For style/structure changes:
+   - Focus on improving writing style and organization
+   - No need to search memories if only reformatting existing content
+
+## Process:
+1. Analyze update plan:
+   - If about experiences/events: Use recall tool first
+   - Don't gather information using recall tool if it is already provided in the <event_stream> tags.
+   - If about style/formatting: Proceed directly to writing
+
+2. When writing about experiences:
+   - Make search queries broad enough to find related information
+   - Create section only using found memories
+   - If insufficient memories found, note this in the section
+
+## Writing Style:
+<style_instructions>
+{style_instructions}
+</style_instructions>
+"""
+
+USER_COMMENT_EDIT_PROMPT_TEMPLATE = """\
+{PERSONA}
+
+{USER_PORTRAIT}
+
+{INPUT_CONTEXT}
+
+<instructions>
+{INSTRUCTIONS}
+
+{WRITING_INSTRUCTIONS}
+</instructions>
+
+{AVAILABLE_TOOLS}
+
+{OUTPUT_FORMAT}
+"""
+
+USER_COMMENT_EDIT_PERSONA = """\
 <section_writer_persona>
 You are a biography section writer and are tasked with improving a biography section based on user feedback.
 You must only write content based on actual memories - no speculation or hallucination when describing experiences.
 </section_writer_persona>
+"""
 
-<user_portrait>
-This is the portrait of the user:
-{user_portrait}
-</user_portrait>
-
+USER_COMMENT_EDIT_INPUT_CONTEXT = """\
 <input_context>
 <section_title>
 {section_title}
@@ -456,8 +496,9 @@ Memory search results from the previous recalls:
 {event_stream}
 </event_stream>
 </input_context>
+"""
 
-<instructions>
+USER_COMMENT_EDIT_INSTRUCTIONS = """\
 ## Key Rules:
 1. NEVER make up or hallucinate information about experiences
 2. For experience-based content:
@@ -470,6 +511,7 @@ Memory search results from the previous recalls:
 ## Process:
 1. Analyze user feedback in update plan:
    - If requesting new/different experiences: Use recall tool first
+   - Don't gather information using recall tool if it is already provided in the <event_stream> tags.
    - If about style/clarity: Proceed directly to updating
 
 2. When writing about experiences:
@@ -481,18 +523,15 @@ Memory search results from the previous recalls:
 <style_instructions>
 {style_instructions}
 </style_instructions>
+"""
 
-## Available Tools:
-<tool_descriptions>
-{tool_descriptions}
-</tool_descriptions>
-
-</instructions>
-
+USER_COMMENT_EDIT_OUTPUT_FORMAT = """\
 <output_format>
 Choose one of the following:
 
 1. To gather information:
+Don't gather information if it is already provided in the <event_stream> tags.
+
 <tool_calls>
     <recall>
         <reasoning>...</reasoning>
