@@ -1,13 +1,11 @@
 from typing import List, TYPE_CHECKING, TypedDict
-import os
-from dotenv import load_dotenv
 import asyncio
 import time
 
 
 from agents.base_agent import BaseAgent
-from agents.note_taker.prompts import get_prompt
-from agents.note_taker.tools import UpdateSessionNote, UpdateMemoryBank, AddHistoricalQuestion
+from agents.session_scribe.prompts import get_prompt
+from agents.session_scribe.tools import UpdateSessionNote, UpdateMemoryBank, AddHistoricalQuestion
 from agents.shared.memory_tools import Recall
 from agents.shared.note_tools import AddInterviewQuestion
 from agents.shared.feedback_prompts import SIMILAR_QUESTIONS_WARNING, WARNING_OUTPUT_FORMAT
@@ -23,29 +21,22 @@ if TYPE_CHECKING:
     from interview_session.interview_session import InterviewSession
 
 
-load_dotenv()
 
-
-class NoteTakerConfig(TypedDict, total=False):
-    """Configuration for the NoteTaker agent."""
+class SessionScribeConfig(TypedDict, total=False):
+    """Configuration for the SessionScribe agent."""
     user_id: str
 
 
-class NoteTaker(BaseAgent, Participant):
-    def __init__(self, config: NoteTakerConfig, interview_session: 'InterviewSession'):
+class SessionScribe(BaseAgent, Participant):
+    def __init__(self, config: SessionScribeConfig, interview_session: 'InterviewSession'):
         BaseAgent.__init__(
-            self, name="NoteTaker",
+            self, name="SessionScribe",
             description="Agent that takes notes and manages the user's memory bank",
             config=config
         )
-        Participant.__init__(self, title="NoteTaker",
+        Participant.__init__(self, title="SessionScribe",
                              interview_session=interview_session)
-
-        # Config variables
-        self._max_events_len = int(os.getenv("MAX_EVENTS_LEN", 30))
-        self._max_consideration_iterations = int(
-            os.getenv("MAX_CONSIDERATION_ITERATIONS", 3))
-
+        
         # Current unprocessed memories
         self._new_memories: List[Memory] = []
         # All memories from this session
@@ -69,7 +60,7 @@ class NoteTaker(BaseAgent, Participant):
                 memory_bank=self.interview_session.memory_bank,
                 on_memory_added=self._add_new_memory,
                 update_memory_map=self._update_memory_map,
-                get_current_response=self._get_safe_current_response
+                get_current_response=self._get_recent_user_response
             ),
             "add_historical_question": AddHistoricalQuestion(
                 question_bank=self.interview_session.historical_question_bank,
@@ -84,7 +75,7 @@ class NoteTaker(BaseAgent, Participant):
                 historical_question_bank= \
                     self.interview_session.historical_question_bank,
                 proposed_question_bank=self.interview_session.proposed_question_bank,
-                proposer="NoteTaker"
+                proposer="SessionScribe"
             ),
             "recall": Recall(
                 memory_bank=self.interview_session.memory_bank
@@ -95,7 +86,7 @@ class NoteTaker(BaseAgent, Participant):
         '''Handle incoming messages'''
         SessionLogger.log_to_file(
             "execution_log",
-            f"[NOTIFY] Note taker received message from {message.role}"
+            f"[NOTIFY] Session scribe received message from {message.role}"
         )
 
         if message.role == "Interviewer":
@@ -149,6 +140,9 @@ class NoteTaker(BaseAgent, Participant):
         Process user's response by updating session notes 
         and considering follow-up questions.
         """
+        if self.use_baseline:
+            return
+        
         # First update the direct response in session notes
         await self._update_session_note()
 
@@ -302,7 +296,7 @@ class NoteTaker(BaseAgent, Participant):
         self.handle_tool_calls(response)
 
     def _get_formatted_prompt(self, prompt_type: str, **kwargs) -> str:
-        '''Gets the formatted prompt for the NoteTaker agent.'''
+        '''Gets the formatted prompt for the SessionScribe agent.'''
         prompt = get_prompt(prompt_type)
         if prompt_type == "consider_and_propose_followups":
             # Get all message events
@@ -387,7 +381,7 @@ class NoteTaker(BaseAgent, Participant):
             })
 
     async def get_session_memories(self, clear_processed=False, wait_for_processing=True, include_processed=False) -> List[Memory]:
-        """Get memories added by note taker during current session.
+        """Get memories added by session scribe during current session.
         
         Args:
             clear_processed: 
@@ -480,7 +474,7 @@ class NoteTaker(BaseAgent, Participant):
                 self._pending_tasks = 0
                 self.processing_in_progress = False
 
-    def _get_safe_current_response(self) -> str:
+    def _get_recent_user_response(self) -> str:
         """Safely get the current user response, with error handling."""
         try:
             messages = self.get_event_stream_str(filter=[
@@ -498,5 +492,4 @@ class NoteTaker(BaseAgent, Participant):
             
             return result
         except Exception as e:
-            import traceback
             return "Error retrieving user response"

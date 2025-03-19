@@ -1,6 +1,6 @@
 from typing import Dict, Optional, Set
+from api.schemas.chat import SessionStatus
 from interview_session.interview_session import InterviewSession
-import time
 
 class SessionManager:
     """Manages active interview sessions for users"""
@@ -31,17 +31,15 @@ class SessionManager:
             session = self._active_sessions[user_id]
             session.end_session()
             del self._active_sessions[user_id]
-            if user_id in self._ending_sessions:
-                self._ending_sessions.remove(user_id)
+        
+        if user_id in self._ending_sessions:
+            self._ending_sessions.remove(user_id)
     
     def mark_session_ending(self, user_id: str):
-        """Mark a session as ending but don't remove it yet"""
+        """Mark a session as ending but don't remove it yet
+           Writing subsequent session notes still in progress"""
         if user_id in self._active_sessions:
             self._ending_sessions.add(user_id)
-    
-    def has_active_session(self, user_id: str) -> bool:
-        """Check if user has an active session"""
-        return user_id in self._active_sessions
 
     def remove_inactive_sessions(self):
         """Check for inactive sessions and sessions that have completed"""
@@ -60,10 +58,22 @@ class SessionManager:
                 self.end_session(user_id)
         
         return to_remove
-
-    def has_ending_session(self, user_id: str) -> bool:
-        """Check if user has a session that's in the ending state"""
-        return user_id in self._ending_sessions
+    
+    def get_session_status(self, user_id: str) -> str:
+        """Get the current session status for a user
+        
+        Returns:
+            str: "active" if user has an active session that's not ending
+                 "ending" if user has an active session that's in the ending state
+                 "inactive" if user has no active session
+        """
+        if not user_id in self._active_sessions:
+            return SessionStatus.INACTIVE
+        
+        if user_id in self._ending_sessions:
+            return SessionStatus.ENDING
+        
+        return SessionStatus.ACTIVE
 
 # Global session manager instance
 session_manager = SessionManager() 

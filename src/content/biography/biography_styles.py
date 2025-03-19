@@ -1,6 +1,6 @@
 # Define perspective templates
 FIRST_PERSON_INSTRUCTIONS = """
-Perspective Requirements:
+Perspective Requirements (!IMPORTANT!!!):
 - ALWAYS write in first-person ("I", "my", "we", "our")
 - NEVER use third-person perspective (no "he", "she", "they", or subject's name)
 - Convert all third-person references to first-person perspective

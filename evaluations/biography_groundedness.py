@@ -107,6 +107,13 @@ def evaluate_section_groundedness(
     # Get evaluation using the engine
     output = invoke_engine(engine, prompt)
 
+    # Log prompt and response separately
+    logger.log_prompt_response(
+        evaluation_type=f"biography_groundedness_section_{section.id}",
+        prompt=prompt,
+        response=output
+    )
+
     # Parse response using XML formatter with error handling
     try:
         groundedness_scores = extract_tool_arguments(
@@ -149,7 +156,7 @@ def evaluate_section_groundedness(
     
     # Log evaluation results
     if logger:  # Allow None logger for testing/reuse
-        logger.log_biography_groundedness(
+        logger.log_biography_section_groundedness(
             section_id=section.id,
             section_title=section.title,
             groundedness_score=groundedness_score,
@@ -157,9 +164,7 @@ def evaluate_section_groundedness(
             unsubstantiated_details_explanation=\
                 unsubstantiated_details_explanation,
             overall_assessment=overall_assessment,
-            biography_version=biography_version,
-            prompt=prompt,
-            response=output
+            biography_version=biography_version
         )
     
     return result
@@ -239,7 +244,7 @@ def main():
     args = parser.parse_args()
     
     # Initialize LLM engine
-    engine = get_engine()
+    engine = get_engine("gpt-4o")
     
     # Load biography and memory bank
     biography = Biography.load_from_file(args.user_id, args.version)
@@ -253,17 +258,13 @@ def main():
     overall_score = calculate_overall_groundedness(results)
     print(f"\nOverall Biography Groundedness Score: {overall_score:.2f}%")
     
-    # Log overall score to file
+    # Log overall score using the logger
     logger = EvaluationLogger(user_id=args.user_id)
-    version_dir = logger.eval_dir / f"biography_{biography.version}"
-    version_dir.mkdir(parents=True, exist_ok=True)
-    
-    with open(version_dir / "overall_groundedness.txt", 'w') as f:
-        f.write(f"Overall Biography Groundedness Score: {overall_score:.2f}%\n\n")
-        f.write(f"Individual Section Scores:\n")
-        for result in results:
-            f.write(f"- {result['section_title']}: "
-                    f"{result['evaluation']['groundedness_score']}%\n")
+    logger.log_biography_overall_groundedness(
+        overall_score=overall_score,
+        section_scores=results,
+        biography_version=biography.version
+    )
     
     print("Evaluation complete. Results saved to logs directory.")
 

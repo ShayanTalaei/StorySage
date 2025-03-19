@@ -33,7 +33,7 @@ SECTION_PATH_FORMAT = """\
 
 ## Section Path Format:
 - Section paths must be specified using forward slashes to indicate hierarchy
-- Each part of the path should be the exact title of a section
+- Each part of the path MUST match existing section titles from <biography_structure> exactly
 - Maximum 3 levels of hierarchy allowed
 - Section numbers must be sequential and consistent:
   * You cannot create section "3" if sections "1" and "2" don't exist
@@ -41,12 +41,12 @@ SECTION_PATH_FORMAT = """\
   * Example: If only "1 Early Life" exists, the next section must be "2 Something"
 - Numbering conventions:
   * First level sections must start with numbers: "1", "2", "3", etc.
-    Examples: "1 Early Life"
+    Examples: "1 Early Life" (must match a title from <biography_structure>)
   * Second level sections (subsections) use decimal notation matching parent number
-    Examples: "1 Early Life/1.1 Childhood"
+    Examples: "1 Early Life/1.1 Childhood" (both must match titles from <biography_structure>)
   * Third level sections use double decimal notation matching parent number
-    Examples: "1 Early Life/1.1 Childhood/1.1.1 Memories"
-- Examples of valid paths:
+    Examples: "1 Early Life/1.1 Childhood/1.1.1 Memories" (all must match titles from <biography_structure>)
+- Examples of valid paths (assuming these titles exist in <biography_structure>):
   * "1 Early Life"
   * "1 Career/1.1 First Job"
 - Examples of invalid paths:
@@ -55,10 +55,12 @@ SECTION_PATH_FORMAT = """\
   * "1 Early Life/2.1 Childhood" (wrong parent number)
   * "1 Early Life/1.1 Childhood/1.1.1 Games/Types" (exceeds 3 levels)
   * "3 Career" (invalid if sections "1" and "2" don't exist)
+  * "1 Early Years" (invalid if "Early Years" doesn't match exact title in <biography_structure>)
 
 ## Section Title Format:
 - Section titles must be the last part of the section path
 - Example: "1.1 Childhood" instead of full path
+- All titles must match exactly with existing titles in <biography_structure>
 </format_notes>
 """
 
@@ -149,8 +151,8 @@ Then, provide your action using tool calls:
 <tool_calls>
     <add_plan>
         ...
-        <!-- Reminder: Separating each memory id with a comma is NOT ALLOWED! memory_ids must be a list of memory ids as follows! -->
-        <memory_ids>[memory_id1, memory_id2, ...]</memory_ids>
+        <!-- Reminder: Separating each memory id with a comma is NOT ALLOWED! memory_ids must be a list of memory ids that is JSON-compatible! -->
+        <memory_ids>["MEM_03121423_X7K", "MEM_03121423_X7K", ...]</memory_ids>
     </add_plan>
 
     <propose_follow_up>
@@ -194,15 +196,30 @@ This is the portrait of the user:
 USER_EDIT_INSTRUCTIONS = """\
 <instructions>
 ## Core Responsibilities:
-1. Create a clear, actionable, concise plan that:
-   * Implements the user's request faithfully
-   * Integrates smoothly with existing content
-   * Is very concise and to the point - limit it to 1-3 bullet points
+Create a plan to implement the user's request. The plan must include:
 
-2. Handle user's prompt appropriately:
-   * Use the prompt as-is when clear and specific
-   * If unclear, interpret the intent and rephrase for clarity
-   * When experiences or stories are mentioned, explicitly mention using the recall tool to gather relevant memories in the plan
+1. Context Summary:
+   Original Request: [User's exact request]
+   Selected Section: [Section title/path being modified]
+   Current Content: [Brief summary of relevant existing content]
+
+2. Action Plan:
+   - [First action step]
+   - [Second action step if needed]
+   - [Third action step if needed]
+
+## Planning Guidelines:
+- Keep actions clear, specific, and concise (1-3 steps)
+- Ensure each step directly implements the user's request
+- When memories are mentioned:
+  * Add memory search as a separate step
+  * Specify which experiences to search for
+  * Use recall tool to gather relevant content
+
+## Important Reminders:
+- Always set <memory_ids> as empty list [] in add_plan tool call since we didn't provide any memories yet
+- Maintain narrative flow with existing content
+- Follow section numbering rules (if creating new sections)
 
 ## Style Guidelines:
 <biography_style_instructions>
@@ -297,7 +314,11 @@ Provide your response using tool calls:
     <add_plan>
         <action_type>user_update</action_type>
         <section_title>{section_title}</section_title>
-        <update_plan>...</update_plan>
+        <update_plan>
+        Create a plan to to include:
+        1. Context Summary: ...
+        2. Action Plan: ...
+        </update_plan>
     </add_plan>
 </tool_calls>
 """

@@ -44,17 +44,21 @@ class UpdateMemoryBankInput(BaseModel):
     temp_id: str = Field(description="Unique temporary ID for this memory (e.g., MEM_TEMP_1)")
     title: str = Field(description="A concise but descriptive title for the memory")
     text: str = Field(description="A clear summary of the information")
-    metadata: dict = Field(description=(
+    metadata: Optional[dict] = Field(description=(
         "Additional metadata about the memory. "
+        "Format: A valid JSON dictionary."
         "This can include topics, people mentioned, emotions, locations, dates, relationships, life events, achievements, goals, aspirations, beliefs, values, preferences, hobbies, interests, education, work experience, skills, challenges, fears, dreams, etc. "
-        "Of course, you don't need to include all of these in the metadata, just the most relevant ones."
-    ))
-    importance_score: int = Field(description=(
+        ),
+        default={}
+    )
+    importance_score: Optional[int] = Field(description=(
         "This field represents the importance of the memory on a scale from 1 to 10. "
         "A score of 1 indicates everyday routine activities like brushing teeth or making the bed. "
         "A score of 10 indicates major life events like a relationship ending or getting accepted to college. "
         "Use this scale to rate how significant this memory is likely to be."
-    ))
+        ),
+        default=0
+    )
 
 
 class UpdateMemoryBank(BaseTool):
@@ -76,8 +80,8 @@ class UpdateMemoryBank(BaseTool):
         temp_id: str,
         title: str,
         text: str,
-        metadata: dict,
-        importance_score: int,
+        metadata: Optional[dict] = {},
+        importance_score: Optional[int] = 0,
         run_manager: Optional[CallbackManagerForToolRun] = None,
     ) -> str:
         try:
@@ -105,7 +109,9 @@ class AddHistoricalQuestionInput(BaseModel):
     temp_memory_ids: List[str] = Field(
         description="Single-line list of temporary memory IDs relevant to this question. "
         "These should match the temporary IDs used in update_memory_bank calls. "
-        "Format: ['MEM_TEMP_1', 'MEM_TEMP_2']",
+        "Format should be a JSON-compatible list with quoted strings: "
+        "['MEM_TEMP_1', 'MEM_TEMP_2']"
+        "Empty list [] is also acceptable.",
         default=[]
     )
 

@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from api.schemas.chat import (
-    MessageRequest, MessageResponse, EndSessionResponse, UserMessagesResponse, TopicsResponse, TopicsFeedbackRequest
+    MessageRequest, MessageResponse, EndSessionResponse, UserMessagesResponse, TopicsResponse, TopicsFeedbackRequest, SessionStatus
 )
 from database.models import DBSession, DBMessage
 from database.database import get_db
@@ -25,6 +25,8 @@ router = APIRouter(
     tags=["chat"]
 )
 
+BASELINE_ACCOUNTS_PREFIX = "1m2kl5"
+
 
 async def remove_inactive_sessions():
     while True:
@@ -33,7 +35,7 @@ async def remove_inactive_sessions():
             removed_users = session_manager.remove_inactive_sessions()
             
             if removed_users:
-                print(f"{RED}Removed sessions for users: {removed_users}{RESET}")
+                print(f"{RED}Removed interview sessions for users: {removed_users}{RESET}")
                     
         except Exception as e:
             print(f"{RED}Error in remove_inactive_sessions:\n{e}\n{RESET}")
@@ -49,12 +51,13 @@ async def send_message(
     """Send a message to the active session or create a new one"""
     try:
         # Check if user has a session that's still ending
-        if session_manager.has_ending_session(current_user):
+        if session_manager.get_session_status(current_user) == SessionStatus.ENDING:
+            # Try to remove the ending session
             removed_users = session_manager.remove_inactive_sessions()
             if current_user not in removed_users:
                 raise HTTPException(
                     status_code=409,  # Conflict
-                    detail="Generating the session notes for the next session. "
+                    detail="Generating the session notes for the subsequent session. "
                             "Please try again in a moment. Thanks!"
                 )
         
@@ -68,7 +71,8 @@ async def send_message(
                 interaction_mode='api',
                 user_config={
                     "user_id": current_user
-                }
+                },
+                use_baseline=current_user.startswith(BASELINE_ACCOUNTS_PREFIX)
             )
             
             # Get sequence ID from interview session
@@ -95,6 +99,7 @@ async def send_message(
             # Start the inactive session checker if it's not already running
             asyncio.create_task(remove_inactive_sessions())
         else:
+            # Get session ID from interview session if it exists
             session_id = session.get_db_session_id()
         
         # Store user message
@@ -174,7 +179,8 @@ async def skip_message(
         # Get response
         response = await session.api_participant.wait_for_response()
         if not response:
-            raise HTTPException(status_code=408, detail="Timeout waiting for interviewer response")
+            raise HTTPException(status_code=408, 
+                                detail="Timeout waiting for interviewer response")
         
         # Store interviewer response
         response_id = str(uuid.uuid4())
@@ -249,22 +255,21 @@ async def prepare_end_session(
 ):
     """First stage of ending session - get topics covered"""
     try:
-        if not session_manager.has_active_session(current_user):
+        if session_manager.get_session_status(current_user) != SessionStatus.ACTIVE:
             raise HTTPException(
                 status_code=404,
-                detail="No active session found"
+                detail="Sorry. You have no active session. Please start a new one."
             )
         
         # Get the active session
         session = session_manager.get_active_session(current_user)
 
-        # Wait for note taker to finish processing
-        while session.note_taker.processing_in_progress:
+        # Wait for session scribe to finish processing
+        while session.session_scribe.processing_in_progress:
             await asyncio.sleep(0.1)
         
         # Start biography update in background
-        asyncio.create_task(session.biography_orchestrator\
-                            .update_biography_and_notes())
+        asyncio.create_task(session.final_biography_update(selected_topics=None))
         
         # Get topics from new memories
         topics = await session.biography_orchestrator.get_session_topics()
@@ -285,10 +290,10 @@ async def end_session(
 ):
     """End the active session with user's topic feedback"""
     try:
-        if not session_manager.has_active_session(current_user):
+        if session_manager.get_session_status(current_user) != SessionStatus.ACTIVE:
             raise HTTPException(
                 status_code=404,
-                detail="No active session found"
+                detail="Sorry. You have no active session. Please start a new one."
             )
         
         # Get the active session
@@ -322,7 +327,7 @@ async def end_session(
         # End session without triggering another biography update
         session.end_session()
         
-        # Wait only for biography update to complete
+        # Wait for biography update to complete
         start_time = time.time()
         while session.biography_orchestrator.biography_update_in_progress:
             await asyncio.sleep(0.1)
@@ -395,7 +400,8 @@ async def list_user_messages(
         db_messages = (
             db.query(DBMessage)
             .filter(DBMessage.session_id.in_(session_ids))
-            .order_by(DBMessage.created_at)
+            .order_by(DBMessage.created_at.desc())
+            .limit(50)
             .all()
         )
         
@@ -407,15 +413,12 @@ async def list_user_messages(
                 role=msg.role,
                 created_at=msg.created_at
             ) 
-            for msg in db_messages
+            for msg in reversed(db_messages)  # Reverse to get chronological order
         ]
-        
-        # Check if user has an active session
-        has_active_session = session_manager.has_active_session(current_user)
-        
+
         return UserMessagesResponse(
             messages=messages,
-            has_active_session=has_active_session
+            session_status=session_manager.get_session_status(current_user)
         )
         
     except Exception as e:

@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 
 from agents.base_agent import BaseAgent
-from agents.interviewer.prompts import get_prompt
+from agents.interviewer.prompts import CONVERSATION_STARTER, get_prompt
 from agents.interviewer.tools import EndConversation, RespondToUser
 from agents.shared.memory_tools import Recall
 from utils.llm.prompt_utils import format_prompt
@@ -44,15 +44,12 @@ class Interviewer(BaseAgent, Participant):
             self, title="Interviewer",
             interview_session=interview_session)
 
-        self._max_events_len = int(os.getenv("MAX_EVENTS_LEN", 30))
-        self._max_consideration_iterations = int(
-            os.getenv("MAX_CONSIDERATION_ITERATIONS", 3))
-
         self.tools = {
             "recall": Recall(memory_bank=self.interview_session.memory_bank),
             "respond_to_user": RespondToUser(
                 tts_config=config.get("tts", {}),
-                base_path=f"{os.getenv('DATA_DIR', 'data')}/{config.get("user_id")}/",
+                base_path= \
+                    f"{os.getenv('DATA_DIR', 'data')}/{config.get("user_id")}/",
                 on_response=lambda response: \
                     self.interview_session.add_message_to_chat_history(
                         role=self.title,
@@ -61,18 +58,18 @@ class Interviewer(BaseAgent, Participant):
                 on_turn_complete=lambda: setattr(
                     self, '_turn_to_respond', False)
             ),
-            "end_conversation": EndConversation(
-                on_goodbye=lambda goodbye: (
-                    self.add_event(sender=self.name,
-                                   tag="goodbye", content=goodbye),
-                    self.interview_session.add_message_to_chat_history(
-                        role=self.title, content=goodbye)
-                ),
-                on_end=lambda: (
-                    setattr(self, '_turn_to_respond', False),
-                    self.interview_session.end_session()
-                )
-            )
+            # "end_conversation": EndConversation(
+            #     on_goodbye=lambda goodbye: (
+            #         self.add_event(sender=self.name,
+            #                        tag="goodbye", content=goodbye),
+            #         self.interview_session.add_message_to_chat_history(
+            #             role=self.title, content=goodbye)
+            #     ),
+            #     on_end=lambda: (
+            #         setattr(self, '_turn_to_respond', False),
+            #         self.interview_session.end_session()
+            #     )
+            # )
         }
 
         self._turn_to_respond = False
@@ -113,11 +110,12 @@ class Interviewer(BaseAgent, Participant):
                 )
 
     def _get_prompt(self):
-        '''
-        Gets the prompt for the interviewer. 
-        The logic for this is in the get_prompt function in interviewer/prompts.py
-        '''
-        main_prompt = get_prompt()
+        '''Gets the prompt for the interviewer. '''
+        
+        # Use the baseline prompt if enabled
+        prompt_type = "baseline" if self.use_baseline else "normal"
+        main_prompt = get_prompt(prompt_type)
+
         # Get user portrait and last meeting summary from session note
         user_portrait_str = self.interview_session.session_note \
             .get_user_portrait_str()
@@ -125,8 +123,9 @@ class Interviewer(BaseAgent, Participant):
             self.interview_session.session_note
             .get_last_meeting_summary_str()
         )
+
         # Get chat history from event stream where these are the senders
-        chat_history_str = self.get_event_stream_str(
+        chat_history_events = self.get_event_stream_str(
             [
                 {"sender": "Interviewer", "tag": "message"},
                 {"sender": "User", "tag": "message"},
@@ -134,27 +133,57 @@ class Interviewer(BaseAgent, Participant):
             ],
             as_list=True
         )
-        questions_and_notes_str = self.interview_session.session_note \
-            .get_questions_and_notes_str(
-                hide_answered="qa"
-            )
         
-        # Don't end_conversation directly if API participant is present
-        if self.interview_session.api_participant:
-            tool_descriptions_str = self.get_tools_description(["recall", "respond_to_user"])
-        else:
-            tool_descriptions_str = self.get_tools_description()
-        
-        recent_events = chat_history_str[-self._max_events_len:] if \
-            len(chat_history_str) > self._max_events_len else chat_history_str
+        recent_events = chat_history_events[-self._max_events_len:] if \
+            len(chat_history_events) > self._max_events_len else chat_history_events
+        current_events = recent_events[-2:] if len(recent_events) >= 2 else recent_events
 
-        return format_prompt(main_prompt, {
+        all_interviewer_messages = self.get_event_stream_str(
+            [{"sender": "Interviewer", "tag": "message"}],
+            as_list=True
+        )
+        recent_interviewer_messages = all_interviewer_messages[-5:] if \
+            len(all_interviewer_messages) >= 5 else all_interviewer_messages
+
+        # Start with all available tools
+        tools_set = set(self.tools.keys())
+        
+        # if self.interview_session.api_participant:
+        #     # Don't end_conversation directly if API participant is present
+        #     tools_set.discard("end_conversation")
+        
+        if self.use_baseline:
+            # For baseline mode, remove recall tool
+            tools_set.discard("recall")
+        
+        # Get tool descriptions for the filtered tools
+        tool_descriptions_str = self.get_tools_description(list(tools_set))
+
+        # Create format parameters based on prompt type
+        format_params = {
             "user_portrait": user_portrait_str,
             "last_meeting_summary": last_meeting_summary_str,
             "chat_history": '\n'.join(recent_events),
-            "questions_and_notes": questions_and_notes_str,
+            "current_events": '\n'.join(current_events),
+            "recent_interviewer_messages": '\n'.join(
+                [ msg[:120] + "..." if len(msg) > 150 else msg \
+                    for msg in recent_interviewer_messages]),
+            "conversation_starter": CONVERSATION_STARTER \
+                if len(all_interviewer_messages) == 0 and \
+                int(self.interview_session.session_id) != 1 \
+                else "",
             "tool_descriptions": tool_descriptions_str
-        })
+        }
+        
+        # Only add questions_and_notes for normal mode
+        if not self.use_baseline:
+            questions_and_notes_str = self.interview_session.session_note \
+                .get_questions_and_notes_str(
+                    hide_answered="qa"
+                )
+            format_params["questions_and_notes"] = questions_and_notes_str
+
+        return format_prompt(main_prompt, format_params)
 
     def _extract_response(self, full_response: str) -> str:
         """Extract the content between <response_content> and <thinking> tags"""

@@ -1,9 +1,5 @@
 import json
-import os
 from typing import Dict, List, TYPE_CHECKING, Optional
-from dotenv import load_dotenv
-
-load_dotenv()
 
 from agents.biography_team.base_biography_agent import BiographyConfig, BiographyTeamAgent
 from agents.biography_team.models import Plan, FollowUpQuestion
@@ -41,7 +37,6 @@ class BiographyPlanner(BiographyTeamAgent):
 
     async def create_adding_new_memory_plans(self, new_memories: List[Memory]) -> List[Plan]:
         """Create update plans for the biography based on new memories."""
-        max_iterations = int(os.getenv("MAX_CONSIDERATION_ITERATIONS", "3"))
         iterations = 0
         all_memory_ids = set(memory.id for memory in new_memories)
         covered_memory_ids = set()
@@ -50,7 +45,7 @@ class BiographyPlanner(BiographyTeamAgent):
         # Clear any existing plans before starting
         self.plans = []
         
-        while iterations < max_iterations:
+        while iterations < self._max_consideration_iterations:
             prompt = await self._get_formatted_prompt(
                 "add_new_memory_planner",
                 new_memories=new_memories,
@@ -89,15 +84,24 @@ class BiographyPlanner(BiographyTeamAgent):
             memory_ids = extract_tool_arguments(
                 response, "add_plan", "memory_ids"
             )
+
+            # Process memory IDs and add to current set
             current_memory_ids = set()
             for ids in memory_ids:
                 if isinstance(ids, (list, set)):
+                    # If it's already a list or set, update with its elements
                     current_memory_ids.update(ids)
                 else:
-                    current_memory_ids.add(ids)
+                    # For any other type, add as is (string or otherwise)
+                    current_memory_ids.add(str(ids))
             
             # Update covered memories
             covered_memory_ids.update(current_memory_ids)
+            self.add_event(
+                sender=self.name,
+                tag=f"covered_memory_ids_{iterations}",
+                content=f"Covered memory IDs: {covered_memory_ids}"
+            )
             
             # Save tool calls for next iteration
             previous_tool_call = extract_tool_calls_xml(response)
@@ -113,11 +117,12 @@ class BiographyPlanner(BiographyTeamAgent):
             
             iterations += 1
             
-            if iterations == max_iterations:
+            if iterations == self._max_consideration_iterations:
                 self.add_event(
                     sender=self.name,
                     tag=f"warning_{iterations}",
-                    content=f"Reached max iterations ({max_iterations}) "
+                    content=f"Reached max iterations "
+                            f"({self._max_consideration_iterations}) "
                             "without covering all memories"
                 )
         
@@ -172,8 +177,9 @@ class BiographyPlanner(BiographyTeamAgent):
             prompt_type: Type of prompt to format
             **kwargs: Additional parameters specific to the prompt type
         """
+        # Create base parameters common to all prompt types
         base_params = {
-            "user_portrait": self.interview_session.session_note \
+            "user_portrait": self._session_note \
                 .get_user_portrait_str(),
             "biography_structure": json.dumps(
                 self.get_biography_structure(), indent=2
@@ -183,43 +189,47 @@ class BiographyPlanner(BiographyTeamAgent):
                 self.config.get("biography_style")
             )
         }
-
-        missing_memory_ids = kwargs.get('missing_memory_ids', "")
-        warning = (
-            MISSING_MEMORIES_WARNING.format(
-                previous_tool_call=kwargs.get('previous_tool_call', ""),
-                missing_memory_ids=missing_memory_ids
-            ) if missing_memory_ids else ""
-        )
-
-        prompt_params = {
-            "add_new_memory_planner": {
+        
+        # Create specific parameters based on prompt type
+        if prompt_type == "add_new_memory_planner":
+            missing_memory_ids = kwargs.get('missing_memory_ids', "")
+            warning = (
+                MISSING_MEMORIES_WARNING.format(
+                    previous_tool_call=kwargs.get('previous_tool_call', ""),
+                    missing_memory_ids=missing_memory_ids
+                ) if missing_memory_ids else ""
+            )
+            
+            prompt_params = {
                 **base_params,
                 "new_information": '\n\n'.join(
-                    [memory.to_xml() for memory in \
-                      kwargs.get('new_memories', [])]
+                    [memory.to_xml() for memory in kwargs.get('new_memories', [])]
                 ),
                 "conversation_summary": self.interview_session.conversation_summary,
                 "missing_memories_warning": warning,
                 "tool_descriptions": self.get_tools_description(
                     ["add_plan", "propose_follow_up"]),
-            },
-            "user_add_planner": {
+            }
+        elif prompt_type == "user_add_planner":
+            prompt_params = {
                 **base_params,
                 "section_path": kwargs.get('section_path'),
                 "section_prompt": kwargs.get('section_prompt'),
                 "tool_descriptions": self.get_tools_description(["add_plan"])
-            },
-            "user_comment_planner": {
+            }
+        elif prompt_type == "user_comment_planner":
+            prompt_params = {
                 **base_params,
                 "section_title": kwargs.get('section_title'),
                 "selected_text": kwargs.get('selected_text'),
                 "user_comment": kwargs.get('user_comment'),
                 "tool_descriptions": self.get_tools_description(["add_plan"])
             }
-        }
+        else:
+            raise ValueError(f"Unknown prompt type: {prompt_type}")
 
-        return get_prompt(prompt_type).format(**prompt_params[prompt_type])
+        # Get and format the prompt template with the parameters
+        return get_prompt(prompt_type).format(**prompt_params)
 
     def _handle_plan_added(self, new_plan: Plan) -> None:
         """Handle adding a new plan, replacing any existing plans for the same section."""

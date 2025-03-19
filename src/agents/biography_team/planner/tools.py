@@ -28,7 +28,14 @@ class AddPlanInput(BaseModel):
     )
     memory_ids: List[str] = Field(
         default=[], 
-        description="Required: A single-line list of memory IDs relevant to this plan, e.g., ['MEM_03121423_X7K', 'MEM_03121423_X7K']. Do not separate IDs with commas or spaces."
+        description=(
+            "Required: A single-line list of quoted memory IDs relevant to this plan, "
+            "e.g., ['MEM_03121423_X7K', 'MEM_03121423_X7K']. "
+            "Remember to quote the list. Do not separate IDs with commas or spaces. "
+            "Format should be a JSON-compatible list with quoted strings: "
+            "['MEM_TEMP_1', 'MEM_TEMP_2']"
+            "Empty list [] is also acceptable."
+        )
     )
     update_plan: str = Field(description="Detailed plan for updating/creating the section")
 

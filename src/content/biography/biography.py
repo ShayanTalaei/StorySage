@@ -164,14 +164,23 @@ class Biography:
         return max(versions) if versions else 0
 
     @classmethod
-    def load_from_file(cls, user_id: str, version: int = -1) -> 'Biography':
+    def load_from_file(cls, user_id: str, version: int = -1, base_path: Optional[str] = None) -> 'Biography':
         """Load a biography from file or create new one if it doesn't exist.
         
         Args:
-            user_id: The ID of the user
-            version: Optional specific version to load. If None, loads latest version.
+            user_id: User ID to load biography for
+            version: Biography version to load (-1 for latest)
+            base_path: Optional custom base path to load from
+            
+        Returns:
+            Loaded Biography instance
         """
         biography = cls(user_id)
+        
+        # Override base path if provided
+        if base_path:
+            biography.base_path = f"{base_path}/"
+            os.makedirs(biography.base_path, exist_ok=True)
         
         if version > 0:
             # Load specific version
@@ -420,6 +429,10 @@ class Biography:
                 
                 # Sort the subsections after adding the new one
                 current.subsections = self._sort_sections(current.subsections)
+
+                # Save the biography
+                await self.save(increment_version=False)
+
                 return new_section
         finally:
             await self._decrement_pending_writes()
@@ -471,6 +484,10 @@ class Biography:
                             section.title = new_title
                     
                     return section
+                
+                # Save the biography
+                await self.save(increment_version=False)
+
                 return None
         finally:
             await self._decrement_pending_writes()
@@ -506,6 +523,9 @@ class Biography:
                     del parent.subsections[title]
                     return True
                 
+                # Save the biography
+                await self.save(increment_version=False)
+
                 return False
         finally:
             await self._decrement_pending_writes()

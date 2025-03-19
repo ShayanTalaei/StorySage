@@ -54,7 +54,7 @@ src/
 These modules handle the main interview interaction:
 
 - `interview_session`: Core engine that manages the interview flow and conversation dynamics
-- `agents`: Collection of specialized AI agents (Note taker, Biography writer, etc.)
+- `agents`: Collection of specialized AI agents (Session scribe, Biography writer, etc.)
 - `user`: Handles user interactions and maintains user state during sessions
 
 ### 2. Memory & Content
@@ -94,7 +94,7 @@ Defined in `/session_models.py`:
 
 #### Session Participants
 
-Each participant in the session (user, interviewer, note taker, biography writers) implements an `on_message` method to handle incoming messages:
+Each participant in the session (user, interviewer, session scribe, biography writers) implements an `on_message` method to handle incoming messages:
 
 ```python
 class Participant:
@@ -108,8 +108,8 @@ class Participant:
 1. **Main Conversation**:
    - Direct dialogue between interviewer and user
 2. **Background Processing**:
-   - Note taker updates memory bank and session notes
-   - Note taker suggests follow-up questions
+   - Session scribe updates memory bank and session notes
+   - Session scribe suggests follow-up questions
 3. **Post-Interview**:
    - Biography team writes/updates biography
    - Session notes prepared for next interview
@@ -147,9 +147,9 @@ Tools:
 - `respond_to_user`: Respond to user messages
 - `end_conversation`: End the interview session
 
-#### Note Taker
+#### Session Scribe
 
-The note taker process user information and updated it into the memory bank and session notes.
+The session scribe process user information and updated it into the memory bank and session notes.
 
 Responsible for:
 
@@ -171,7 +171,7 @@ The biography writing team operates under the `BiographyOrchestrator` to collabo
 
 - **Planner**: Develops writing plans and proposes follow-up questions to the user for additional input.
 - **Section Writer**: Writes the biography for a specific section based on the planner's guidance and suggests follow-up questions to gather further details.
-- **Session Summary Writer**: Prepares session notes for upcoming interviews, incorporating collected memories and follow-up questions from both the planner and writer agents.
+- **Session Coordinator**: Prepares session notes for upcoming interviews, incorporating collected memories and follow-up questions from both the planner and writer agents.
 
 ![Biography Writing Team](./images/biography_writing_team.png)
 
@@ -215,9 +215,9 @@ Tools:
 - `propose_follow_up`: Add a follow-up question to the section
 - `recall`: Recall memories to write sections based on user feedback prompts
 
-##### 3. Session Summary Writer
+##### 3. Session Coordinator
 
-The session summary writer prepare the session notes for the next interview session
+The session coordinator prepare the session notes for the next interview session
 
 Input:
 

@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from datetime import datetime
 from typing import List, Optional
+from enum import Enum
 
 class MessageResponse(BaseModel):
     id: str
@@ -18,9 +19,14 @@ class EndSessionResponse(BaseModel):
     status: str
     message: str
 
+class SessionStatus(str, Enum):
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    ENDING = "ending"
+
 class UserMessagesResponse(BaseModel):
     messages: List[MessageResponse]
-    has_active_session: bool
+    session_status: SessionStatus
 
 class TopicsResponse(BaseModel):
     topics: List[str]

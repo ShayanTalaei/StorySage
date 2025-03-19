@@ -2,26 +2,27 @@ import asyncio
 import os
 import uuid
 from datetime import datetime, timedelta
-from typing import Dict, List, TypedDict
+from typing import Dict, List, Optional, TypedDict
 import signal
 import contextlib
 from dotenv import load_dotenv
 import time
 
+from agents.base_agent import BaseAgent
 from interview_session.session_models import Message, MessageType, Participant
 from agents.interviewer.interviewer import Interviewer, InterviewerConfig, TTSConfig
-from agents.note_taker.note_taker import NoteTaker, NoteTakerConfig
+from agents.session_scribe.session_scribe import SessionScribe, SessionScribeConfig
 from agents.user.user_agent import UserAgent
 from content.session_note.session_note import SessionNote
 from utils.data_process import save_feedback_to_csv
 from utils.logger.session_logger import SessionLogger, setup_logger
+from utils.logger.evaluation_logger import EvaluationLogger
 from interview_session.user.user import User
 from agents.biography_team.orchestrator import BiographyOrchestrator
 from agents.biography_team.base_biography_agent import BiographyConfig
 from content.memory_bank.memory_bank_vector_db import VectorMemoryBank
 from content.memory_bank.memory import Memory
 from content.question_bank.question_bank_vector_db import QuestionBankVectorDB
-from utils.logger.evaluation_logger import EvaluationLogger
 from interview_session.prompts.conversation_summerize import summarize_conversation
 
 
@@ -50,7 +51,8 @@ class BankConfig(TypedDict, total=False):
 class InterviewSession:
 
     def __init__(self, interaction_mode: str = 'terminal', user_config: UserConfig = {},
-                 interview_config: InterviewConfig = {}, bank_config: BankConfig = {}):
+                 interview_config: InterviewConfig = {}, bank_config: BankConfig = {},
+                 use_baseline: Optional[bool] = None):
         """Initialize the interview session.
 
         Args:
@@ -66,7 +68,16 @@ class InterviewSession:
                     Options: "vector_db", etc.
                 historical_question_bank_type: Type of question bank 
                     Options: "vector_db", etc.
+            use_baseline: Whether to use baseline prompt (default: read from .env)
         """
+
+        # Set the baseline mode for all agents
+        if use_baseline is not None:
+            # Set the class variable directly to affect all agent instances
+            BaseAgent.use_baseline = use_baseline
+        else:
+            BaseAgent.use_baseline = \
+                os.getenv("USE_BASELINE_PROMPT", "false").lower() == "true"
 
         # User setup
         self.user_id = user_config.get("user_id", "default_user")
@@ -79,6 +90,7 @@ class InterviewSession:
         memory_bank_type = bank_config.get("memory_bank_type", "vector_db")
         if memory_bank_type == "vector_db":
             self.memory_bank = VectorMemoryBank.load_from_file(self.user_id)
+            self.memory_bank.set_session_id(self.session_id)
         else:
             raise ValueError(f"Unknown memory bank type: {memory_bank_type}")
 
@@ -88,7 +100,8 @@ class InterviewSession:
         if historical_question_bank_type == "vector_db":
             self.historical_question_bank = \
                 QuestionBankVectorDB.load_from_file(
-                self.user_id)
+                    self.user_id)
+            self.historical_question_bank.set_session_id(self.session_id)
             self.proposed_question_bank = QuestionBankVectorDB()
         else:
             raise ValueError(
@@ -111,19 +124,22 @@ class InterviewSession:
         # Biography auto-update states
         self.auto_biography_update_in_progress = False
         self.memory_threshold = int(
-            os.getenv("MEMORY_THRESHOLD_FOR_UPDATE", 12))
+            os.getenv("MEMORY_THRESHOLD_FOR_UPDATE", 10))
         
         # Conversation summary for auto-updates
         self.conversation_summary = ""
-        self._max_events_len = int(os.getenv("MAX_EVENTS_LEN", 30))
         
-        # Counter for user messages to trigger biography update check
+        # Counter for user messages to trigger auto-updates check
         self._user_message_count = 0
-        self._check_interval = max(1, self.memory_threshold // 3)
+        self._check_interval = max(1, self.memory_threshold // 4)
+        self._accumulated_auto_update_time = 0
 
-        # Last message timestamp tracking
+        # Last message timestamp tracking for session timeout
         self._last_message_time = datetime.now()
         self.timeout_minutes = int(os.getenv("SESSION_TIMEOUT_MINUTES", 10))
+
+        # Response latency tracking for evaluation
+        self._last_user_message = None
 
         # User in the interview session
         if interaction_mode == 'agent':
@@ -147,8 +163,8 @@ class InterviewSession:
             ),
             interview_session=self
         )
-        self.note_taker: NoteTaker = NoteTaker(
-            config=NoteTakerConfig(
+        self.session_scribe: SessionScribe = SessionScribe(
+            config=SessionScribeConfig(
                 user_id=self.user_id
             ),
             interview_session=self
@@ -165,9 +181,9 @@ class InterviewSession:
         # Subscriptions of participants to each other
         self._subscriptions: Dict[str, List[Participant]] = {
             # Subscribers of Interviewer: Note-taker and User (in following code)
-            "Interviewer": [self.note_taker],
+            "Interviewer": [self.session_scribe],
             # Subscribers of User: Interviewer and Note-taker
-            "User": [self._interviewer, self.note_taker]
+            "User": [self._interviewer, self.session_scribe]
         }
 
         # User participant for terminal interaction
@@ -191,7 +207,8 @@ class InterviewSession:
             "execution_log", f"[INIT] User ID: {self.user_id}")
         SessionLogger.log_to_file(
             "execution_log", f"[INIT] Session ID: {self.session_id}")
-
+        SessionLogger.log_to_file(
+            "execution_log", f"[INIT] Use baseline: {BaseAgent.use_baseline}")
 
     async def _notify_participants(self, message: Message):
         """Notify subscribers asynchronously"""
@@ -211,6 +228,7 @@ class InterviewSession:
             if self.session_in_progress:
                 task = asyncio.create_task(sub.on_message(message))
                 tasks.append(task)
+        
         # Allow tasks to run concurrently without waiting for each other
         await asyncio.sleep(0)  # Explicitly yield control
         
@@ -221,7 +239,8 @@ class InterviewSession:
                 not self.auto_biography_update_in_progress):
                 asyncio.create_task(self._check_and_trigger_biography_update())
 
-    def add_message_to_chat_history(self, role: str, content: str = "", message_type: str = MessageType.CONVERSATION):
+    def add_message_to_chat_history(self, role: str, content: str = "", 
+                                    message_type: str = MessageType.CONVERSATION):
         """Add a message to the chat history"""
 
         # Set fixed content for skip and like messages
@@ -238,10 +257,26 @@ class InterviewSession:
             timestamp=datetime.now(),
         )
 
-        # Save feedback to into a separate file
+        # Log feedback
         if message_type != MessageType.CONVERSATION:
             save_feedback_to_csv(
                 self.chat_history[-1], message, self.user_id, self.session_id)
+
+        # Log response latency
+        if message_type == MessageType.CONVERSATION:
+            if role == "User":
+                # Store user message for latency calculation
+                self._last_user_message = message
+            elif role == "Interviewer" and self._last_user_message is not None:
+                # First, calculate and log latency when interviewer responds
+                self._log_response_latency(self._last_user_message, message)
+                self._last_user_message = None
+                
+                # Then, evaluate question duplicate
+                if os.getenv("EVAL_MODE", "FALSE").lower() == "true":
+                    self.historical_question_bank.evaluate_question_duplicate(
+                        message.content
+                    )
 
         # Notify participants if message is a skip or conversation
         if message_type == MessageType.SKIP or \
@@ -276,7 +311,7 @@ class InterviewSession:
                 await self._interviewer.on_message(None)
 
             # Monitor the session for completion and timeout
-            while self.session_in_progress or self.note_taker.processing_in_progress:
+            while self.session_in_progress or self.session_scribe.processing_in_progress:
                 await asyncio.sleep(0.1)
 
                 # Check for timeout
@@ -310,11 +345,10 @@ class InterviewSession:
                             "execution_log", 
                             (
                                 f"[BIOGRAPHY] Trigger final biography update. "
-                                f"Waiting for note taker to finish processing..."
+                                f"Waiting for session scribe to finish processing..."
                             )
                         )
-                        await self.biography_orchestrator \
-                            .update_biography_and_notes(selected_topics=[])
+                        await self.final_biography_update(selected_topics=[])
 
                 # Wait for biography update to complete if it's in progress
                 start_time = time.time()
@@ -335,13 +369,21 @@ class InterviewSession:
                     "execution_log", f"[RUN] Error during biography update: \
                           {str(e)}")
             finally:
-                # Save memory and question banks
+                # Save memory bank
                 self.memory_bank.save_to_file(self.user_id)
                 SessionLogger.log_to_file(
                     "execution_log", f"[COMPLETED] Memory bank saved")
+                
+                # Save historical question bank
                 self.historical_question_bank.save_to_file(self.user_id)
                 SessionLogger.log_to_file(
                     "execution_log", f"[COMPLETED] Question bank saved")
+                
+                # Log conversation statistics
+                await self._log_conversation_statistics()
+                SessionLogger.log_to_file(
+                    "execution_log", f"[COMPLETED] Conversation statistics logged")
+                
                 self.session_completed = True
                 SessionLogger.log_to_file(
                     "execution_log", f"[COMPLETED] Session completed")
@@ -353,7 +395,7 @@ class InterviewSession:
             include_processed: If True, returns all memories from the session
                               If False, returns only the unprocessed memories
         """
-        return await self.note_taker.get_session_memories(
+        return await self.session_scribe.get_session_memories(
             clear_processed=False, 
             wait_for_processing=True,
             include_processed=include_processed
@@ -368,7 +410,7 @@ class InterviewSession:
             return
             
         # Get current memory count without clearing or waiting
-        memories = await self.note_taker \
+        memories = await self.session_scribe \
             .get_session_memories(clear_processed=False,
                                    wait_for_processing=False)
         
@@ -386,16 +428,23 @@ class InterviewSession:
                 # Generate a summary of recent conversation
                 await self._update_conversation_summary()
                 
-                # Get memories and clear them from the note taker
+                # Get memories and clear them from the session scribe
                 memories_to_process = \
-                    await self.note_taker.get_session_memories(
+                    await self.session_scribe.get_session_memories(
                         clear_processed=True, wait_for_processing=False)
+                
+                # Measure the time auto-update would take
+                start_time = time.time()
                 
                 # Update biography with these memories and the conversation summary
                 await self.biography_orchestrator.update_biography_with_memories(
                     memories_to_process,
                     is_auto_update=True
                 )
+                
+                # Record the time it took
+                update_time = time.time() - start_time
+                self._accumulated_auto_update_time += update_time
                 
                 SessionLogger.log_to_file(
                     "execution_log",
@@ -416,7 +465,7 @@ class InterviewSession:
         
         # Extract recent messages from chat history
         recent_messages: List[Message] = []
-        for msg in self.chat_history[-self._max_events_len:]:
+        for msg in self.chat_history[-self.session_scribe._max_events_len:]:
             if msg.type == MessageType.CONVERSATION:
                 recent_messages.append(msg)
         
@@ -424,6 +473,14 @@ class InterviewSession:
         if recent_messages:
             self.conversation_summary = \
                 summarize_conversation(recent_messages)
+    
+    async def final_biography_update(self, selected_topics: Optional[List[str]] = None):
+        """Trigger final biography update"""
+        # Proceed with the final update
+        await self.biography_orchestrator.final_update_biography_and_notes(
+            selected_topics=selected_topics,
+            wait_time=self._accumulated_auto_update_time if BaseAgent.use_baseline else None
+        )
 
     def end_session(self):
         """End the session without triggering biography update"""
@@ -450,3 +507,67 @@ class InterviewSession:
     def get_db_session_id(self) -> int:
         """Get the database session ID. Used for server mode"""
         return self.db_session_id
+        
+    def _log_response_latency(self, user_message: Message, response_message: Message):
+        """Log the latency between user message and system response.
+        
+        Args:
+            user_message: The user's message
+            response_message: The system's response message
+        """
+        # Get the evaluation logger
+        eval_logger = EvaluationLogger.get_current_logger()
+        
+        # Get user message length
+        user_message_length = len(user_message.content)
+        
+        # Log the latency
+        eval_logger.log_response_latency(
+            message_id=user_message.id,
+            user_message_timestamp=user_message.timestamp,
+            response_timestamp=response_message.timestamp,
+            user_message_length=user_message_length
+        )
+
+    async def _log_conversation_statistics(self):
+        """Log statistics about the conversation."""
+        # Count turns
+        total_turns = len(self.chat_history)
+        
+        # Count characters instead of tokens
+        user_chars = 0
+        system_chars = 0
+        
+        for message in self.chat_history:
+            if message.role == "User":
+                user_chars += len(message.content)
+            else:
+                system_chars += len(message.content)
+        
+        total_chars = user_chars + system_chars
+        
+        # Calculate conversation duration
+        start_time = getattr(self, 'start_time', None)
+        if start_time:
+            conversation_duration = (datetime.now() - start_time).total_seconds()
+        else:
+            # Use first message timestamp as fallback
+            if self.chat_history:
+                first_message_time = self.chat_history[0].timestamp
+                conversation_duration = (
+                    datetime.now() - first_message_time).total_seconds()
+            else:
+                conversation_duration = 0
+        
+        # Log statistics
+        eval_logger = EvaluationLogger.setup_logger(self.user_id, self.session_id)
+        eval_logger.log_conversation_statistics(
+            total_turns=total_turns,
+            total_chars=total_chars,
+            user_chars=user_chars,
+            system_chars=system_chars,
+            conversation_duration=conversation_duration,
+            total_memories=len(await \
+                               self.session_scribe.get_session_memories(
+                                   include_processed=True))
+        )
