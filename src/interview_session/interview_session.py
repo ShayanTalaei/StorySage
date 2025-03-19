@@ -348,7 +348,7 @@ class InterviewSession:
                                 f"Waiting for session scribe to finish processing..."
                             )
                         )
-                        await self.final_biography_update(selected_topics=[])
+                        await self.final_update_biography_and_notes(selected_topics=[])
 
                 # Wait for biography update to complete if it's in progress
                 start_time = time.time()
@@ -474,7 +474,7 @@ class InterviewSession:
             self.conversation_summary = \
                 summarize_conversation(recent_messages)
     
-    async def final_biography_update(self, selected_topics: Optional[List[str]] = None):
+    async def final_update_biography_and_notes(self, selected_topics: Optional[List[str]] = None):
         """Trigger final biography update"""
         # Proceed with the final update
         await self.biography_orchestrator.final_update_biography_and_notes(
