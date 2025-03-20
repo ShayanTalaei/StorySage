@@ -7,8 +7,6 @@ import shutil
 from datetime import datetime
 import dotenv
 from typing import Optional, Dict
-import fnmatch
-from pathlib import Path
 
 def backup_env_file() -> Optional[str]:
     """Create a backup of the original .env file

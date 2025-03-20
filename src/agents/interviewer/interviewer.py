@@ -93,10 +93,8 @@ class Interviewer(BaseAgent, Participant):
             response = await self.call_engine_async(prompt)
             print(f"{GREEN}Interviewer:\n{response}{RESET}")
 
-            response_content = self._extract_response(response)
-
             self.add_event(sender=self.name, tag="message",
-                           content=response_content)
+                           content=response)
             
             await self.handle_tool_calls_async(response)
 
@@ -155,9 +153,6 @@ class Interviewer(BaseAgent, Participant):
         if self.use_baseline:
             # For baseline mode, remove recall tool
             tools_set.discard("recall")
-        
-        # Get tool descriptions for the filtered tools
-        tool_descriptions_str = self.get_tools_description(list(tools_set))
 
         # Create format parameters based on prompt type
         format_params = {
@@ -172,7 +167,7 @@ class Interviewer(BaseAgent, Participant):
                 if len(all_interviewer_messages) == 0 and \
                 int(self.interview_session.session_id) != 1 \
                 else "",
-            "tool_descriptions": tool_descriptions_str
+            "tool_descriptions": self.get_tools_description(list(tools_set))
         }
         
         # Only add questions_and_notes for normal mode
@@ -184,11 +179,3 @@ class Interviewer(BaseAgent, Participant):
             format_params["questions_and_notes"] = questions_and_notes_str
 
         return format_prompt(main_prompt, format_params)
-
-    def _extract_response(self, full_response: str) -> str:
-        """Extract the content between <response_content> and <thinking> tags"""
-        response_match = re.search(
-            r'<response>(.*?)</response>', full_response, re.DOTALL)
-        response = response_match.group(
-            1).strip() if response_match else full_response
-        return response

@@ -352,6 +352,7 @@ Craft a specific, thoughtful question based on the selected topic. Your question
 
 BASELINE_OUTPUT_FORMAT = """
 <output_format>
+
 First, carefully think through each step of your response process:
 <thinking>
 Step 1: Topic Selection
