@@ -144,7 +144,8 @@ class InterviewSession:
         # User in the interview session
         if interaction_mode == 'agent':
             self.user: User = UserAgent(
-                user_id=self.user_id, interview_session=self)
+                user_id=self.user_id, interview_session=self, 
+                config=user_config)
         elif interaction_mode == 'terminal':
             self.user: User = User(user_id=self.user_id, interview_session=self,
                                    enable_voice_input=user_config \

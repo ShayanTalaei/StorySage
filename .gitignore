@@ -4,6 +4,7 @@ logs_*/*
 test_logs/*
 !data/sample_user_profiles
 data/sample_user_profiles/meijin/*
+data/sample_user_profiles/*/topics.json
 experiment_summary*
 local_cache/*
 requirements-dspy.txt
