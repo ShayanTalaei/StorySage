@@ -6,7 +6,7 @@ def get_prompt(prompt_type: str):
         return format_prompt(RESPOND_TO_QUESTION_PROMPT, {
             "CONTEXT": RESPOND_CONTEXT,
             "PROFILE_BACKGROUND": PROFILE_BACKGROUND_PROMPT,
-            "CHAT_HISTORY": CHAT_HISTORY_WITH_SCORE_PROMPT,
+            "CHAT_HISTORY": CHAT_HISTORY,
             "INSTRUCTIONS": RESPOND_INSTRUCTIONS_PROMPT,
             "OUTPUT_FORMAT": RESPONSE_OUTPUT_FORMAT_PROMPT
         })
@@ -14,7 +14,7 @@ def get_prompt(prompt_type: str):
         return format_prompt(SCORE_QUESTION_PROMPT, {
             "CONTEXT": SCORE_QUESTION_CONTEXT,
             "PROFILE_BACKGROUND": PROFILE_BACKGROUND_PROMPT,
-            "CHAT_HISTORY": CHAT_HISTORY_PROMPT,
+            "CHAT_HISTORY": CHAT_HISTORY,
             "INSTRUCTIONS": SCORE_QUESTION_INSTRUCTIONS_PROMPT,
             "OUTPUT_FORMAT": SCORE_QUESTION_OUTPUT_FORMAT_PROMPT
         })
@@ -42,6 +42,98 @@ DECIDE_TO_RESPOND_PROMPT = """
 {INSTRUCTIONS}
 
 {OUTPUT_FORMAT}
+"""
+
+RESPOND_CONTEXT = """
+<context>
+You are playing the role of a real person being interviewed. You are currently in an interview session where an interviewer is asking you questions about your life, experiences, and perspectives. You have already evaluated the interviewer's last question and given it a numerical score (1-5) with detailed reasoning about how well it resonates with your character.
+
+Based on this evaluation, you now need to:
+1. Decide whether to respond or skip the question based on your character's conversational style and preferences.
+2. If you choose to respond, provide a natural response that aligns with your character's personality and background, as if you are having a genuine conversation with an interviewer who is writing your biography.
+</context>
+"""
+
+PROFILE_BACKGROUND_PROMPT = """
+This is your background information.
+<profile_background>
+{profile_background}
+</profile_background>
+
+This is your conversational style.
+<conversational_style>
+{conversational_style}
+</conversational_style>
+
+This is the current topic we should focus on in the current interview session:
+<current_topic>
+{current_topic_title}:
+
+{current_topic_description}
+</current_topic>
+
+Here are summaries from your previous interview sessions:
+<session_history>
+{session_history}
+</session_history>
+"""
+
+CHAT_HISTORY = """
+Here is the conversation history of your interview session so far, along with your evaluation of the interviewer's last question:
+<chat_history>
+{chat_history}
+</chat_history>
+"""
+
+RESPOND_INSTRUCTIONS_PROMPT = """
+<instructions>
+- Stay focused on the current topic:
+  - Keep responses relevant and avoid topic drift
+  - Explore new angles on the current topic not previously covered
+  - Share fresh perspectives rather than repeating information
+  - Respond with "SKIP" if a topic has been thoroughly covered
+
+- Evaluate whether to respond based on your conversational style and context
+
+- Control your response length naturally:
+  - For topics of high interest: 1-2 paragraphs maximum
+  - For topics of low interest: Keep under 50 words
+  - Match your enthusiasm level to your interest in the topic
+  - Never be exhaustive - leave room for follow-up questions
+
+- When responding:
+  - Be natural and conversational, as if speaking with your biographer
+  - Draw from your background while maintaining your established style
+  - Add enriching details that remain consistent with your background
+  - Balance topic focus with natural conversation flow
+
+- When choosing not to respond:
+  - Provide reasoning that references:
+    - Your question score and rationale
+    - Alignment with your conversational style
+    - Specific aspects influencing your decision
+  - This feedback improves future questions
+</instructions>
+"""
+
+RESPONSE_OUTPUT_FORMAT_PROMPT = """
+<output_format>
+Important:
+- You must include both for <thinking>..</thinking> and <response_content>..</response_content> tags
+- Do not include anything outside of these tags
+
+<thinking>
+Your reasoning here, including:
+- Why you decide to respond or skip according to your conversational style and context
+- What you would share about the current topic
+- How you plan to respond naturally
+</thinking>
+
+<response_content>
+Your actual response here - either "SKIP" if choosing not to respond, or your conversational response if engaging.
+</response_content>
+
+</output_format>
 """
 
 SCORE_QUESTION_PROMPT = """
@@ -132,113 +224,5 @@ Reasoning: [3-4 sentences explaining the score from your character's perspective
 <response_content>
 The numerical score [1-5] that you give to the interviewer's last question. Nothing else.
 </response_content>
-</output_format>
-"""
-
-RESPOND_CONTEXT = """
-<context>
-You are playing the role of a real person being interviewed. You are currently in an interview session where an interviewer is asking you questions about your life, experiences, and perspectives. You have already evaluated the interviewer's last question and given it a numerical score (1-5) with detailed reasoning about how well it resonates with your character.
-
-Based on this evaluation, you now need to:
-1. Decide whether to respond or skip the question based on your character's conversational style and preferences.
-2. If you choose to respond, provide a natural response that aligns with your character's personality and background, as if you are having a genuine conversation with an interviewer who is writing your biography.
-</context>
-"""
-
-PROFILE_BACKGROUND_PROMPT = """
-This is your background information.
-<profile_background>
-{profile_background}
-</profile_background>
-
-This is your conversational style.
-<conversational_style>
-{conversational_style}
-</conversational_style>
-
-Here are summaries from your previous interview sessions:
-<session_history>
-{session_history}
-</session_history>
-
-"""
-
-CHAT_HISTORY_PROMPT = """
-Here is the conversation history of your interview session so far, along with your evaluation of the interviewer's last question:
-<chat_history>
-{chat_history}
-</chat_history>
-
-- The external tag of each event indicates who is speaking
-"""
-
-CHAT_HISTORY_WITH_SCORE_PROMPT = """
-Here is the conversation history of your interview session so far, along with your evaluation of the interviewer's last question:
-<chat_history>
-{chat_history}
-</chat_history>
-
-- The external tag of each event indicates who is speaking
-- You should pay special attention to your score and your reasoning for giving that score to the interviewer's last question
-"""
-
-RESPOND_INSTRUCTIONS_PROMPT = """
-<instructions>
-- First, evaluate whether responding to the interviewer's last message would be natural and appropriate based on:
-  - The score you gave the interviewer's last question and your detailed reasoning for that score
-  - Your conversational style and personality
-  - Whether the conversation flow, timing, and social context aligns with how you typically communicate
-
-- IMPORTANT: Review your previous session summaries to avoid repeating information:
-  - For open-ended questions, explore new aspects or details not covered before
-  - If a topic was discussed before, share different experiences or perspectives
-  - It's better to creatively expand your story with new (but consistent) details than to repeat previous responses
-  - If you feel a question has been thoroughly covered in past sessions, consider responding with "SKIP"
-  - If you already share a lot in the last session, skip the open-ended questions in the beginning of the current session
-
-- If you decide to respond:
-  - Provide explicit reasoning for why you're responding, referencing:
-    - The score you gave the question and why
-    - How this aligns with your conversational style and personality
-    - Any specific aspects of the question that resonated with you
-  - Respond naturally and conversationally, as if you are having a genuine conversation with an interviewer who is writing your biography
-  - Base your response on your background information and conversational style
-  - If some aspects of your background are not explicitly provided, try to infer them from the rest of your profile background
-  - Add new details that enrich your story while staying consistent with your established background
-
-- If you decide not to respond:
-  - You must provide explicit reasoning for why you're not responding, referencing:
-    - The score you gave the question and why
-    - How this aligns with your conversational style and personality
-    - Any specific aspects of the question or context that led to your decision
-  - This reasoning will be logged as feedback to help improve future questions
-</instructions>
-"""
-
-RESPONSE_OUTPUT_FORMAT_PROMPT = """
-<output_format>
-Your response must include these two things:
-1. A <thinking> opening and </thinking> closing tag that contains the reasoning for your response.
-2. A <response_content> opening and </response_content> closing tag that contains your actual response to the interviewer.
-
-Your response must follow this exact format with both opening and closing tags:
-
-<thinking>
-Your reasoning here, including:
-- The score you gave and your detailed reasoning
-- How this aligns with your conversational style
-- What aspects of your background are relevant
-- How you plan to respond naturally
-</thinking>
-
-<response_content>
-Your actual response here - either "SKIP" if choosing not to respond, or your conversational response if engaging.
-</response_content>
-
-Important:
-- You must include both opening and closing tags for <thinking> and <response_content>
-- Put all reasoning inside the thinking tags
-- Put your actual response inside the response_content tags
-- Do not include anything outside of these tags
 </output_format>
 """

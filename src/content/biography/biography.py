@@ -430,9 +430,6 @@ class Biography:
                 # Sort the subsections after adding the new one
                 current.subsections = self._sort_sections(current.subsections)
 
-                # Save the biography
-                await self.save(increment_version=False)
-
                 return new_section
         finally:
             await self._decrement_pending_writes()
@@ -484,9 +481,6 @@ class Biography:
                             section.title = new_title
                     
                     return section
-                
-                # Save the biography
-                await self.save(increment_version=False)
 
                 return None
         finally:
@@ -522,9 +516,6 @@ class Biography:
                 if parent:
                     del parent.subsections[title]
                     return True
-                
-                # Save the biography
-                await self.save(increment_version=False)
 
                 return False
         finally:

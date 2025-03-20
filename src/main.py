@@ -15,6 +15,7 @@ async def run_terminal_mode(args):
     if args.restart:
         os.system(f"rm -rf {os.getenv('LOGS_DIR')}/{args.user_id}")
         os.system(f"rm -rf {os.getenv('DATA_DIR')}/{args.user_id}")
+        print(f"Cleared data for user {args.user_id}")
     
     # Check if voice features are available when requested
     if (args.voice_input or args.voice_output) and not PYAUDIO_AVAILABLE:
@@ -27,7 +28,8 @@ async def run_terminal_mode(args):
         interaction_mode='agent' if args.user_agent else 'terminal',
         user_config={
             "user_id": args.user_id,
-            "enable_voice": args.voice_input
+            "enable_voice": args.voice_input,
+            "restart": args.restart
         },
         interview_config={
             "enable_voice": args.voice_output
@@ -52,10 +54,14 @@ if __name__ == "__main__":
     
     # Terminal mode arguments
     parser.add_argument('--user_id', help='User ID for the session')
-    parser.add_argument('--user_agent', action='store_true', default=False, help='Use user agent')
-    parser.add_argument('--voice_output', action='store_true', default=False, help='Enable voice output')
-    parser.add_argument('--voice_input', action='store_true', default=False, help='Enable voice input')
-    parser.add_argument('--restart', action='store_true', default=False, help='Restart the session')
+    parser.add_argument('--user_agent', action='store_true', default=False, 
+                        help='Use user agent')
+    parser.add_argument('--voice_output', action='store_true', default=False, 
+                        help='Enable voice output')
+    parser.add_argument('--voice_input', action='store_true', default=False, 
+                        help='Enable voice input')
+    parser.add_argument('--restart', action='store_true', default=False, 
+                        help='Restart the session')
     
     # Setup_db mode arguments
     parser.add_argument('--reset', action='store_true', help='Reset database (clear all data)')

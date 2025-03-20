@@ -3,6 +3,7 @@ from typing import Dict, List, TYPE_CHECKING, Optional
 import asyncio
 from dotenv import load_dotenv
 import logging
+import time
 
 from agents.biography_team.base_biography_agent import BiographyConfig
 from agents.biography_team.planner.planner import BiographyPlanner
@@ -161,10 +162,13 @@ class BiographyOrchestrator:
 
             # Simulate disabling auto-updates in baseline mode
             if wait_time and self._section_writer.use_baseline:
+                start_time = time.time()
                 await asyncio.sleep(wait_time)
+                actual_wait = time.time() - start_time
                 SessionLogger.log_to_file("execution_log", 
-                                        f"[BIOGRAPHY] Baseline mode: Simulated wait time"
-                                        f"without auto-updates: {wait_time:.2f}s")
+                                        f"[BIOGRAPHY] Baseline mode: Simulated wait time "
+                                        f"without auto-updates: {wait_time:.2f}s "
+                                        f"(actual: {actual_wait:.2f}s)")
 
             # Get new memories for update
             new_memories: List[Memory] = await (

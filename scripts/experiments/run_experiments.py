@@ -5,7 +5,6 @@ from experiment_utils import (
     restore_env_file, 
     load_env_variables, 
     run_experiment,
-    clear_user_data
 )
 from datetime import datetime
 
@@ -30,7 +29,6 @@ def main():
         # If restart is requested, clear all user data upfront
         if args.restart:
             print("\nClearing all existing user data...")
-            clear_user_data(args.user_id, clear_all=True)
         
         # Configuration for experiments
         experiments = [
@@ -59,7 +57,8 @@ def main():
                 user_id=args.user_id,
                 model_name=exp["model_name"],
                 use_baseline=exp["use_baseline"],
-                timeout_minutes=args.timeout
+                timeout_minutes=args.timeout,
+                restart=args.restart
             )
             
             # Add to summary

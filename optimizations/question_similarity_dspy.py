@@ -111,7 +111,7 @@ Examples of Good Variations (Allowed):
         )
 
         # Log the raw prediction for debugging
-        with open("logs/dspy/prompt.log", "a") as file:
+        with open("dspy/prompt.log", "a") as file:
             file.write("="*100 + "\n")
             file.write(f"Target Question: {target_question}\n")
             file.write(f"Similar Questions: {formatted_similar_questions}\n")

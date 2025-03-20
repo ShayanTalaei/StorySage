@@ -2,18 +2,21 @@ import asyncio
 import os
 import dotenv
 import re
+import json
 from agents.base_agent import BaseAgent
 from interview_session.user.user import User
 from interview_session.session_models import Message
 from interview_session.session_models import MessageType
 from content.session_note.session_note import SessionNote
+from utils.logger.session_logger import SessionLogger
 dotenv.load_dotenv(override=True)
 
 
 class UserAgent(BaseAgent, User):
     def __init__(self, user_id: str, interview_session, config: dict = None):
         BaseAgent.__init__(
-            self, name="UserAgent", description="Agent that plays the role of the user", config=config)
+            self, name="UserAgent", 
+            description="Agent that plays the role of the user", config=config)
         User.__init__(self, user_id=user_id,
                       interview_session=interview_session)
 
@@ -22,6 +25,38 @@ class UserAgent(BaseAgent, User):
             os.getenv("USER_AGENT_PROFILES_DIR"), f"{user_id}/{user_id}.md")
         with open(profile_path, 'r') as f:
             self.profile_background = f.read()
+        
+        # Load topics and advance to next topic
+        topics_path = os.path.join(
+            os.getenv("USER_AGENT_PROFILES_DIR"), f"{user_id}/topics.json")
+        if not os.path.exists(topics_path):
+            raise ValueError(
+                f"Topics file not found: {topics_path}\n"
+                f"Please run: python src/utils/topic_extractor.py --user_id {user_id}"
+            )
+            
+        with open(topics_path, 'r') as f:
+            topics_data = json.load(f)
+            self.topics = topics_data["topics"]
+            
+            # Get and increment the topic index
+            current_index = 0 if config and config.get("restart") \
+                else topics_data["current_index"]
+            next_index = (current_index + 1) % len(self.topics)
+            
+            # Update the file with new index
+            topics_data["current_index"] = next_index
+            with open(topics_path, 'w') as f:
+                json.dump(topics_data, f, indent=2)
+            
+            # Set the topic for this session
+            self.current_topic_index = current_index
+            self.current_topic = self.topics[self.current_topic_index]
+
+            SessionLogger.log_to_file(
+                "execution_log",
+                f"Current topic of {user_id}: {self.current_topic}"
+            )
         
         # Get historical session summaries
         self.session_history = SessionNote.get_historical_session_summaries(user_id)
@@ -33,7 +68,8 @@ class UserAgent(BaseAgent, User):
             self.conversational_style = f.read()
 
     async def on_message(self, message: Message):
-        """Handle incoming messages by generating a response and notifying the interview session"""
+        """Handle incoming messages by generating a response and notifying 
+        the interview session"""
         if not message:
             return
 
@@ -52,8 +88,8 @@ class UserAgent(BaseAgent, User):
         #                  tag="score_question_response", content=score_response)
 
         #     # Extract the score and reasoning
-        #     self.question_score, self.question_score_reasoning = self._extract_response(
-        #         score_response)
+        #     self.question_score, self.question_score_reasoning = \
+        #         self._extract_response(score_response)
 
         prompt = self._get_prompt(prompt_type="respond_to_question")
         self.add_event(sender=self.name,
@@ -68,7 +104,7 @@ class UserAgent(BaseAgent, User):
         wants_to_respond = response_content != "SKIP"
 
         # Wait to mimic natural response time
-        await asyncio.sleep(2)
+        await asyncio.sleep(3)
 
         if wants_to_respond:
             # Generate detailed response using LLM
@@ -100,6 +136,8 @@ class UserAgent(BaseAgent, User):
                 profile_background=self.profile_background,
                 conversational_style=self.conversational_style,
                 session_history=self.session_history,
+                current_topic_title=self.current_topic["title"],
+                current_topic_description=self.current_topic["description"],
                 chat_history=self.get_event_stream_str([{"tag": "message"}])
             )
         elif prompt_type == "respond_to_question":
@@ -107,6 +145,8 @@ class UserAgent(BaseAgent, User):
                 profile_background=self.profile_background,
                 conversational_style=self.conversational_style,
                 session_history=self.session_history,
+                current_topic_title=self.current_topic["title"],
+                current_topic_description=self.current_topic["description"],
                 # score=self.question_score,
                 # score_reasoning=self.question_score_reasoning,
                 chat_history=self.get_event_stream_str([{"tag": "message"}])

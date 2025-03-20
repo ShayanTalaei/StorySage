@@ -13,7 +13,7 @@ from content.question_bank.question import QuestionSearchResult, SimilarQuestion
 from utils.llm.prompt_utils import format_prompt
 from utils.llm.xml_formatter import extract_tool_arguments, extract_tool_calls_xml
 from utils.logger.session_logger import SessionLogger
-from utils.formatter import format_similar_questions
+from utils.text_formatter import format_similar_questions
 from interview_session.session_models import Participant, Message
 from content.memory_bank.memory import Memory
 
