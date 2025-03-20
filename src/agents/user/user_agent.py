@@ -15,7 +15,8 @@ dotenv.load_dotenv(override=True)
 class UserAgent(BaseAgent, User):
     def __init__(self, user_id: str, interview_session, config: dict = None):
         BaseAgent.__init__(
-            self, name="UserAgent", description="Agent that plays the role of the user", config=config)
+            self, name="UserAgent", 
+            description="Agent that plays the role of the user", config=config)
         User.__init__(self, user_id=user_id,
                       interview_session=interview_session)
 
@@ -67,7 +68,8 @@ class UserAgent(BaseAgent, User):
             self.conversational_style = f.read()
 
     async def on_message(self, message: Message):
-        """Handle incoming messages by generating a response and notifying the interview session"""
+        """Handle incoming messages by generating a response and notifying 
+        the interview session"""
         if not message:
             return
 
@@ -102,7 +104,7 @@ class UserAgent(BaseAgent, User):
         wants_to_respond = response_content != "SKIP"
 
         # Wait to mimic natural response time
-        await asyncio.sleep(2)
+        await asyncio.sleep(3)
 
         if wants_to_respond:
             # Generate detailed response using LLM
