@@ -15,7 +15,7 @@ from agents.shared.memory_tools import Recall
 from agents.shared.note_tools import AddInterviewQuestion
 from content.question_bank.question import SimilarQuestionsGroup
 from utils.llm.xml_formatter import extract_tool_arguments, extract_tool_calls_xml
-from utils.formatter import format_similar_questions
+from utils.text_formatter import format_similar_questions
 
 if TYPE_CHECKING:
     from interview_session.interview_session import InterviewSession
