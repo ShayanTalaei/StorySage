@@ -282,16 +282,17 @@ class SectionWriter(BiographyTeamAgent):
             )
             raise
 
-    async def save_biography(self, is_auto_update: bool=False) -> str:
+    async def save_biography(self, is_auto_update: bool=False):
         """Save the current state of the biography to file."""
         try:
             await self.biography.save(save_markdown=not is_auto_update,
                                        increment_version=not is_auto_update)
-            return "Biography saved successfully"
+            self.add_event(sender=self.name, tag="save_biography",
+                           content=f"Biography saved successfully"
+                                    f" (version {self.biography.version})")
         except Exception as e:
             error_msg = f"Error saving biography: {str(e)}"
             self.add_event(sender=self.name, tag="error", content=error_msg)
-            return error_msg
 
     async def update_biography_baseline(self, new_memories: List[Memory]) -> UpdateResult:
         """Update the biography using the baseline approach with all new memories."""

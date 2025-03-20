@@ -99,8 +99,12 @@ class VectorMemoryBank(MemoryBankBase):
         
         return results
 
-    def _save_implementation_specific(self, user_id: str) -> None:
-        """Save embeddings to file."""
+    def _save_implementation_specific(self, path: str) -> None:
+        """Save embeddings to file.
+        
+        Args:
+            path: Path to save embeddings (either user_id or session path)
+        """
         embedding_data = {
             'embeddings': [
                 {'id': memory_id, 'embedding': embedding.tolist()}
@@ -108,7 +112,10 @@ class VectorMemoryBank(MemoryBankBase):
             ]
         }
         
-        embedding_filepath = os.getenv("LOGS_DIR") + f"/{user_id}/memory_bank_embeddings.json"
+        embedding_filepath = os.getenv("LOGS_DIR") + \
+            f"/{path}/memory_bank_embeddings.json"
+        os.makedirs(os.path.dirname(embedding_filepath), exist_ok=True)
+        
         with open(embedding_filepath, 'w') as f:
             json.dump(embedding_data, f)
 

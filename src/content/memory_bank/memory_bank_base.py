@@ -37,7 +37,8 @@ class MemoryBankBase(ABC):
         Example: MEM_03121423_X7K (March 12, 14:23)
         """
         timestamp = datetime.now().strftime("%m%d%H%M")
-        random_chars = ''.join(random.choices(string.ascii_uppercase + string.digits, k=3))
+        random_chars = ''.join(random.choices(string.ascii_uppercase 
+                                              + string.digits, k=3))
         return f"MEM_{timestamp}_{random_chars}"
     
     @abstractmethod
@@ -74,7 +75,8 @@ class MemoryBankBase(ABC):
             k: Number of results to return
             
         Returns:
-            List[MemorySearchResult]: List of memory search results with similarity scores
+            List[MemorySearchResult]: List of memory search results 
+            with similarity scores
         """
         pass
     
@@ -89,7 +91,8 @@ class MemoryBankBase(ABC):
         }
         
         # Save to the main user directory
-        content_filepath = os.getenv("LOGS_DIR") + f"/{user_id}/memory_bank_content.json"
+        content_filepath = os.getenv("LOGS_DIR") + \
+            f"/{user_id}/memory_bank_content.json"
         
         # Ensure directory exists
         os.makedirs(os.path.dirname(content_filepath), exist_ok=True)
@@ -97,20 +100,25 @@ class MemoryBankBase(ABC):
         with open(content_filepath, 'w') as f:
             json.dump(content_data, f, indent=2)
         
+        # Implementation-specific save for main directory
+        self._save_implementation_specific(user_id)
+        
         # If session_id is provided, save an additional copy in the session directory
         if self.session_id:
             session_filepath = os.getenv("LOGS_DIR") + \
-                f"/{user_id}/execution_logs/session_{self.session_id}/memory_bank_content.json"
+                f"/{user_id}/execution_logs/session_{self.session_id}/" + \
+                "memory_bank_content.json"
             os.makedirs(os.path.dirname(session_filepath), exist_ok=True)
             
             with open(session_filepath, 'w') as f:
                 json.dump(content_data, f, indent=2)
-            
-        # Implementation-specific save
-        self._save_implementation_specific(user_id)
+                
+            # Implementation-specific save for session directory
+            session_path = f"{user_id}/execution_logs/session_{self.session_id}"
+            self._save_implementation_specific(session_path)
     
     @abstractmethod
-    def _save_implementation_specific(self, user_id: str) -> None:
+    def _save_implementation_specific(self, path: str) -> None:
         """Save implementation-specific data (e.g., embeddings, graph structure).
         
         Args:
@@ -130,7 +138,8 @@ class MemoryBankBase(ABC):
         """
         memory_bank = cls()
         
-        content_filepath = os.getenv("LOGS_DIR") + f"/{user_id}/memory_bank_content.json"
+        content_filepath = os.getenv("LOGS_DIR") + \
+            f"/{user_id}/memory_bank_content.json"
         
         try:
             # Load content

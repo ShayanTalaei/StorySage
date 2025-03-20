@@ -97,6 +97,9 @@ class QuestionBankBase(ABC):
         with open(content_filepath, 'w') as f:
             json.dump(content_data, f, indent=2)
         
+        # Implementation-specific save for main directory
+        self._save_implementation_specific(user_id)
+        
         # If session_id is provided, save an additional copy in the session directory
         if self.session_id:
             session_filepath = os.getenv("LOGS_DIR") + \
@@ -105,12 +108,18 @@ class QuestionBankBase(ABC):
             
             with open(session_filepath, 'w') as f:
                 json.dump(content_data, f, indent=2)
-            
-        self._save_implementation_specific(user_id)
+                
+            # Implementation-specific save for session directory
+            session_path = f"{user_id}/execution_logs/session_{self.session_id}"
+            self._save_implementation_specific(session_path)
     
     @abstractmethod
-    def _save_implementation_specific(self, user_id: str) -> None:
-        """Save implementation-specific data."""
+    def _save_implementation_specific(self, path: str) -> None:
+        """Save implementation-specific data.
+        
+        Args:
+            path: Path to save data (either user_id or session path)
+        """
         pass
     
     @classmethod
