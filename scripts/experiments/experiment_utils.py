@@ -111,8 +111,8 @@ def run_command_with_timeout(command: str, timeout_minutes: int) -> None:
           f"Running command: {command}")
     print(f"Session will run for {timeout_minutes} minutes...")
     
-    # Start the process
-    process = subprocess.Popen(command, shell=True)
+    # Start the process in its own process group
+    process = subprocess.Popen(command, shell=True, preexec_fn=os.setsid)
     
     try:
         # Wait for the specified timeout
@@ -122,9 +122,9 @@ def run_command_with_timeout(command: str, timeout_minutes: int) -> None:
         print(f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] "
               f"Sending keyboard interrupt to end session...")
         
-        # On Unix/Linux/Mac, we can send SIGINT
+        # On Unix/Linux/Mac, we send SIGINT to the entire process group
         if os.name == 'posix':
-            os.kill(process.pid, signal.SIGINT)
+            os.killpg(os.getpgid(process.pid), signal.SIGINT)
         else:
             # On Windows, we need a different approach
             import ctypes
@@ -134,10 +134,16 @@ def run_command_with_timeout(command: str, timeout_minutes: int) -> None:
         print("Waiting for session to finish gracefully...")
         if not wait_for_completion(process, timeout_minutes=10):
             print("Session is taking too long to finish. Attempting graceful termination...")
-            process.terminate()
+            if os.name == 'posix':
+                os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+            else:
+                process.terminate()
             if not wait_for_completion(process, timeout_minutes=5):
                 print("Process still not terminated. Force killing...")
-                process.kill()
+                if os.name == 'posix':
+                    os.killpg(os.getpgid(process.pid), signal.SIGKILL)
+                else:
+                    process.kill()
                 process.wait()
     
     except KeyboardInterrupt:
@@ -146,10 +152,16 @@ def run_command_with_timeout(command: str, timeout_minutes: int) -> None:
               f"Process terminated by user")
         if not wait_for_completion(process, timeout_minutes=10):
             print("Session is taking too long to finish. Attempting graceful termination...")
-            process.terminate()
+            if os.name == 'posix':
+                os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+            else:
+                process.terminate()
             if not wait_for_completion(process, timeout_minutes=5):
                 print("Process still not terminated. Force killing...")
-                process.kill()
+                if os.name == 'posix':
+                    os.killpg(os.getpgid(process.pid), signal.SIGKILL)
+                else:
+                    process.kill()
                 process.wait()
     
     # Give some time for final cleanup
@@ -183,7 +195,7 @@ def run_evaluation(user_id: str, eval_type: str) -> bool:
     
     return result.returncode == 0
 
-def run_experiment(user_id: str, model_name: str, use_baseline: bool, timeout_minutes: int, restart: bool = False) -> str:
+def run_experiment(user_id: str, model_name: str, use_baseline: bool, timeout_minutes: int, restart) -> str:
     """Run a single experiment with the specified configuration
     
     Args:

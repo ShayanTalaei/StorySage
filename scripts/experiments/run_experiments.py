@@ -13,10 +13,11 @@ def main():
         description="Run experiments with different configurations")
     parser.add_argument("--user_id", required=True, 
                         help="User ID for the experiment")
-    parser.add_argument("--timeout", type=int, default=10, 
+    parser.add_argument("--timeout", type=int, default=8, 
                         help="Timeout in minutes for each session")
     parser.add_argument("--restart", action="store_true",
-                        help="Clear existing user data before experiments")
+                        help="Clear existing user data before experiments",
+                        default=False)
     args = parser.parse_args()
     
     # Create a backup of the original .env file
@@ -38,7 +39,8 @@ def main():
         ]
         
         # Create a summary file
-        summary_file = f"experiment_summary_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+        summary_file = \
+            f"experiment_summary_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
         with open(summary_file, 'w') as f:
             f.write(f"Experiment Summary - "
                     f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
