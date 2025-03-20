@@ -22,14 +22,22 @@ def backup_env_file() -> Optional[str]:
     return None
 
 def restore_env_file(backup_file: Optional[str]) -> None:
-    """Restore the original .env file from backup
+    """Restore the original .env file from backup and delete the backup file.
     
     Args:
-        backup_file (Optional[str]): Path to the backup file to restore from
+        backup_file: Path to the backup file to restore from
     """
     if backup_file and os.path.exists(backup_file):
-        shutil.copy2(backup_file, '.env')
-        print(f"Restored original .env file from backup: {backup_file}")
+        try:
+            # Restore original .env
+            shutil.copy2(backup_file, '.env')
+            print(f"Restored original .env file from {backup_file}")
+            
+            # Delete backup file
+            os.remove(backup_file)
+            print(f"Deleted backup file: {backup_file}")
+        except Exception as e:
+            print(f"Error while restoring/cleaning up env file: {e}")
 
 def load_env_variables() -> None:
     """Load environment variables from .env file"""
