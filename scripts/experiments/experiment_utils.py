@@ -177,74 +177,7 @@ def run_evaluation(user_id: str, eval_type: str) -> bool:
     
     return result.returncode == 0
 
-def clear_user_data(user_id: str, model_name: Optional[str] = None, clear_all: bool = False) -> None:
-    """Clear existing user data.
-    
-    Args:
-        user_id: User ID to clear data for
-        model_name: If provided, only clear data for this specific model
-        clear_all: If True, clear data for all models (overrides model_name)
-    """
-    if clear_all:
-        # Clear main directories
-        logs_dir = "logs"
-        data_dir = "data"
-        print(f"Clearing main directories: {logs_dir} and {data_dir}")
-        
-        # Clear logs directory
-        user_logs_dir = Path(logs_dir) / user_id
-        if user_logs_dir.exists():
-            print(f"Removing logs directory: {user_logs_dir}")
-            shutil.rmtree(user_logs_dir)
-        
-        # Clear data directory
-        user_data_dir = Path(data_dir) / user_id
-        if user_data_dir.exists():
-            print(f"Removing data directory: {user_data_dir}")
-            shutil.rmtree(user_data_dir)
-        
-        # Find and clear all model-specific directories
-        for dir_name in os.listdir('.'):
-            if dir_name.startswith('logs_'):
-                model_logs_dir = Path(dir_name) / user_id
-                if model_logs_dir.exists():
-                    print(f"Removing model logs directory: {model_logs_dir}")
-                    shutil.rmtree(model_logs_dir)
-            
-            if dir_name.startswith('data_'):
-                model_data_dir = Path(dir_name) / user_id
-                if model_data_dir.exists():
-                    print(f"Removing model data directory: {model_data_dir}")
-                    shutil.rmtree(model_data_dir)
-        
-        print(f"Cleared all data for user: {user_id}")
-        return
-    
-    # Determine which directories to clear based on model_name
-    if model_name:
-        # For baseline models, clear model-specific directories
-        logs_dir = f"logs_{model_name.replace('-', '_')}"
-        data_dir = f"data_{model_name.replace('-', '_')}"
-        print(f"Clearing model-specific directories: {logs_dir} and {data_dir}")
-    else:
-        # For our model, clear main logs/data directories
-        logs_dir = "logs"
-        data_dir = "data"
-        print(f"Clearing main directories: {logs_dir} and {data_dir}")
-    
-    # Clear logs directory
-    user_logs_dir = Path(logs_dir) / user_id
-    if user_logs_dir.exists():
-        print(f"Removing logs directory: {user_logs_dir}")
-        shutil.rmtree(user_logs_dir)
-    
-    # Clear data directory
-    user_data_dir = Path(data_dir) / user_id
-    if user_data_dir.exists():
-        print(f"Removing data directory: {user_data_dir}")
-        shutil.rmtree(user_data_dir)
-
-def run_experiment(user_id: str, model_name: str, use_baseline: bool, timeout_minutes: int) -> str:
+def run_experiment(user_id: str, model_name: str, use_baseline: bool, timeout_minutes: int, restart: bool = False) -> str:
     """Run a single experiment with the specified configuration
     
     Args:
@@ -262,7 +195,8 @@ def run_experiment(user_id: str, model_name: str, use_baseline: bool, timeout_mi
     experiment_id = f"{model_name.replace('-', '_')}_baseline_" \
                    f"{str(use_baseline).lower()}_{timestamp}"
     
-    print(f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Starting experiment: {experiment_id}")
+    print(f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] "
+          f"Starting experiment: {experiment_id}")
     
     # Set up environment variables and directories
     if use_baseline:
@@ -279,7 +213,8 @@ def run_experiment(user_id: str, model_name: str, use_baseline: bool, timeout_mi
     os.makedirs(data_dir, exist_ok=True)
     
     # Run the interview session
-    command = f"python src/main.py --mode terminal --user_id {user_id} --user_agent"
+    command = f"python src/main.py --mode terminal --user_id {user_id} --user_agent" + \
+              f" --restart" if restart else ""
     run_command_with_timeout(command, timeout_minutes)
     
     # Run evaluations
@@ -289,7 +224,8 @@ def run_experiment(user_id: str, model_name: str, use_baseline: bool, timeout_mi
         eval_results[eval_type] = "Success" if success else "Failed"
     
     # Log experiment results
-    print(f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Experiment completed: {experiment_id}")
+    print(f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] "
+          f"Experiment completed: {experiment_id}")
     print(f"Model: {model_name}")
     print(f"Baseline: {use_baseline}")
     print(f"User ID: {user_id}")

@@ -15,6 +15,7 @@ async def run_terminal_mode(args):
     if args.restart:
         os.system(f"rm -rf {os.getenv('LOGS_DIR')}/{args.user_id}")
         os.system(f"rm -rf {os.getenv('DATA_DIR')}/{args.user_id}")
+        print(f"Cleared data for user {args.user_id}")
     
     # Check if voice features are available when requested
     if (args.voice_input or args.voice_output) and not PYAUDIO_AVAILABLE:

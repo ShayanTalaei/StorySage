@@ -5,7 +5,6 @@ from experiment_utils import (
     restore_env_file, 
     load_env_variables, 
     run_experiment,
-    clear_user_data
 )
 
 def main():
@@ -30,20 +29,6 @@ def main():
         # Load environment variables
         load_env_variables()
         
-        # If restart is requested, clear user data upfront
-        if args.restart:
-            print("\nClearing existing user data...")
-            # Determine which model's data to clear
-            if args.baseline:
-                # For baseline, only clear data for this specific model
-                model_name = args.model
-                print(f"Clearing data only for model: {model_name}")
-                clear_user_data(args.user_id, model_name)
-            else:
-                # For our model, only clear data in the main logs/data directories
-                print("Clearing data for our model")
-                clear_user_data(args.user_id, None)
-        
         # Run the experiment
         print("\n" + "="*80)
         print(f"Running experiment with model: {args.model}, "
@@ -53,7 +38,8 @@ def main():
         run_experiment(args.user_id, 
                       args.model, 
                       args.baseline, 
-                      args.timeout)
+                      args.timeout,
+                      args.restart)
         
         print("\nExperiment completed!")
     
