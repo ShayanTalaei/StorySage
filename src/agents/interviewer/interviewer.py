@@ -49,12 +49,8 @@ class Interviewer(BaseAgent, Participant):
             "respond_to_user": RespondToUser(
                 tts_config=config.get("tts", {}),
                 base_path= \
-                    f"{os.getenv('DATA_DIR', 'data')}/{config.get("user_id")}/",
-                on_response=lambda response: \
-                    self.interview_session.add_message_to_chat_history(
-                        role=self.title,
-                        content=response
-                    ),
+                    f"{os.getenv('DATA_DIR', 'data')}/{config.get('user_id')}/",
+                on_response=self._handle_response,
                 on_turn_complete=lambda: setattr(
                     self, '_turn_to_respond', False)
             ),
@@ -74,6 +70,17 @@ class Interviewer(BaseAgent, Participant):
 
         self._turn_to_respond = False
 
+    def _handle_response(self, response: str) -> None:
+        """Handle responses from the RespondToUser tool by adding them to chat history.
+        
+        Args:
+            response: The response text to add to chat history
+        """
+        self.interview_session.add_message_to_chat_history(
+            role=self.title,
+            content=response
+        )
+
     async def on_message(self, message: Message):
 
         if message:
@@ -89,14 +96,18 @@ class Interviewer(BaseAgent, Participant):
 
         while self._turn_to_respond and iterations < self._max_consideration_iterations:
             prompt = self._get_prompt()
-            self.add_event(sender=self.name, tag="prompt", content=prompt)
+            self.add_event(sender=self.name, tag="llm_prompt", content=prompt)
             response = await self.call_engine_async(prompt)
             print(f"{GREEN}Interviewer:\n{response}{RESET}")
 
-            self.add_event(sender=self.name, tag="message",
+            self.add_event(sender=self.name, tag="llm_response",
                            content=response)
             
-            await self.handle_tool_calls_async(response)
+            try:
+                await self.handle_tool_calls_async(response)
+            except Exception as e:
+                print(f"Error calling tool: {e}. Use the raw response as the output.")
+                self._handle_response(response)
 
             iterations += 1
             if iterations >= self._max_consideration_iterations:

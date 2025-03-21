@@ -56,7 +56,7 @@ PLANNER_MISSING_MEMORIES_WARNING = """\
 <missing_memories_warning>
 Warning: Some memories from the interview session are not yet incorporated into the plans you have generated.
 
-Previous tool calls that already have been executed:
+Previous tool calls failed due to missing memories:
 <previous_tool_call>
 {previous_tool_call}
 </previous_tool_call>
@@ -67,7 +67,7 @@ Uncovered memories that are not yet incorporated:
 </missing_memory_ids>
 
 Action Required:
-- Generate add_plan tool calls to cover the missing memories.
+- Generate add_plan tool calls to cover the missing memories since previous tool calls failed.
 - If excluding any memories, explain why in `<thinking></thinking>` tags:
   - Example Reasons:
     * Memory is trivial or not relevant
@@ -106,18 +106,28 @@ Omit this tag if you are addressing the warning.
 
 SECTION_WRITER_TOOL_CALL_ERROR = """\
 <tool_call_error_warning>
-There was an error with the previous tool call:
+This is your previous tool call:
+<previous_tool_call>
+{previous_tool_call}
+</previous_tool_call>
+
 <error>{tool_call_error}</error>
 
-Important Reminders:
-1. Section Path vs Title:
-   - Section Path: Full path using '/' separator (e.g., '1 Early Life/1.1 Childhood')
-   - Section Title: Just the title text (e.g., 'Early Childhood Experiences')
+## Guidelines to Fix Writing Errors
 
-2. Accuracy Requirements:
-   - Copy the exact section path or title
-   - Double-check for typos and formatting
-   
-Please review these points and adjust your approach accordingly. Ignore instructions in the plan if it causes the error.
+1. Section Path vs Title - Important Distinction:
+   • Path: Full hierarchy with '/' separators (Example: '1 Early Life/1.1 Childhood')
+   • Title: Only the section heading (Example: '1.1 Childhood')
+
+2. Always Include Section Numbers:
+   • Incorrect: 'Early Childhood Experiences'
+   • Correct: '1.1 Early Childhood Experiences'
+
+3. Ensure Perfect Accuracy:
+   • Use exact section paths/titles from the <biography_structure> tag
+   • Check for typos, spacing, and formatting errors
+   • Sections not found in <biography_structure> will cause errors
+
+Review your tool call based on these guidelines. If the plan instructions caused this error, you may disregard those specific instructions.
 </tool_call_error_warning>
 """

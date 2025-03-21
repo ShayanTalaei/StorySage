@@ -232,7 +232,7 @@ def run_experiment(user_id: str, model_name: str, use_baseline: bool, timeout_mi
     
     # Run the interview session
     command = f"python src/main.py --mode terminal --user_id {user_id} --user_agent" + \
-              f" --restart" if restart else ""
+              (f" --restart" if restart else "")
     run_command_with_timeout(command, timeout_minutes)
     
     # Run evaluations

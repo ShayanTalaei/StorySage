@@ -53,7 +53,8 @@ def load_conversation_stats(user_id: str) -> List[Dict]:
         
         if conv_file.exists():
             conv_df = pd.read_csv(conv_file)
-            latency_df = pd.read_csv(latency_file) if latency_file.exists() else None
+            latency_df = pd.read_csv(latency_file) if \
+                latency_file.exists() else None
             file_stats = aggregate_single_file(conv_df, latency_df)
             file_stats['Is Baseline'] = False  # our work
             stats.append(file_stats)

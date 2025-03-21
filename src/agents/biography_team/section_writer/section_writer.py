@@ -1,3 +1,4 @@
+import json
 from typing import Optional, TYPE_CHECKING, List
 from dataclasses import dataclass
 
@@ -124,7 +125,7 @@ class SectionWriter(BiographyTeamAgent):
                     )
                     covered_memory_ids.update(current_memory_ids)
                         
-                    # Save tool calls for next iteration if needed
+                    # Save tool calls for next iteration
                     previous_tool_call = extract_tool_calls_xml(response)
 
                     # Check if all memories are covered
@@ -173,6 +174,9 @@ class SectionWriter(BiographyTeamAgent):
                     section_path=todo_item.section_path,
                     update_plan=todo_item.update_plan,
                     event_stream=events_str,
+                    biography_structure=json.dumps(
+                        self.get_biography_structure(), indent=2
+                    ),
                     style_instructions=
                         BIOGRAPHY_STYLE_WRITER_INSTRUCTIONS.get(
                             self.config.get("biography_style", 
@@ -198,6 +202,9 @@ class SectionWriter(BiographyTeamAgent):
                     current_content=current_content,
                     update_plan=todo_item.update_plan,
                     event_stream=events_str,
+                    biography_structure=json.dumps(
+                        self.get_biography_structure(), indent=2
+                    ),
                     style_instructions=
                         BIOGRAPHY_STYLE_WRITER_INSTRUCTIONS.get(
                             self.config.get("biography_style", 
@@ -232,6 +239,7 @@ class SectionWriter(BiographyTeamAgent):
                 # Add error warning if there was a tool call error
                 if tool_call_error:
                     warning += SECTION_WRITER_TOOL_CALL_ERROR.format(
+                        previous_tool_call=kwargs.get('previous_tool_call', ""),
                         tool_call_error=tool_call_error
                     )
                 
@@ -263,6 +271,9 @@ class SectionWriter(BiographyTeamAgent):
                     current_content=current_content,
                     relevant_memories=relevant_memories,
                     update_plan=todo_item.update_plan,
+                    biography_structure=json.dumps(
+                        self.get_biography_structure(), indent=2
+                    ),
                     style_instructions=
                         BIOGRAPHY_STYLE_WRITER_INSTRUCTIONS.get(
                             self.config.get("biography_style", 
@@ -299,7 +310,8 @@ class SectionWriter(BiographyTeamAgent):
         try:
             iterations = 0
             tool_call_error = None
-            
+            previous_tool_call = None
+
             while iterations < self._max_consideration_iterations:
                 try:
                     # Format all new memories
@@ -321,6 +333,7 @@ class SectionWriter(BiographyTeamAgent):
                     error_warning = ""
                     if tool_call_error:
                         error_warning = SECTION_WRITER_TOOL_CALL_ERROR.format(
+                            previous_tool_call=previous_tool_call,
                             tool_call_error=tool_call_error
                         )
                     
@@ -343,6 +356,7 @@ class SectionWriter(BiographyTeamAgent):
                     )
 
                     response = await self.call_engine_async(prompt)
+                    previous_tool_call = extract_tool_calls_xml(response)
                     
                     self.add_event(
                         sender=self.name,
@@ -354,8 +368,10 @@ class SectionWriter(BiographyTeamAgent):
                     try:
                         await self.handle_tool_calls_async(response, raise_error=True)
                         # If we get here, the tool call was successful
-                        return UpdateResult(success=True, 
-                                            message="Biography updated with baseline approach")
+                        return UpdateResult(
+                            success=True, 
+                            message="Biography updated with baseline approach"
+                        )
                     except Exception as e:
                         tool_call_error = str(e)
                         self.add_event(

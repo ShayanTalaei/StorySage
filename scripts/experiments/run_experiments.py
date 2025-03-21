@@ -13,7 +13,7 @@ def main():
         description="Run experiments with different configurations")
     parser.add_argument("--user_id", required=True, 
                         help="User ID for the experiment")
-    parser.add_argument("--timeout", type=int, default=8, 
+    parser.add_argument("--timeout", type=int, default=7, 
                         help="Timeout in minutes for each session")
     parser.add_argument("--restart", action="store_true",
                         help="Clear existing user data before experiments",

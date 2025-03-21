@@ -255,22 +255,23 @@ MOST IMPORTANT:
 
 OUTPUT_FORMAT = """
 <output_format>
-Your output should include the tools you need to call according to the following format:
-<tool_calls>
-    # Option 1: If you need to gather information from the user:
-    <recall>
-        <reasoning>...</reasoning>
-        <query>...</query>
-    </recall>
 
-    # Option 2: If you need to respond to the user: 
-    <respond_to_user>
-        <response>value</response>
-    </respond_to_user>
-    ...
+Your output should include the tools you need to call according to the following format. 
+- Wrap the tool calls in <tool_calls> tags as shown below
+- No other text should be included in the output like thinking, reasoning, query, response, etc.
+<tool_calls>
+  # Option 1: If you need to gather information from the user:
+  <recall>
+      <reasoning>...</reasoning>
+      <query>...</query>
+  </recall>
+
+  # Option 2: If you need to respond to the user: 
+  <respond_to_user>
+      <response>value</response>
+  </respond_to_user>
 </tool_calls>
-- You should fill in the <tool_name>s and <arg_name>s with the actual tool names and argument names according to the tool descriptions.
-- You should not include any other text outside of the <tool_calls> tag.
+
 </output_format>
 """
 
@@ -367,8 +368,10 @@ Step 2: Question Phrasing
 
 Then, structure your output using the following tool call format:
 <tool_calls>
-    <respond_to_user>
-        <response>value</response>
-    </respond_to_user>
+  <respond_to_user>
+    <response>value</response>
+  </respond_to_user>
 </tool_calls>
+
+</output_format>
 """

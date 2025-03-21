@@ -85,6 +85,10 @@ class UpdateMemoryBank(BaseTool):
         run_manager: Optional[CallbackManagerForToolRun] = None,
     ) -> str:
         try:
+            # Ensure metadata is a valid dict, default to empty if not
+            if not isinstance(metadata, dict):
+                metadata = {}
+            
             memory = self.memory_bank.add_memory(
                 title=title, 
                 text=text, 

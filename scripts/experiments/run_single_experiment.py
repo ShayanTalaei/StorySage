@@ -16,7 +16,7 @@ def main():
                         help="Model to use (default: gpt-4o)")
     parser.add_argument("--baseline", action="store_true", 
                         help="Use baseline prompt")
-    parser.add_argument("--timeout", type=int, default=8, 
+    parser.add_argument("--timeout", type=int, default=7, 
                         help="Timeout in minutes for the session")
     parser.add_argument("--restart", action="store_true",
                         help="Clear existing user data before running",

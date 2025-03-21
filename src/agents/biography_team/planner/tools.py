@@ -11,7 +11,7 @@ from agents.biography_team.models import Plan
 class AddPlanInput(BaseModel):
     action_type: str = Field(description="Type of action (create/update)")
     section_path: Optional[str] = Field(
-        default=None,
+        default="",
         description=(
             "Full path to the section. "
             "Required when creating a new section."
@@ -19,7 +19,7 @@ class AddPlanInput(BaseModel):
         )
     )
     section_title: Optional[str] = Field(
-        default=None,
+        default="",
         description=(
             "Title of the section to update. "
             "Recommended when updating an existing section"
@@ -48,34 +48,41 @@ class AddPlan(BaseTool):
         description="Callback function to be called when a plan is added"
     )
 
-    def _process_memory_ids(self, memory_ids: Union[List[str], str]) -> List[str]:
-        """Process memory_ids to ensure it's a list of strings."""
-        if isinstance(memory_ids, list):
-            return memory_ids
-        elif isinstance(memory_ids, str):
-            # Handle comma-separated string
-            if ',' in memory_ids:
-                return [mem_id.strip() for mem_id in memory_ids.split(',')]
-            # Handle single memory ID
-            return [memory_ids.strip()]
+    # def _process_memory_ids(self, memory_ids: Union[List[str], str]) -> List[str]:
+    #     """Process memory_ids to ensure it's a list of strings."""
+    #     if isinstance(memory_ids, list):
+    #         return memory_ids
+    #     elif isinstance(memory_ids, str):
+    #         # Handle JSON string array
+    #         if memory_ids.startswith('[') and memory_ids.endswith(']'):
+    #             import json
+    #             try:
+    #                 return json.loads(memory_ids)
+    #             except json.JSONDecodeError:
+    #                 pass
+    #         # Handle comma-separated string
+    #         if ',' in memory_ids:
+    #             return [mem_id.strip() for mem_id in memory_ids.split(',')]
+    #         # Handle single memory ID
+    #         return [memory_ids.strip()]
+    #     return []  # Return empty list as default
 
     def _run(
         self,
         action_type: str,
         update_plan: str,
-        section_path: Optional[str] = None,
-        section_title: Optional[str] = None,
-        memory_ids: Optional[Union[List[str], str]] = None,
+        section_path: Optional[str] = "",
+        section_title: Optional[str] = "",
+        memory_ids: Optional[Union[List[str], str]] = [],
         run_manager: Optional[CallbackManagerForToolRun] = None,
     ) -> str:
         try:
-            # Process memory_ids to ensure it's a proper list
-            processed_memory_ids = self._process_memory_ids(memory_ids or [])
+            # processed_memory_ids = self._process_memory_ids(memory_ids or [])
             
             plan = {
                 "section_path": section_path,
                 "section_title": section_title,
-                "memory_ids": processed_memory_ids,
+                "memory_ids": memory_ids,
                 "update_plan": update_plan
             }
             self.on_plan_added(Plan(**plan))
