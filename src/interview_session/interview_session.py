@@ -78,7 +78,7 @@ class InterviewSession:
         else:
             BaseAgent.use_baseline = \
                 os.getenv("USE_BASELINE_PROMPT", "false").lower() == "true"
-
+        
         # User setup
         self.user_id = user_config.get("user_id", "default_user")
 
@@ -116,7 +116,7 @@ class InterviewSession:
         self.chat_history: list[Message] = []
 
         # Session states signals
-        self._interaction_mode = interaction_mode
+        self.interaction_mode = interaction_mode
         self.session_in_progress = True
         self.session_completed = False
         self._session_timeout = False
@@ -136,10 +136,8 @@ class InterviewSession:
 
         # Last message timestamp tracking for session timeout
         self._last_message_time = datetime.now()
-        self.timeout_minutes = int(os.getenv("SESSION_TIMEOUT_MINUTES", 10))
-
-        # Response latency tracking for evaluation
         self._last_user_message = None
+        self.timeout_minutes = int(os.getenv("SESSION_TIMEOUT_MINUTES", 10))
 
         # User in the interview session
         if interaction_mode == 'agent':
@@ -340,7 +338,7 @@ class InterviewSession:
                 self.session_in_progress = False
 
                 # Update biography (API mode handles this separately)
-                if self._interaction_mode != 'api' or self._session_timeout:
+                if self.interaction_mode != 'api' or self._session_timeout:
                     with contextlib.suppress(KeyboardInterrupt):
                         SessionLogger.log_to_file(
                             "execution_log", 
