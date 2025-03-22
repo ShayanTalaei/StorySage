@@ -27,7 +27,7 @@ class QuestionBankBase(ABC):
     
     def __init__(self):
         self.questions: List[Question] = []
-        self.engine = get_engine()
+        self.engine = get_engine("gpt-4o")
         self.session_id: Optional[str] = None
     
     def set_session_id(self, session_id: str) -> None:

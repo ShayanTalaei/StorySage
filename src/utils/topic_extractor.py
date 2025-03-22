@@ -70,7 +70,7 @@ class TopicExtractor:
         prompt = self._create_topic_extraction_prompt(profile_content)
         
         # Get LLM response
-        engine = get_engine()
+        engine = get_engine("gpt-4o")
         response = invoke_engine(engine, prompt)
         
         # Extract topics from XML response

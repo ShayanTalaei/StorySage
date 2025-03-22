@@ -37,7 +37,9 @@ class BaseAgent:
         self.config = config
         
         # Initialize the LLM engine
-        self.engine = get_engine()
+        self.engine = get_engine(model_name= \
+                                 config.get("model_name", 
+                                            os.getenv("MODEL_NAME", "gpt-4o")))
         self.tools = {}
 
         # Each agent has an event stream. 

@@ -42,7 +42,7 @@ def summarize_conversation(conversation_messages: List[Message]):
     prompt = CONVERSATION_SUMMARIZE_PROMPT.format(conversation=formatted_conversation)
     
     # Get the engine and invoke it
-    engine = get_engine(temperature=0.0, max_tokens=1024)
+    engine = get_engine("gpt-4o", temperature=0.0, max_tokens=1024)
     summary = invoke_engine(engine, prompt)
     
     return summary
