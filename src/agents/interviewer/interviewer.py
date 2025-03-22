@@ -36,8 +36,7 @@ class Interviewer(BaseAgent, Participant):
     '''Inherits from BaseAgent and Participant. Participant is a class that all agents in the interview session inherit from.'''
 
     def __init__(self, config: InterviewerConfig, interview_session: 'InterviewSession'):
-        if not BaseAgent.use_baseline and self.interview_session.interaction_mode == 'agent': 
-            # Use gemini-1.5-pro for our model for user agent testing
+        if not BaseAgent.use_baseline: 
             config["model_name"] = "gemini-1.5-pro"
         BaseAgent.__init__(
             self, name="Interviewer",
