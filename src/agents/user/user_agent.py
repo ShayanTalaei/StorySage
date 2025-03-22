@@ -37,21 +37,11 @@ class UserAgent(BaseAgent, User):
             
         with open(topics_path, 'r') as f:
             topics_data = json.load(f)
-            self.topics = topics_data["topics"]
-            
-            # Get and increment the topic index
-            current_index = 0 if config and config.get("restart") \
-                else topics_data["current_index"]
-            next_index = (current_index + 1) % len(self.topics)
-            
-            # Update the file with new index
-            topics_data["current_index"] = next_index
-            with open(topics_path, 'w') as f:
-                json.dump(topics_data, f, indent=2)
+            topics = topics_data["topics"]
             
             # Set the topic for this session
-            self.current_topic_index = current_index
-            self.current_topic = self.topics[self.current_topic_index]
+            current_topic_index = self.interview_session.session_id - 1
+            self.current_topic = topics[current_topic_index]
 
             SessionLogger.log_to_file(
                 "execution_log",
