@@ -13,8 +13,8 @@ def main():
         description="Run experiments with different configurations")
     parser.add_argument("--user_id", required=True, 
                         help="User ID for the experiment")
-    parser.add_argument("--timeout", type=int, default=7, 
-                        help="Timeout in minutes for each session")
+    parser.add_argument("--max_turns", type=int, required=True, 
+                        help="Maximum number of turns for each session")
     parser.add_argument("--restart", action="store_true",
                         help="Clear existing user data before experiments",
                         default=False)
@@ -45,7 +45,7 @@ def main():
             f.write(f"Experiment Summary - "
                     f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
             f.write(f"User ID: {args.user_id}\n")
-            f.write(f"Timeout: {args.timeout} minutes\n")
+            f.write(f"Max Turns: {args.max_turns}\n")
             f.write(f"Restart: {args.restart}\n\n")
         
         # Run experiments
@@ -59,7 +59,7 @@ def main():
                 user_id=args.user_id,
                 model_name=exp["model_name"],
                 use_baseline=exp["use_baseline"],
-                timeout_minutes=args.timeout,
+                max_turns=args.max_turns,
                 restart=args.restart
             )
             

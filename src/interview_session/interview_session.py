@@ -52,7 +52,7 @@ class InterviewSession:
 
     def __init__(self, interaction_mode: str = 'terminal', user_config: UserConfig = {},
                  interview_config: InterviewConfig = {}, bank_config: BankConfig = {},
-                 use_baseline: Optional[bool] = None):
+                 use_baseline: Optional[bool] = None, max_turns: Optional[int] = None):
         """Initialize the interview session.
 
         Args:
@@ -69,6 +69,8 @@ class InterviewSession:
                 historical_question_bank_type: Type of question bank 
                     Options: "vector_db", etc.
             use_baseline: Whether to use baseline prompt (default: read from .env)
+            max_turns: Optional maximum number of turns before ending session
+                      If None, session continues until manually ended
         """
 
         # Set the baseline mode for all agents
@@ -120,6 +122,8 @@ class InterviewSession:
         self.session_in_progress = True
         self.session_completed = False
         self._session_timeout = False
+        self.max_turns = max_turns
+        self._current_turn_count = 0
 
         # Biography auto-update states
         self.auto_biography_update_in_progress = False
@@ -276,6 +280,18 @@ class InterviewSession:
                     self.historical_question_bank.evaluate_question_duplicate(
                         message.content
                     )
+
+                # Increment turn count after each complete Q&A exchange
+                self._current_turn_count += 1
+                
+                # Check if max turns reached
+                if self.max_turns is not None and \
+                      self._current_turn_count >= self.max_turns:
+                    SessionLogger.log_to_file(
+                        "execution_log",
+                        f"[TURNS] Maximum turns ({self.max_turns}) reached. Ending session."
+                    )
+                    self.session_in_progress = False
 
         # Notify participants if message is a skip or conversation
         if message_type == MessageType.SKIP or \
