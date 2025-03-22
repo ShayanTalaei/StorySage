@@ -265,26 +265,27 @@ class InterviewSession:
             save_feedback_to_csv(
                 self.chat_history[-1], message, self.user_id, self.session_id)
 
-        # Log response latency
-        if message_type == MessageType.CONVERSATION:
+        # Notify participants if message is a skip or conversation
+        if message_type == MessageType.SKIP or \
+              message_type == MessageType.CONVERSATION:
+            
             if role == "User":
                 # Store user message for latency calculation
                 self._last_user_message = message
+            
             elif role == "Interviewer" and self._last_user_message is not None:
-                # First, calculate and log latency when interviewer responds
+                # Calculate and log latency when interviewer responds
                 self._log_response_latency(self._last_user_message, message)
                 self._last_user_message = None
                 
-                # Then, evaluate question duplicate
+                # Evaluate question duplicate
                 if os.getenv("EVAL_MODE", "FALSE").lower() == "true":
                     self.historical_question_bank.evaluate_question_duplicate(
                         message.content
-                    )
-
-                # Increment turn count after each complete Q&A exchange
-                self._current_turn_count += 1
+                    )                
                 
                 # Check if max turns reached
+                self._current_turn_count += 1
                 if self.max_turns is not None and \
                       self._current_turn_count >= self.max_turns:
                     SessionLogger.log_to_file(
@@ -292,13 +293,13 @@ class InterviewSession:
                         f"[TURNS] Maximum turns ({self.max_turns}) reached. Ending session."
                     )
                     self.session_in_progress = False
-
-        # Notify participants if message is a skip or conversation
-        if message_type == MessageType.SKIP or \
-              message_type == MessageType.CONVERSATION:
+            
+            # Add message to chat history
             self.chat_history.append(message)
             SessionLogger.log_to_file(
                 "chat_history", f"{message.role}: {message.content}")
+            
+            # Notify participants
             asyncio.create_task(self._notify_participants(message))
 
         # Update last message time when we receive a message
