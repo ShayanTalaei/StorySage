@@ -388,6 +388,17 @@ async def list_user_messages(
 ):
     """Retrieve all messages for the current user"""
     try:
+        # Check if user has a session that's still ending
+        if session_manager.get_session_status(current_user) == SessionStatus.ENDING:
+            # Try to remove the ending session
+            removed_users = session_manager.remove_inactive_sessions()
+            if current_user not in removed_users:
+                raise HTTPException(
+                    status_code=409,  # Conflict
+                    detail="Generating the session notes for the subsequent session. "
+                            "Please try again in a moment. Thanks!"
+                )
+        
         # Get all sessions for this user
         sessions = (
             db.query(DBSession)

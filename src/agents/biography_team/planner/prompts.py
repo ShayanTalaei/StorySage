@@ -199,14 +199,14 @@ USER_EDIT_INSTRUCTIONS = """\
 Create a plan to implement the user's request. The plan must include:
 
 1. Context Summary:
-   Original Request: [User's exact request]
-   Selected Section: [Section title/path being modified]
-   Current Content: [Brief summary of relevant existing content]
+- Original Request: [User's exact request with original context e.g. user selected text if provided]
+- Selected Section: [Section title/path being modified]
+- Current Content: [Brief summary of relevant existing content]
 
 2. Action Plan:
-   - [First action step]
-   - [Second action step if needed]
-   - [Third action step if needed]
+- [First action step]
+- [Second action step if needed]
+- [Third action step if needed]
 
 ## Planning Guidelines:
 - Keep actions clear, specific, and concise (1-3 steps)
