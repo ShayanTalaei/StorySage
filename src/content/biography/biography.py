@@ -82,6 +82,7 @@ class Biography:
 
         # Version information
         self.version = self._get_latest_version()
+        self.increment_version = False
 
         # Root section
         self.root = Section(f"Biography of {self.user_id}")
@@ -133,7 +134,9 @@ class Biography:
             await asyncio.sleep(0.1)  # Small delay to prevent CPU spinning
 
     def _get_file_name(self) -> str:
-        return f"{self.base_path}/biography_{self.version}"
+        save_version = self.version + 1 if self.increment_version \
+                      else self.version
+        return f"{self.base_path}/biography_{save_version}"
 
     def _get_latest_version(self) -> int:
         """Get the latest available version number for the biography file.
@@ -205,7 +208,7 @@ class Biography:
     async def save(self, save_markdown: bool = False, increment_version: bool = True) -> None:
         """Save the biography to a JSON file using user_id."""
         if increment_version:
-            self.version += 1
+            self.increment_version = True
                 
         try:
             # Wait for all pending writes with timeout
