@@ -14,6 +14,7 @@ dotenv.load_dotenv(override=True)
 
 class UserAgent(BaseAgent, User):
     def __init__(self, user_id: str, interview_session, config: dict = None):
+        config["model_name"] = "gpt-4o" # Always use gpt-4o for user agent
         BaseAgent.__init__(
             self, name="UserAgent", 
             description="Agent that plays the role of the user", config=config)
@@ -89,33 +90,36 @@ class UserAgent(BaseAgent, User):
         self.add_event(sender=self.name,
                        tag="respond_to_question_response", content=response)
 
-        response_content, response_reasoning = self._extract_response(response)
-
-        wants_to_respond = response_content != "SKIP"
-
         # Wait to mimic natural response time
         await asyncio.sleep(3)
 
-        if wants_to_respond:
-            # Generate detailed response using LLM
+        self.interview_session.add_message_to_chat_history(
+            role=self.title, content=response, message_type=MessageType.CONVERSATION)
 
-            # Extract just the <response> content to send to chat history
-            self.add_event(sender=self.name, tag="message",
-                           content=response_content)
-            self.interview_session.add_message_to_chat_history(
-                role=self.title, content=response_reasoning, 
-                    message_type=MessageType.FEEDBACK)
-            self.interview_session.add_message_to_chat_history(
-                role=self.title, content=response_content, 
-                    message_type=MessageType.CONVERSATION)
+        # # Extract the response content and reasoning
+        # response_content, response_reasoning = self._extract_response(response)
+        # wants_to_respond = response_content != "SKIP"
 
-        else:
-            # We SKIP the response and log a feedback message
-            self.interview_session.add_message_to_chat_history(
-                role=self.title, content=response_reasoning, 
-                    message_type=MessageType.FEEDBACK)
-            self.interview_session.add_message_to_chat_history(
-                role=self.title, message_type=MessageType.SKIP)
+        # if wants_to_respond:
+        #     # Generate detailed response using LLM
+
+        #     # Extract just the <response> content to send to chat history
+        #     self.add_event(sender=self.name, tag="message",
+        #                    content=response_content)
+        #     self.interview_session.add_message_to_chat_history(
+        #         role=self.title, content=response_reasoning, 
+        #             message_type=MessageType.FEEDBACK)
+        #     self.interview_session.add_message_to_chat_history(
+        #         role=self.title, content=response_content, 
+        #             message_type=MessageType.CONVERSATION)
+
+        # else:
+        #     # We SKIP the response and log a feedback message
+        #     self.interview_session.add_message_to_chat_history(
+        #         role=self.title, content=response_reasoning, 
+        #             message_type=MessageType.FEEDBACK)
+        #     self.interview_session.add_message_to_chat_history(
+        #         role=self.title, message_type=MessageType.SKIP)
 
     def _get_prompt(self, prompt_type: str) -> str:
         """Get the formatted prompt for the LLM"""
