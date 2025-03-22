@@ -297,7 +297,7 @@ class SectionWriter(BiographyTeamAgent):
         """Save the current state of the biography to file."""
         try:
             await self.biography.save(save_markdown=not is_auto_update,
-                                       increment_version=not is_auto_update)
+                                       increment_version=True)
             self.add_event(sender=self.name, tag="save_biography",
                            content=f"Biography saved successfully"
                                     f" (version {self.biography.version})")
