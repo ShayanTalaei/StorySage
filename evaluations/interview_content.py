@@ -25,17 +25,19 @@ EVALUATION_CRITERIA = {
         "description": "How smooth were the topic transitions in the conversation",
         "guidelines": [
             "- Ensure transitions are smooth and natural.",
+            "- Avoid unnecessary transitions when the current topic isn't fully explored and the user remains engaged.",
             "- Avoid reverting to previous topics or introducing new ones during an ongoing story.",
-            "- Switch topics if the user shows disinterest in the current one like only sharing a few words and wanting to skip the question.",
-            "- Avoid repetitive questions on the same topic."
+            "- Only switch topics if the user shows disinterest (e.g., giving brief responses or wanting to skip questions).",
+            "- Avoid repetitive questions on the same topic.",
+            "- Prefer concrete questions over overly open-ended ones that are difficult to answer."
         ]
     },
     "flexibility_score": {
         "description": "How flexible was the interview process in adapting to user responses",
         "guidelines": [
-            "- Adapt flexibly to user responses and ask deeper questions.",
-            "- Change topics if the user is uninterested in the current one.",
-            "- Allow the user to ask questions and express their thoughts."
+            "- Allow the user to ask questions and express thoughts, while avoiding too many broad, high-level questions."
+            "- Adapt flexibly to user responses and ask deeper follow-up questions.",
+            "- Change topics if the user shows disinterest in the current one.",
         ]
     },
     "comforting_score": {
@@ -77,8 +79,10 @@ Interview B:
 ## Output Format
 Use the tool calls to output your evaluation.
 
-Reminder: Just specify A, B, or Tie for the voting, other formats like "Interviewer A", "Interviewer B", "model_A", "model_B", "version_Tie", are not allowed.
-Just specify A, B, or Tie!!!
+Reminder: 
+- Just specify A, B, or Tie for the voting, other formats like "Interviewer A", "Interviewer B", "model_A", "model_B", "version_Tie", are not allowed.
+- Just specify A, B, or Tie!!!
+- Wrap your output in <tool_calls>...</tool_calls> tags.
 
 <tool_calls>
 <smooth_score>

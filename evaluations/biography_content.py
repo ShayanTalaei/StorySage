@@ -90,8 +90,10 @@ Biography B:
 ## Output Format
 Use the tool calls to output your evaluation.
 
-Reminder: Just specify A, B, or Tie for the voting, other formats like "Biography A", "Biography B", "model_A" or "model_B", "version_A" or "model_Tie", are not allowed.
-Just specify A, B, or Tie!!!
+Reminder: 
+- Just specify A, B, or Tie for the voting, other formats like "Biography A", "Biography B", "model_A" or "model_B", "version_A" or "model_Tie", are not allowed.
+- Just specify A, B, or Tie!!!
+- Wrap your output in <tool_calls>...</tool_calls> tags.
 
 <tool_calls>
 <insightfulness_score>
