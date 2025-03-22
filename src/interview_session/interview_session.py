@@ -52,7 +52,7 @@ class InterviewSession:
 
     def __init__(self, interaction_mode: str = 'terminal', user_config: UserConfig = {},
                  interview_config: InterviewConfig = {}, bank_config: BankConfig = {},
-                 use_baseline: Optional[bool] = None):
+                 use_baseline: Optional[bool] = None, max_turns: Optional[int] = None):
         """Initialize the interview session.
 
         Args:
@@ -69,6 +69,8 @@ class InterviewSession:
                 historical_question_bank_type: Type of question bank 
                     Options: "vector_db", etc.
             use_baseline: Whether to use baseline prompt (default: read from .env)
+            max_turns: Optional maximum number of turns before ending session
+                      If None, session continues until manually ended
         """
 
         # Set the baseline mode for all agents
@@ -78,7 +80,7 @@ class InterviewSession:
         else:
             BaseAgent.use_baseline = \
                 os.getenv("USE_BASELINE_PROMPT", "false").lower() == "true"
-
+        
         # User setup
         self.user_id = user_config.get("user_id", "default_user")
 
@@ -116,10 +118,12 @@ class InterviewSession:
         self.chat_history: list[Message] = []
 
         # Session states signals
-        self._interaction_mode = interaction_mode
+        self.interaction_mode = interaction_mode
         self.session_in_progress = True
         self.session_completed = False
         self._session_timeout = False
+        self.max_turns = max_turns
+        self._current_turn_count = 0
 
         # Biography auto-update states
         self.auto_biography_update_in_progress = False
@@ -136,10 +140,8 @@ class InterviewSession:
 
         # Last message timestamp tracking for session timeout
         self._last_message_time = datetime.now()
-        self.timeout_minutes = int(os.getenv("SESSION_TIMEOUT_MINUTES", 10))
-
-        # Response latency tracking for evaluation
         self._last_user_message = None
+        self.timeout_minutes = int(os.getenv("SESSION_TIMEOUT_MINUTES", 10))
 
         # User in the interview session
         if interaction_mode == 'agent':
@@ -263,28 +265,41 @@ class InterviewSession:
             save_feedback_to_csv(
                 self.chat_history[-1], message, self.user_id, self.session_id)
 
-        # Log response latency
-        if message_type == MessageType.CONVERSATION:
-            if role == "User":
-                # Store user message for latency calculation
-                self._last_user_message = message
-            elif role == "Interviewer" and self._last_user_message is not None:
-                # First, calculate and log latency when interviewer responds
-                self._log_response_latency(self._last_user_message, message)
-                self._last_user_message = None
-                
-                # Then, evaluate question duplicate
-                if os.getenv("EVAL_MODE", "FALSE").lower() == "true":
-                    self.historical_question_bank.evaluate_question_duplicate(
-                        message.content
-                    )
-
         # Notify participants if message is a skip or conversation
         if message_type == MessageType.SKIP or \
               message_type == MessageType.CONVERSATION:
+            
+            if role == "User":
+                # Store user message for latency calculation
+                self._last_user_message = message
+            
+            elif role == "Interviewer" and self._last_user_message is not None:
+                # Calculate and log latency when interviewer responds
+                self._log_response_latency(self._last_user_message, message)
+                self._last_user_message = None
+                
+                # Evaluate question duplicate
+                if os.getenv("EVAL_MODE", "FALSE").lower() == "true":
+                    self.historical_question_bank.evaluate_question_duplicate(
+                        message.content
+                    )                
+                
+                # Check if max turns reached
+                self._current_turn_count += 1
+                if self.max_turns is not None and \
+                      self._current_turn_count >= self.max_turns:
+                    SessionLogger.log_to_file(
+                        "execution_log",
+                        f"[TURNS] Maximum turns ({self.max_turns}) reached. Ending session."
+                    )
+                    self.session_in_progress = False
+            
+            # Add message to chat history
             self.chat_history.append(message)
             SessionLogger.log_to_file(
                 "chat_history", f"{message.role}: {message.content}")
+            
+            # Notify participants
             asyncio.create_task(self._notify_participants(message))
 
         # Update last message time when we receive a message
@@ -340,7 +355,7 @@ class InterviewSession:
                 self.session_in_progress = False
 
                 # Update biography (API mode handles this separately)
-                if self._interaction_mode != 'api' or self._session_timeout:
+                if self.interaction_mode != 'api' or self._session_timeout:
                     with contextlib.suppress(KeyboardInterrupt):
                         SessionLogger.log_to_file(
                             "execution_log", 

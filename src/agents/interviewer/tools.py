@@ -46,19 +46,19 @@ class RespondToUser(BaseTool):
     ) -> Any:
         self.on_response(response)
         
-        if self.tts_engine:
-            try:
-                audio_path = await asyncio.to_thread(
-                    self.tts_engine.text_to_speech,
-                    response,
-                    f"{self.base_path}/audio_outputs/response_{int(time.time())}.mp3"
-                )
-                print(f"{GREEN}Audio saved to: {audio_path}{RESET}")
+        # if self.tts_engine:
+        #     try:
+        #         audio_path = await asyncio.to_thread(
+        #             self.tts_engine.text_to_speech,
+        #             response,
+        #             f"{self.base_path}/audio_outputs/response_{int(time.time())}.mp3"
+        #         )
+        #         print(f"{GREEN}Audio saved to: {audio_path}{RESET}")
                 
-                await asyncio.to_thread(self.audio_player.play, audio_path)
+        #         await asyncio.to_thread(self.audio_player.play, audio_path)
                 
-            except Exception as e:
-                print(f"{RED}Failed to generate/play speech: {e}{RESET}")
+        #     except Exception as e:
+        #         print(f"{RED}Failed to generate/play speech: {e}{RESET}")
         
         self.on_turn_complete()
             

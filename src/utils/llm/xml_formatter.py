@@ -3,6 +3,7 @@ from langchain_core.tools import BaseTool
 from pydantic import BaseModel
 import xml.etree.ElementTree as ET
 import json
+import re
 
 from utils.constants.colors import ORANGE, RESET
 
@@ -40,12 +41,23 @@ def parse_tool_calls(xml_string: str) -> Dict[str, Any]:
     """
     Parse XML tool calls with proper XML entity handling
     """
-    # Replace XML entities before parsing
+    # First, identify and escape any < or > within response tags
     xml_string = xml_string.replace('&', '&amp;')
     # xml_string = xml_string.replace('<', '&lt;')
     # xml_string = xml_string.replace('>', '&gt;')
     xml_string = xml_string.replace('"', '&quot;')
     xml_string = xml_string.replace("'", '&apos;')
+    
+    # Find content between <response> tags and escape < and > within it
+    def escape_response_content(match):
+        content = match.group(1)
+        escaped_content = content.replace('<', '&lt;').replace('>', '&gt;')
+        return f"<response>{escaped_content}</response>"
+    
+    xml_string = re.sub(r'<response>(.*?)</response>', 
+                        escape_response_content, 
+                        xml_string, 
+                        flags=re.DOTALL)
     
     root = ET.fromstring(xml_string)
     result = []

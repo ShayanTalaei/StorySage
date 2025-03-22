@@ -10,14 +10,14 @@ This directory contains scripts for running experiments with different configura
 # Basic usage with user ID
 ./scripts/run_experiments.sh --user_id coates
 
-# Specify a custom timeout (in minutes)
-./scripts/run_experiments.sh --user_id coates --timeout 15
+# Specify a custom number of turns
+./scripts/run_experiments.sh --user_id coates --max_turns 30
 
 # Skip baseline experiments (only run our work)
 ./scripts/run_experiments.sh --user_id coates --skip_baseline
 
 # Alternatively, you can run the Python script directly
-python scripts/run_experiments.py --user_id coates --timeout 15
+python scripts/run_experiments.py --user_id coates --max_turns 30
 ```
 
 ### Running a Single Experiment
@@ -32,11 +32,11 @@ python scripts/run_experiments.py --user_id coates --timeout 15
 # Run with baseline prompt
 ./scripts/run_single_experiment.sh --user_id coates --baseline
 
-# Specify a custom timeout (in minutes)
-./scripts/run_single_experiment.sh --user_id coates --timeout 15
+# Specify a custom number of turns
+./scripts/run_single_experiment.sh --user_id coates --max_turns 30
 
 # Alternatively, you can run the Python script directly
-python scripts/run_single_experiment.py --user_id coates --model gpt-4o --baseline --timeout 15
+python scripts/run_single_experiment.py --user_id coates --model gpt-4o --baseline --max_turns 30
 ```
 
 ## Running Comparisons Evaluations
@@ -73,7 +73,7 @@ python scripts/run_single_experiment.py --user_id coates --model gpt-4o --baseli
 ### Multiple Experiments
 
 - `--user_id`: (Required) User ID for the experiment
-- `--timeout`: (Optional) Timeout in minutes for each session (default: 8)
+- `--max_turns`: (Optional) Maximum number of turns for each session (default: 30)
 - `--skip_baseline`: (Optional) Skip baseline experiments
 - `--restart`: (Optional) Clear existing user data before running
 
@@ -82,7 +82,7 @@ python scripts/run_single_experiment.py --user_id coates --model gpt-4o --baseli
 - `--user_id`: (Required) User ID for the experiment
 - `--model`: (Optional) Model to use (default: gpt-4o)
 - `--baseline`: (Optional) Use baseline prompt
-- `--timeout`: (Optional) Timeout in minutes for the session (default: 8)
+- `--max_turns`: (Optional) Maximum number of turns for the session (default: 30)
 - `--restart`: (Optional) Clear existing user data before running
 
 ## Experiment Configurations
@@ -118,7 +118,7 @@ After each experiment, the scripts run the following evaluations:
 
 ```bash
 # Run experiments for a user
-./scripts/run_experiments.sh --user_id coates --timeout 10
+./scripts/run_experiments.sh --user_id coates --max_turns 30
 
 # Analyze the results
 ./scripts/analyze_results.sh coates
@@ -126,7 +126,7 @@ After each experiment, the scripts run the following evaluations:
 
 ## Important Notes
 
-1. The scripts properly end each session by sending a keyboard interrupt (Ctrl+C) signal, which allows the application to perform necessary cleanup operations before terminating.
+1. The scripts end each session after the specified number of turns is reached, allowing for consistent and comparable experiments.
 
 2. When analyzing results:
    - Baseline experiments are identified by logs in `logs_*` directories

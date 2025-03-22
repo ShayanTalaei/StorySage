@@ -19,7 +19,7 @@ engine_constructor = {
     "meta-llama/Llama-3.1-70B-Instruct": ChatTogether,
 }
 
-def get_engine(model_name: str=os.getenv("MODEL_NAME", "gpt-4o"), **kwargs):
+def get_engine(model_name, **kwargs):
     """
     Creates and returns a language model engine based on the specified model name.
 

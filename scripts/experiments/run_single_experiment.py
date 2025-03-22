@@ -16,10 +16,11 @@ def main():
                         help="Model to use (default: gpt-4o)")
     parser.add_argument("--baseline", action="store_true", 
                         help="Use baseline prompt")
-    parser.add_argument("--timeout", type=int, default=10, 
-                        help="Timeout in minutes for the session")
+    parser.add_argument("--max_turns", type=int, required=True, 
+                        help="Maximum number of turns for the session")
     parser.add_argument("--restart", action="store_true",
-                        help="Clear existing user data before running")
+                        help="Clear existing user data before running",
+                        default=False)
     args = parser.parse_args()
     
     # Create a backup of the original .env file
@@ -38,7 +39,7 @@ def main():
         run_experiment(args.user_id, 
                       args.model, 
                       args.baseline, 
-                      args.timeout,
+                      args.max_turns,
                       args.restart)
         
         print("\nExperiment completed!")

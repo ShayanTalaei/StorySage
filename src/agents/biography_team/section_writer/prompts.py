@@ -100,6 +100,11 @@ INPUT_CONTEXT = """\
 <input_context>
 {section_identifier_xml}
 
+The structure of the existing biography:
+<biography_structure>
+{biography_structure}
+</biography_structure>
+
 <current_content>
 {current_content}
 </current_content>
@@ -117,6 +122,12 @@ INPUT_CONTEXT = """\
 # Baseline input context component - simplified with new_information and full biography content
 BASELINE_INPUT_CONTEXT = """\
 <input_context>
+
+The structure of the existing biography:
+<biography_structure>
+{biography_structure}
+</biography_structure>
+
 <new_information>
 {new_information}
 </new_information>
@@ -386,6 +397,12 @@ You must only write content based on actual memories - no speculation or halluci
 
 USER_ADD_SECTION_INPUT_CONTEXT = """\
 <input_context>
+
+The structure of the existing biography:
+<biography_structure>
+{biography_structure}
+</biography_structure>
+
 <section_path>
 {section_path}
 </section_path>
@@ -479,6 +496,12 @@ You must only write content based on actual memories - no speculation or halluci
 
 USER_COMMENT_EDIT_INPUT_CONTEXT = """\
 <input_context>
+
+The structure of the existing biography:
+<biography_structure>
+{biography_structure}
+</biography_structure>
+
 <section_title>
 {section_title}
 </section_title>

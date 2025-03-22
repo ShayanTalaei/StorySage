@@ -232,14 +232,17 @@ class BiographyPlanner(BiographyTeamAgent):
         return get_prompt(prompt_type).format(**prompt_params)
 
     def _handle_plan_added(self, new_plan: Plan) -> None:
-        """Handle adding a new plan, replacing any existing plans for the same section."""
+        """Handle adding a new plan, replacing any existing plans for the same section.
+        Because the agent always think the plans are already executed and 
+        sections are already written which leads some non-existing sections error."""
         # Find any existing plans for the same section
         for i, existing_plan in enumerate(self.plans):
             if (
                 (new_plan.section_path and \
                  new_plan.section_path == existing_plan.section_path) or
                 (new_plan.section_title and \
-                 new_plan.section_title == existing_plan.section_title)
+                 (new_plan.section_title == existing_plan.section_title or
+                  new_plan.section_title in existing_plan.section_path))
             ):
                 # Merge memory_ids
                 merged_memory_ids = list(set(
@@ -249,8 +252,7 @@ class BiographyPlanner(BiographyTeamAgent):
 
                 # Combine update plans if they're different
                 merged_update_plan = existing_plan.update_plan
-                if new_plan.update_plan and \
-                    new_plan.update_plan != existing_plan.update_plan:
+                if new_plan.update_plan != existing_plan.update_plan:
                     merged_update_plan = (f"{existing_plan.update_plan}\n\n"
                                           f"{new_plan.update_plan}")
 

@@ -160,8 +160,9 @@ class BiographyOrchestrator:
             self.biography_update_in_progress = True
             self.session_note_update_in_progress = True
 
-            # Simulate disabling auto-updates in baseline mode
-            if wait_time and self._section_writer.use_baseline:
+            # Simulate baseline mode without auto-updates for web user testing
+            if wait_time and self._section_writer.use_baseline and \
+                    self._interview_session.interaction_mode == "api":
                 start_time = time.time()
                 await asyncio.sleep(wait_time)
                 actual_wait = time.time() - start_time
