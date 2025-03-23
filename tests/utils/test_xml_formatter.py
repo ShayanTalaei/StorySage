@@ -9,7 +9,7 @@ def test_memory_ids_extraction_formats():
             <action_type>create</action_type>
             <section_path>2 Education</section_path>
             <memory_ids>["MEM_03082002_OC5", "MEM_03082002_3B8", "MEM_03082002_83Q"]</memory_ids>
-            <update_plan>Create a section about education</update_plan>
+            <plan_content>Create a section about education</plan_content>
         </add_plan>
     </tool_calls>"""
     
@@ -19,7 +19,7 @@ def test_memory_ids_extraction_formats():
             <action_type>create</action_type>
             <section_path>2 Education</section_path>
             <memory_ids>[MEM_03082002_OC5, MEM_03082002_3B8, MEM_03082002_83Q]</memory_ids>
-            <update_plan>Create a section about education</update_plan>
+            <plan_content>Create a section about education</plan_content>
         </add_plan>
     </tool_calls>"""
     
@@ -29,7 +29,7 @@ def test_memory_ids_extraction_formats():
             <action_type>create</action_type>
             <section_path>2 Education</section_path>
             <memory_ids>[MEM_03082002_OC5]</memory_ids>
-            <update_plan>Create a section about education</update_plan>
+            <plan_content>Create a section about education</plan_content>
         </add_plan>
     </tool_calls>"""
     
@@ -96,19 +96,19 @@ def test_normal_parameter_extraction():
             <action_type>create</action_type>
             <section_path>2 Education</section_path>
             <memory_ids>["MEM_03082002_OC5", "MEM_03082002_3B8"]</memory_ids>
-            <update_plan>Create a section about education</update_plan>
+            <plan_content>Create a section about education</plan_content>
         </add_plan>
     </tool_calls>"""
     
     # Extract different parameters
     section_path_result = extract_tool_arguments(response, "add_plan", "section_path")
     action_type_result = extract_tool_arguments(response, "add_plan", "action_type")
-    update_plan_result = extract_tool_arguments(response, "add_plan", "update_plan")
+    plan_content_result = extract_tool_arguments(response, "add_plan", "plan_content")
     
     # Assertions for normal string parameters
     assert section_path_result[0] == "2 Education", "Section path not correctly extracted"
     assert action_type_result[0] == "create", "Action type not correctly extracted"
-    assert update_plan_result[0] == "Create a section about education", "Update plan not correctly extracted"
+    assert plan_content_result[0] == "Create a section about education", "Update plan not correctly extracted"
     
     # Test with multiple tool calls
     multi_response = """<tool_calls>

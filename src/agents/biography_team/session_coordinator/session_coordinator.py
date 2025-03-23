@@ -8,7 +8,7 @@ from agents.biography_team.session_coordinator.prompts import (
     TOPIC_EXTRACTION_PROMPT
 )
 from agents.biography_team.session_coordinator.tools import UpdateLastMeetingSummary, UpdateUserPortrait, DeleteInterviewQuestion
-from agents.shared.feedback_prompts import SIMILAR_QUESTIONS_WARNING, WARNING_OUTPUT_FORMAT
+from agents.shared.feedback_prompts import SIMILAR_QUESTIONS_WARNING, QUESTION_WARNING_OUTPUT_FORMAT
 from content.memory_bank.memory import Memory
 from agents.biography_team.models import FollowUpQuestion
 from agents.shared.memory_tools import Recall
@@ -267,6 +267,6 @@ class SessionCoordinator(BiographyTeamAgent):
             ]),
             event_stream="\n".join(events[-10:]),
             similar_questions_warning=warning,
-            warning_output_format=WARNING_OUTPUT_FORMAT if similar_questions else "",
+            warning_output_format=QUESTION_WARNING_OUTPUT_FORMAT if similar_questions else "",
             tool_descriptions=self.get_tools_description(question_tool_names)
         )

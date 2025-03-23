@@ -37,7 +37,7 @@ class AddPlanInput(BaseModel):
             "Empty list [] is also acceptable."
         )
     )
-    update_plan: str = Field(description="Detailed plan for updating/creating the section")
+    plan_content: str = Field(description="Detailed plan for updating/creating the section")
 
 class AddPlan(BaseTool):
     """Tool for adding a biography update plan."""
@@ -70,7 +70,7 @@ class AddPlan(BaseTool):
     def _run(
         self,
         action_type: str,
-        update_plan: str,
+        plan_content: str,
         section_path: Optional[str] = "",
         section_title: Optional[str] = "",
         memory_ids: Optional[Union[List[str], str]] = [],
@@ -83,7 +83,7 @@ class AddPlan(BaseTool):
                 "section_path": section_path,
                 "section_title": section_title,
                 "memory_ids": memory_ids,
-                "update_plan": update_plan
+                "plan_content": plan_content
             }
             self.on_plan_added(Plan(**plan))
             return f"Successfully added plan for {section_title or section_path}"

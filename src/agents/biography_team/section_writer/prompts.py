@@ -113,9 +113,9 @@ The structure of the existing biography:
 {relevant_memories}
 </relevant_memories>
 
-<update_plan>
-{update_plan}
-</update_plan>
+<plan_content>
+{plan_content}
+</plan_content>
 </input_context>
 """
 
@@ -407,9 +407,9 @@ The structure of the existing biography:
 {section_path}
 </section_path>
 
-<update_plan>
-{update_plan}
-</update_plan>
+<plan_content>
+{plan_content}
+</plan_content>
 
 Memory search results from the previous recalls:
 <event_stream>
@@ -510,9 +510,9 @@ The structure of the existing biography:
 {current_content}
 </current_content>
 
-<update_plan>
-{update_plan}
-</update_plan>
+<plan_content>
+{plan_content}
+</plan_content>
 
 Memory search results from the previous recalls:
 <event_stream>

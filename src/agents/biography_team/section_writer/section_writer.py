@@ -172,7 +172,7 @@ class SectionWriter(BiographyTeamAgent):
                     user_portrait=self._session_note \
                         .get_user_portrait_str(),
                     section_path=todo_item.section_path,
-                    update_plan=todo_item.update_plan,
+                    plan_content=todo_item.plan_content,
                     event_stream=events_str,
                     biography_structure=json.dumps(
                         self.get_biography_structure(), indent=2
@@ -200,7 +200,7 @@ class SectionWriter(BiographyTeamAgent):
                         .get_user_portrait_str(),
                     section_title=todo_item.section_title,
                     current_content=current_content,
-                    update_plan=todo_item.update_plan,
+                    plan_content=todo_item.plan_content,
                     event_stream=events_str,
                     biography_structure=json.dumps(
                         self.get_biography_structure(), indent=2
@@ -270,7 +270,7 @@ class SectionWriter(BiographyTeamAgent):
                     section_identifier_xml=section_identifier_xml,
                     current_content=current_content,
                     relevant_memories=relevant_memories,
-                    update_plan=todo_item.update_plan,
+                    plan_content=todo_item.plan_content,
                     biography_structure=json.dumps(
                         self.get_biography_structure(), indent=2
                     ),

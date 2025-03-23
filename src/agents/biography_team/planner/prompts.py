@@ -294,7 +294,7 @@ Important:
     <add_plan>
         <action_type>user_add</action_type>
         <section_path>{section_path}</section_path>
-        <update_plan>...</update_plan>
+        <plan_content>...</plan_content>
     </add_plan>
 </tool_calls>
 </output_format>
@@ -314,11 +314,11 @@ Provide your response using tool calls:
     <add_plan>
         <action_type>user_update</action_type>
         <section_title>{section_title}</section_title>
-        <update_plan>
+        <plan_content>
         Create a plan to to include:
         1. Context Summary: ...
         2. Action Plan: ...
-        </update_plan>
+        </plan_content>
     </add_plan>
 </tool_calls>
 """
