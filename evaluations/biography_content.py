@@ -97,16 +97,16 @@ Reminder:
 
 <tool_calls>
 <insightfulness_score>
-    <voting>A or B or Tie</voting>
     <explanation>Your explanation comparing both biographies</explanation>
+    <voting>A or B or Tie</voting>
 </insightfulness_score>
 <narrativity_score>
-    <voting>A or B or Tie</voting>
     <explanation>Your explanation comparing both biographies</explanation>
+    <voting>A or B or Tie</voting>
 </narrativity_score>
 <coherence_score>
-    <voting>A or B or Tie</voting>
     <explanation>Your explanation comparing both biographies</explanation>
+    <voting>A or B or Tie</voting>
 </coherence_score>
 </tool_calls>
 """
@@ -288,7 +288,7 @@ async def evaluate_biography_pair(user_id: str, pair: Dict[str, Any], our_versio
         )
         
         # Get engine
-        engine = get_engine("gpt-4o")
+        engine = get_engine("gpt-4o", temperature=0.5)
         
         # Call engine
         print(f"Evaluating biography pair for user {user_id}...")

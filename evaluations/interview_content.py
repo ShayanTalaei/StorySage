@@ -86,16 +86,16 @@ Reminder:
 
 <tool_calls>
 <smooth_score>
-    <voting>A or B or Tie</voting>
     <explanation>Your explanation comparing both interviews</explanation>
+    <voting>A or B or Tie</voting>
 </smooth_score>
 <flexibility_score>
-    <voting>A or B or Tie</voting>
     <explanation>Your explanation comparing both interviews</explanation>
+    <voting>A or B or Tie</voting>
 </flexibility_score>
 <comforting_score>
-    <voting>A or B or Tie</voting>
     <explanation>Your explanation comparing both interviews</explanation>
+    <voting>A or B or Tie</voting>
 </comforting_score>
 </tool_calls>
 """
@@ -264,7 +264,7 @@ async def evaluate_interview_pair(user_id: str, session_id: int, pair: Dict[str,
         )
         
         # Get engine
-        engine = get_engine("gpt-4o")
+        engine = get_engine("gpt-4o", temperature=0.5)
         
         # Call engine
         print(f"Evaluating interview pair for user {user_id},"
