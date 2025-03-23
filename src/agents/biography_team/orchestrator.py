@@ -182,15 +182,13 @@ class BiographyOrchestrator:
             await self.update_biography_with_memories(new_memories)
             
             # Save session note of the current session
-            self._interview_session.session_note.save()
+            self._interview_session.session_note.save(save_type="updated")
 
             # Skip session note update if baseline is used or no new memories
             if not new_memories or self._section_writer.use_baseline:
                 if new_memories:
                     await self._session_coordinator.update_session_summary(new_memories)
-                self._interview_session.session_note.save(
-                    increment_session_id=True
-                )
+                self._interview_session.session_note.save(save_type="next_version")
                 return
 
             # Process session note update
@@ -206,7 +204,7 @@ class BiographyOrchestrator:
             await session_note_task
 
             # Save session note of the next session
-            self._interview_session.session_note.save(increment_session_id=True)
+            self._interview_session.session_note.save(save_type="next_version")
 
         finally:
             # Make sure both flags are cleared in case of errors
