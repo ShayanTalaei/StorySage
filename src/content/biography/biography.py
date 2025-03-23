@@ -400,7 +400,8 @@ class Biography:
         return _build_section_dict(self.root)
 
     async def add_section(self, path: str, content: str = "") -> Section:
-        """Add a new section at the specified path, creating parent sections if they don't exist."""
+        """Add a new section at the specified path, creating parent sections if they don't exist.
+        If section already exists, updates its content without modifying subsections."""
         await self._increment_pending_writes()
         try:
             async with self._write_lock:
@@ -425,6 +426,14 @@ class Biography:
                         new_parent = Section(part, "", current)
                         current.subsections[part] = new_parent
                     current = current.subsections[part]
+                
+                # If section already exists, just update content
+                if path_parts[-1] in current.subsections:
+                    if content:  # Only update if new content provided
+                        current.subsections[path_parts[-1]].content = content
+                        current.subsections[path_parts[-1]].last_edit = \
+                            datetime.now().isoformat()
+                    return current.subsections[path_parts[-1]]
                 
                 # Create and add the new section
                 new_section = Section(title, content, current)
