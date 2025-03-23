@@ -263,7 +263,10 @@ class SessionNote:
         for part in parts[1:]:
             if not current:
                 return None
-            current = next((q for q in current.sub_questions if q.question_id.endswith(part)), None)
+            current = next(
+                (q for q in current.sub_questions if q.question_id.endswith(part)),
+                None
+            )
             
         return current
         
@@ -273,11 +276,11 @@ class SessionNote:
         Args:
             increment_session_id: If True, increments the session_id before saving
         """
-        if increment_session_id:
-            self.session_id += 1
+        save_session_id = str(self.session_id + 1) if increment_session_id \
+                          else str(self.session_id) + "_updated"
         
         base_path = os.path.join(LOGS_DIR, self.user_id, "session_notes")
-        file_path = os.path.join(base_path, f"session_{self.session_id}.json")
+        file_path = os.path.join(base_path, f"session_{save_session_id}.json")
         
         if not os.path.exists(base_path):
             os.makedirs(base_path)
@@ -285,7 +288,7 @@ class SessionNote:
         # Prepare data for serialization
         data = {
             "user_id": self.user_id,
-            "session_id": self.session_id,
+            "session_id": save_session_id,
             "user_portrait": self.user_portrait,
             "last_meeting_summary": self.last_meeting_summary,
             "additional_notes": self.additional_notes,
