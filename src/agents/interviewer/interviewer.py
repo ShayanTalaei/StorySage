@@ -10,6 +10,7 @@ from agents.interviewer.tools import EndConversation, RespondToUser
 from agents.shared.memory_tools import Recall
 from utils.llm.prompt_utils import format_prompt
 from interview_session.session_models import Participant, Message
+from utils.llm.xml_formatter import extract_tool_arguments
 from utils.logger.session_logger import SessionLogger
 from utils.constants.colors import GREEN, RESET
 
@@ -80,6 +81,8 @@ class Interviewer(BaseAgent, Participant):
             role=self.title,
             content=response
         )
+        self.add_event(sender=self.name, tag="message",
+                       content=response)
 
     async def on_message(self, message: Message):
 
@@ -99,10 +102,7 @@ class Interviewer(BaseAgent, Participant):
             self.add_event(sender=self.name, tag="llm_prompt", content=prompt)
             response = await self.call_engine_async(prompt)
             print(f"{GREEN}Interviewer:\n{response}{RESET}")
-
-            self.add_event(sender=self.name, tag="llm_response",
-                           content=response)
-            
+   
             try:
                 await self.handle_tool_calls_async(response)
             except Exception as e:

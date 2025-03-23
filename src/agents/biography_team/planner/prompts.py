@@ -124,6 +124,10 @@ New memories collected from the user interview:
 - How to maintain narrative flow and coherence
 - For new sections, ensure sequential numbering (cannot create section 3 if 1 and 2 don't exist)
 
+### Reminders:
+- For basic information like the user's name, append it to an main section rather than creating a dedicated introduction section
+- Avoid creating new sections with fewer than 3 memories to maintain substantive content
+
 ## 2. Add Follow-Up Questions:
 - Aim to further explore the user's background
 - Be clear, direct, and concise

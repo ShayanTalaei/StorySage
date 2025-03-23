@@ -165,7 +165,7 @@ async def get_interview_content(user_id: str, session_id: int, model_name: Optio
         model_name: Optional model name for loading from baseline directories
         
     Returns:
-        Interview content from chat history
+        Interview content from chat history with timestamps and log levels removed
     """
     # Determine the base path based on model name
     if model_name:
@@ -180,10 +180,19 @@ async def get_interview_content(user_id: str, session_id: int, model_name: Optio
     if not chat_history_path.exists():
         raise FileNotFoundError(f"Chat history not found at {chat_history_path}")
     
-    # Read first 100 lines of chat history
+    # Read first 200 lines of chat history and clean up the format
+    cleaned_lines = []
     with open(chat_history_path, "r", encoding="utf-8") as f:
-        lines = f.readlines()[:200]  # Limit to first 100 lines
-        return "".join(lines)
+        lines = f.readlines()[:200]
+        for line in lines:
+            # Remove timestamp and log level using split
+            parts = line.split(" - INFO - ", 1)
+            if len(parts) > 1:
+                cleaned_lines.append(parts[1])
+            else:
+                cleaned_lines.append(line)  # Keep original line if pattern not found
+    
+    return "".join(cleaned_lines)
 
 async def prepare_interview_pairs(user_id: str, session_id: int) -> List[Dict[str, Any]]:
     """Prepare pairs of interviews (ours vs baselines) for voting.

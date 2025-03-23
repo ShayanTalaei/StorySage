@@ -30,6 +30,38 @@ Let's define groundedness mathematically:
 4. The groundedness score is calculated as:
 
 \[ \text{Groundedness Score} = \frac{|B_{\text{substantiated}}|}{|B|} \times 100 \]
+
+### Reasonable Inference
+Reasonable inference is allowed, especially in impact descriptions and contextual connections. Examples:
+
+1. Paraphrasing with equivalent meaning:
+   - Memory: "I was born in Baltimore, where my family played a pivotal role in shaping who I am today."
+   - Valid inference: "Growing up in Baltimore played a significant role in shaping who I am today."
+
+2. Logical extensions from explicit statements:
+   - Memory: "I spent four years studying computer science at MIT, graduating in 2010."
+   - Valid inference: "My education at MIT provided me with a strong foundation in computer science."
+
+3. Contextual connections between related memories:
+   - Memory: "I worked 80-hour weeks during my first year at the startup."
+   - Valid inference: "The demanding schedule at the startup required significant personal sacrifice."
+
+4. Impact on personal development:
+  - Please DON'T be too strict on personal development claims since they are inherently subjective and not directly supported by memories. Weak connections are acceptable.
+
+   - Memory: "My father published many books about African-American history and we discussed them often."
+   - Valid inference: "It instilled in me a profound understanding of African-American history and culture."
+
+   - Memory: "I was surrounded by books and ideas at my father's publishing company."
+   - Valid inference: "This environment instilled in me a profound understanding of literature and culture."
+
+5. General framing statements in introductions:
+   - Valid statements: "This biography explores various aspects of my life journey" or "The following sections describe my personal and professional development"
+   - These framing statements help orient the reader and are acceptable even without specific memory support
+
+All reasonable inferences are acceptable, particularly when describing how experiences shaped the person's understanding, values, or perspective.
+
+Avoid unsupported claims about specific achievements, relationships, or emotional impacts not mentioned in the memories.
 """
 
 GROUNDEDNESS_IO = r"""
