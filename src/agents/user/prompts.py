@@ -65,7 +65,7 @@ Here are summaries from your previous interview sessions:
 """
 
 CHAT_HISTORY = """
-Here is the conversation history of your interview session so far, along with your evaluation of the interviewer's last question:
+Here is the conversation history of your interview session so far. You are the <UserAgent>  in the chat history and you need to respond to the interviewer's last question.
 <chat_history>
 {chat_history}
 </chat_history>

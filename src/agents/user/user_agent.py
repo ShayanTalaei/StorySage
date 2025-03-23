@@ -89,6 +89,8 @@ class UserAgent(BaseAgent, User):
         response = await self.call_engine_async(prompt)
         self.add_event(sender=self.name,
                        tag="respond_to_question_response", content=response)
+        self.add_event(sender=self.name,
+                       tag="message", content=response)
 
         # Wait to mimic natural response time
         await asyncio.sleep(3)

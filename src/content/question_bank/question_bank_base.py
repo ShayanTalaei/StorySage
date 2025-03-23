@@ -211,7 +211,7 @@ class QuestionBankBase(ABC):
         
         # Parse XML response
         root = ET.fromstring(output)
-        is_duplicate = root.find('is_duplicate').text.lower() == 'true'
+        is_duplicate = "true" in root.find('is_duplicate').text.lower()
         matched_question = root.find('matched_question').text
         explanation = root.find('explanation').text
         

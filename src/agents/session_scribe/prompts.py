@@ -342,11 +342,11 @@ CONSIDER_AND_PROPOSE_FOLLOWUPS_PROMPT = """
 
 {QUESTIONS_AND_NOTES}
 
-{similar_questions_warning}
-
 {TOOL_DESCRIPTIONS}
 
 {INSTRUCTIONS}
+
+{similar_questions_warning}
 
 {OUTPUT_FORMAT}
 """

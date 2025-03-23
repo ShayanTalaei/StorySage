@@ -135,7 +135,7 @@ class InterviewSession:
         
         # Counter for user messages to trigger auto-updates check
         self._user_message_count = 0
-        self._check_interval = max(1, self.memory_threshold // 4)
+        self._check_interval = max(1, self.memory_threshold // 5)
         self._accumulated_auto_update_time = 0
 
         # Last message timestamp tracking for session timeout

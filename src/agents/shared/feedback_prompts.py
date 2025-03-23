@@ -98,10 +98,9 @@ Action Required:
 </missing_memories_warning>
 """
 
-WARNING_OUTPUT_FORMAT = """
+QUESTION_WARNING_OUTPUT_FORMAT = """
 About the warning:
-If you choose to proceed without addressing the warning, append the XML tag: <proceed>true</proceed>.
-Omit this tag if you are addressing the warning.
+If you are sure that you addressed the warning and want to proceed, append the XML tag: <proceed>true</proceed>.
 """
 
 SECTION_WRITER_TOOL_CALL_ERROR = """\
@@ -119,7 +118,11 @@ This is your previous tool call:
    • Path: Full hierarchy with '/' separators (Example: '1 Early Life/1.1 Childhood')
    • Title: Only the section heading (Example: '1.1 Childhood')
 
-2. Always Include Section Numbers:
+2. Update vs Create - Important Distinction:
+   • Update: Use the `update_section` tool to modify an existing section.
+   • Create: Use the `add_section` tool to add a new section.
+
+3. Always Include Section Numbers:
    • Incorrect: 'Early Childhood Experiences'
    • Correct: '1.1 Early Childhood Experiences'
 
