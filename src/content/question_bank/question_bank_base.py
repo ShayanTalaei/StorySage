@@ -183,9 +183,6 @@ class QuestionBankBase(ABC):
 
         # Get similar questions
         similar_results = self.search_questions(target_question)
-        
-        if not similar_results:
-            return (False, "", "No similar questions found")
             
         # Format similar questions for prompt
         similar_questions = "\n".join([
@@ -196,7 +193,8 @@ class QuestionBankBase(ABC):
         # Prepare prompt
         prompt = QUESTION_SIMILARITY_PROMPT.format(
             target_question=target_question,
-            similar_questions=similar_questions
+            similar_questions=similar_questions if similar_questions \
+                else "No similar questions found"
         )
         
         # Get evaluation from LLM and parse response
