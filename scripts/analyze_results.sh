@@ -35,6 +35,7 @@ CONV_COMMAND="python ${SCRIPT_DIR}/analysis/conversation_stats.py --user_ids ${U
 BIO_COMMAND="python ${SCRIPT_DIR}/analysis/biography_quality.py --user_ids ${USER_IDS_STR} ${BIO_VERSION}"
 QUEST_COMMAND="python ${SCRIPT_DIR}/analysis/question_repetition.py --user_ids ${USER_IDS_STR}"
 LATENCY_COMMAND="python ${SCRIPT_DIR}/analysis/latency_plot.py --user_ids ${USER_IDS_STR}"
+QUEST_PLOT_COMMAND="python ${SCRIPT_DIR}/analysis/question_repetition_plot.py --user_ids ${USER_IDS_STR}"
 PROG_COMMAND="python ${SCRIPT_DIR}/analysis/biography_progression_plot.py --user_ids ${USER_IDS_STR}"
 
 # Run conversation statistics analysis
@@ -52,6 +53,10 @@ eval "$QUEST_COMMAND"
 # Run latency analysis
 echo -e "\nRunning latency analysis..."
 eval "$LATENCY_COMMAND"
+
+# Run question repetition plot analysis
+echo -e "\nRunning question repetition plot analysis..."
+eval "$QUEST_PLOT_COMMAND"
 
 # Run biography progression analysis
 echo -e "\nRunning biography progression analysis..."
