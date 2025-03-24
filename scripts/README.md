@@ -66,6 +66,9 @@ python scripts/run_single_experiment.py --user_id coates --model gpt-4o --baseli
 
 # Analyze results for multiple users
 ./scripts/analyze_results.sh coates ellie alex
+
+# Specify a specific biography version
+./scripts/analyze_results.sh coates --bio_version 2
 ```
 
 ## Parameters

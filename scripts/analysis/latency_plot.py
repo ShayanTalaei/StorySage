@@ -4,7 +4,7 @@ import argparse
 import pandas as pd
 import matplotlib.pyplot as plt
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict
 import re
 
 def get_model_name(directory: str) -> str:
@@ -74,15 +74,6 @@ def plot_session_latencies(latency_data: Dict[str, pd.DataFrame], user_id: str):
             
             # Add mean line
             plt.axhline(y=mean_latency, color=color, linestyle='--', alpha=0.3)
-            
-            # Print model statistics
-            print(f"\nSession {session_id} - {model_name} Statistics:")
-            print(f"Number of turns: {len(turns)}")
-            print(f"Mean latency: {mean_latency:.2f}s")
-            print(f"Median latency: {median_latency:.2f}s")
-            print(f"Standard deviation: {std_latency:.2f}s")
-            print(f"Max latency: {latencies.max():.2f}s")
-            print(f"Min latency: {latencies.min():.2f}s")
             
             # Annotate significant spikes
             threshold = mean_latency + 2 * std_latency
