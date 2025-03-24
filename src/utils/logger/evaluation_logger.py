@@ -483,6 +483,7 @@ class EvaluationLogger:
             if not file_exists:
                 headers = [
                     'Timestamp',
+                    'Session ID',
                     'Model A',
                     'Model B',
                     'Smooth Score Winner',
@@ -512,6 +513,7 @@ class EvaluationLogger:
             # Write row
             row = [
                 timestamp.isoformat(),
+                self.session_id,
                 model_a,
                 model_b,
                 smooth_winner,

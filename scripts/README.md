@@ -54,8 +54,8 @@ python scripts/run_single_experiment.py --user_id coates --model gpt-4o --baseli
 # Run with specific number of comparisons
 ./scripts/run_comparisons.sh coates --run_times 20
 
-# Run with specific biography version
-./scripts/run_comparisons.sh coates --bio_version 2
+# Run with specific session ID (will use same version for biography)
+./scripts/run_comparisons.sh coates --session_id 2
 ```
 
 ### Analyzing Results
@@ -67,8 +67,8 @@ python scripts/run_single_experiment.py --user_id coates --model gpt-4o --baseli
 # Analyze results for multiple users
 ./scripts/analyze_results.sh coates ellie alex
 
-# Specify a specific biography version
-./scripts/analyze_results.sh coates --bio_version 2
+# Specify a specific session/biography version
+./scripts/analyze_results.sh coates --session_id 2
 ```
 
 ## Parameters
@@ -87,6 +87,12 @@ python scripts/run_single_experiment.py --user_id coates --model gpt-4o --baseli
 - `--baseline`: (Optional) Use baseline prompt
 - `--max_turns`: (Optional) Maximum number of turns for the session (default: 30)
 - `--restart`: (Optional) Clear existing user data before running
+
+### Comparisons
+
+- `--run_times`: (Optional) Number of comparison runs to perform (default: 10)
+- `--session_id`: (Optional) Session ID to use (will use same version for biography)
+- `--type`: (Optional) Type of comparisons to run: "all", "bio", or "interview" (default: all)
 
 ## Experiment Configurations
 
@@ -123,8 +129,11 @@ After each experiment, the scripts run the following evaluations:
 # Run experiments for a user
 ./scripts/run_experiments.sh --user_id coates --max_turns 30
 
+# Run comparisons for session 2
+./scripts/run_comparisons.sh coates --session_id 2
+
 # Analyze the results
-./scripts/analyze_results.sh coates
+./scripts/analyze_results.sh coates --session_id 2
 ```
 
 ## Important Notes
@@ -134,4 +143,6 @@ After each experiment, the scripts run the following evaluations:
 2. When analyzing results:
    - Baseline experiments are identified by logs in `logs_*` directories
    - Our work is identified by logs in the main `logs` directory
-   - Statistics are averaged across sessions and experiments 
+   - Statistics are averaged across sessions and experiments
+   
+3. When using `--session_id`, the same ID will be used for both interview comparisons and biography version to ensure consistency 

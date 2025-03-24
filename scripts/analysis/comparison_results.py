@@ -5,11 +5,12 @@ from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 from collections import defaultdict
 
-def load_interview_comparisons(user_id: str) -> Dict[str, Dict[str, Tuple[int, int, int]]]:
+def load_interview_comparisons(user_id: str, session_id: Optional[int] = None) -> Dict[str, Dict[str, Tuple[int, int, int]]]:
     """Load interview comparison results for a user.
     
     Args:
         user_id: The user ID to analyze
+        session_id: Optional specific session ID to analyze
         
     Returns:
         Dictionary mapping baseline models to their metrics (wins, ties, total)
@@ -23,6 +24,10 @@ def load_interview_comparisons(user_id: str) -> Dict[str, Dict[str, Tuple[int, i
     
     if comparison_file.exists():
         df = pd.read_csv(comparison_file)
+        
+        # Filter by session ID if specified
+        if session_id is not None:
+            df = df[df['Session ID'] == session_id]
         
         for _, row in df.iterrows():
             # Determine which model is baseline and get voting results
@@ -213,6 +218,8 @@ def main():
                       help='One or more user IDs to analyze')
     parser.add_argument('--biography_version', type=int,
                       help='Specific biography version to analyze')
+    parser.add_argument('--session_id', type=int,
+                      help='Specific session ID to analyze for interviews')
     args = parser.parse_args()
     
     # Aggregate results across all users
@@ -221,7 +228,7 @@ def main():
     
     for user_id in args.user_ids:
         # Load interview comparisons
-        interview_results = load_interview_comparisons(user_id)
+        interview_results = load_interview_comparisons(user_id, args.session_id)
         
         # Load biography comparisons
         biography_results = load_biography_comparisons(user_id, 
