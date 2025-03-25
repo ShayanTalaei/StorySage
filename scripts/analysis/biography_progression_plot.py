@@ -110,8 +110,13 @@ def plot_metrics_progression(metrics_data: Dict[str, Dict[int, Dict[str, float]]
         plt.grid(True, linestyle='--', alpha=0.7)
         plt.legend(fontsize=10, loc='upper left', bbox_to_anchor=(1, 1))
         
-        # Set y-axis range from 0 to 100
-        plt.ylim(0, 100)
+        # Set y-axis range dynamically based on data
+        all_values = [val for model_data in metrics_data.values() 
+                     for session in model_data.values() 
+                     if metric in session
+                     for val in [session[metric]]]
+        min_y = max(min(all_values) - 5, 0)  # Add 5% padding below, but don't go below 0
+        plt.ylim(min_y, 100)
         
         # Set x-axis to show all session numbers
         all_sessions = {num for model_data in metrics_data.values() 

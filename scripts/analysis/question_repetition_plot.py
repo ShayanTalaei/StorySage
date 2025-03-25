@@ -41,14 +41,13 @@ def load_question_data(user_id: str, model_name: Optional[str] = None) -> pd.Dat
         return pd.DataFrame()
 
 def plot_session_repetition(df: pd.DataFrame, session_id: int, model_name: str, 
-                          output_dir: Path, color: str):
+                          color: str):
     """Plot question repetition pattern for a single session.
     
     Args:
         df: DataFrame with question similarity data
         session_id: Session ID to plot
         model_name: Name of the model
-        output_dir: Directory to save the plot
         color: Color to use for the plot
     """
     # Filter data for the session
@@ -59,36 +58,10 @@ def plot_session_repetition(df: pd.DataFrame, session_id: int, model_name: str,
     # Create turn numbers (1-based index)
     session_data['Turn'] = range(1, len(session_data) + 1)
     
-    plt.figure(figsize=(12, 4))
-    
     # Plot points and connecting lines
     plt.plot(session_data['Turn'], session_data['Is Duplicate'].astype(int),
             color=color, marker='o', linestyle='-', markersize=8,
             label=model_name, linewidth=2, alpha=0.7)
-    
-    # Customize the plot
-    plt.yticks([0, 1], ['Non-Duplicate', 'Duplicate'])
-    plt.xlabel('Turn Number', fontsize=12)
-    plt.title(f'Question Repetition Pattern - Session {session_id}', 
-             fontsize=14, pad=15)
-    
-    plt.grid(True, linestyle='--', alpha=0.7)
-    plt.legend(fontsize=10, loc='center left', bbox_to_anchor=(1, 0.5))
-    
-    # Set x-axis to show all turn numbers
-    plt.xlim(0.5, len(session_data) + 0.5)
-    plt.xticks(session_data['Turn'])
-    
-    # Add some padding
-    plt.margins(y=0.2)
-    plt.tight_layout()
-    
-    # Save the plot
-    plot_path = output_dir / f'question_repetition_session_{session_id}.png'
-    plt.savefig(plot_path, bbox_inches='tight', dpi=300)
-    print(f"Plot saved: {plot_path}")
-    
-    plt.close()
 
 def calculate_session_rates(df: pd.DataFrame) -> Dict[int, float]:
     """Calculate repetition rates for each session.
@@ -190,10 +163,10 @@ def main():
         '#16A085',  # Teal
         '#D35400',  # Dark Orange
         '#7F8C8D',  # Gray
-        '#8E44AD',  # Purple
         '#2980B9',  # Light Blue
         '#C0392B',  # Dark Red
-        '#27AE60'   # Light Green
+        '#27AE60',  # Light Green
+        '#8E44AD'   # Purple
     ]
     
     for user_id in args.user_ids:
@@ -233,13 +206,40 @@ def main():
                        for session_id in df['Session ID'].unique()}
         
         for session_id in sorted(all_sessions):
+            # Create one figure for all models in this session
             plt.figure(figsize=(12, 4))
             
             # Plot all models on the same figure
             for model_name in sorted_models:
                 df = model_data[model_name]
                 color = model_to_color[model_name]
-                plot_session_repetition(df, session_id, model_name, output_dir, color)
+                plot_session_repetition(df, session_id, model_name, color)
+            
+            # Customize the plot
+            plt.yticks([0, 1], ['Non-Duplicate', 'Duplicate'])
+            plt.xlabel('Turn Number', fontsize=12)
+            plt.title(f'Question Repetition Pattern - Session {session_id}', 
+                     fontsize=14, pad=15)
+            
+            plt.grid(True, linestyle='--', alpha=0.7)
+            plt.legend(fontsize=10, loc='center left', bbox_to_anchor=(1, 0.5))
+            
+            # Set x-axis to show all turn numbers
+            max_turns = max(len(df[df['Session ID'] == session_id]) 
+                          for df in model_data.values() if session_id in df['Session ID'].unique())
+            plt.xlim(0.5, max_turns + 0.5)
+            plt.xticks(range(1, max_turns + 1))
+            
+            # Add some padding
+            plt.margins(y=0.2)
+            plt.tight_layout()
+            
+            # Save the plot
+            plot_path = output_dir / f'question_repetition_session_{session_id}.png'
+            plt.savefig(plot_path, bbox_inches='tight', dpi=300)
+            print(f"Plot saved: {plot_path}")
+            
+            plt.close()
         
         # Calculate and plot progression across sessions
         progression_data = {

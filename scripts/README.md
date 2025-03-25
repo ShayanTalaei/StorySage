@@ -58,6 +58,12 @@ python scripts/run_single_experiment.py --user_id coates --model gpt-4o --baseli
 ./scripts/run_comparisons.sh coates --session_id 2
 ```
 
+After running comparisons for all sessions, you can visualize the results with the following command:
+
+```bash
+python scripts/analysis/comparison_results_plot.py --user_ids coates
+```
+
 ### Analyzing Results
 
 ```bash
