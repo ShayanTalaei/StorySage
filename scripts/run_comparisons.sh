@@ -4,7 +4,7 @@
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # Default values
-RUN_TIMES=10
+RUN_TIMES=5
 SESSION_ID=""  # No default - let Python scripts handle defaults
 COMPARISON_TYPE="all"  # Default to running both types
 
@@ -72,12 +72,34 @@ count_session_comparisons() {
     ' "$file"
 }
 
+# Add function to count baseline models
+count_baseline_models() {
+    local count=0
+    for dir in logs_*; do
+        if [ -d "$dir" ]; then
+            ((count++))
+        fi
+    done
+    echo $count
+}
+
 # Run evaluations multiple times for each user
 for user_id in "${USER_IDS[@]}"; do
     echo "Running evaluations for user: $user_id"
     if [ -n "$SESSION_ID" ]; then
         echo "Using session ID: $SESSION_ID (and same version for biography)"
     fi
+    
+    # Get number of baseline models
+    NUM_BASELINES=$(count_baseline_models)
+    if [ $NUM_BASELINES -eq 0 ]; then
+        echo "Error: No baseline models found (no logs_* directories)"
+        exit 1
+    fi
+    
+    # Calculate total needed comparisons
+    TOTAL_NEEDED=$((RUN_TIMES * NUM_BASELINES))
+    echo "Found $NUM_BASELINES baseline models, need $TOTAL_NEEDED total comparisons"
     
     # Check existing comparison counts
     bio_comparisons=0
@@ -106,11 +128,11 @@ for user_id in "${USER_IDS[@]}"; do
     # Calculate how many more runs needed for each type
     bio_needed=0
     if [[ "$COMPARISON_TYPE" == "all" || "$COMPARISON_TYPE" == "bio" ]]; then
-        if [ $bio_comparisons -lt $RUN_TIMES ]; then
-            bio_needed=$((RUN_TIMES - bio_comparisons))
-            echo "Need $bio_needed more biography evaluations to reach target of $RUN_TIMES"
+        if [ $bio_comparisons -lt $TOTAL_NEEDED ]; then
+            bio_needed=$((TOTAL_NEEDED - bio_comparisons))
+            echo "Need $bio_needed more biography evaluations to reach target of $TOTAL_NEEDED"
         else
-            echo "Already have enough biography comparisons (target: $RUN_TIMES)"
+            echo "Already have enough biography comparisons (target: $TOTAL_NEEDED)"
         fi
     else
         echo "Skipping biography comparisons as per --type parameter"
@@ -118,11 +140,11 @@ for user_id in "${USER_IDS[@]}"; do
     
     interview_needed=0
     if [[ "$COMPARISON_TYPE" == "all" || "$COMPARISON_TYPE" == "interview" ]]; then
-        if [ $interview_comparisons -lt $RUN_TIMES ]; then
-            interview_needed=$((RUN_TIMES - interview_comparisons))
-            echo "Need $interview_needed more interview evaluations to reach target of $RUN_TIMES"
+        if [ $interview_comparisons -lt $TOTAL_NEEDED ]; then
+            interview_needed=$((TOTAL_NEEDED - interview_comparisons))
+            echo "Need $interview_needed more interview evaluations to reach target of $TOTAL_NEEDED"
         else
-            echo "Already have enough interview comparisons (target: $RUN_TIMES)"
+            echo "Already have enough interview comparisons (target: $TOTAL_NEEDED)"
         fi
     else
         echo "Skipping interview comparisons as per --type parameter"

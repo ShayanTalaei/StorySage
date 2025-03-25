@@ -60,6 +60,8 @@ For each criterion:
 1. Vote for either Interview A, Interview B, or "Tie" if they are equally good
 2. Provide a detailed explanation (2-3 sentences) justifying your choice with specific examples from both interviews
 
+Important: If the interviews are difficult to compare or show similar quality for any criterion, don't hesitate to vote "Tie". A tie is a perfectly valid outcome when the differences are minimal or unclear.
+
 Your evaluation should be objective, fair, and based solely on the interviews provided. Do not try to guess which system generated which interview.
 """
 
@@ -82,17 +84,20 @@ Use the tool calls to output your evaluation.
 Reminder: 
 - Just specify A, B, or Tie for the voting, other formats like "Interviewer A", "Interviewer B", "model_A", "model_B", "version_Tie", are not allowed.
 - Just specify A, B, or Tie!!!
-- Wrap your output in <tool_calls>...</tool_calls> tags.
+- Wrap your output in <tool_calls>...</tool_calls> tags!!!
+- Wrap your output in <tool_calls>...</tool_calls> tags!!!
 
 <tool_calls>
 <smooth_score>
     <explanation>Your explanation comparing both interviews</explanation>
     <voting>A or B or Tie</voting>
 </smooth_score>
+
 <flexibility_score>
     <explanation>Your explanation comparing both interviews</explanation>
     <voting>A or B or Tie</voting>
 </flexibility_score>
+
 <comforting_score>
     <explanation>Your explanation comparing both interviews</explanation>
     <voting>A or B or Tie</voting>
@@ -245,64 +250,71 @@ async def prepare_interview_pairs(user_id: str, session_id: int) -> List[Dict[st
     
     return pairs
 
-async def evaluate_interview_pair(user_id: str, session_id: int, pair: Dict[str, Any]) -> Dict[str, Any]:
+async def evaluate_interview_pair(user_id: str, session_id: int, pair: Dict[str, Any], max_retries: int = 3) -> Dict[str, Any]:
     """Evaluate a pair of interviews through comparative voting.
     
     Args:
         user_id: User ID
         session_id: Session ID
         pair: Dictionary containing interview pair data
+        max_retries: Maximum number of retry attempts (default: 3)
         
     Returns:
         Evaluation results
     """
-    try:
-        # Format prompt
-        prompt = format_evaluation_prompt(
-            interview_a_content=pair['interview_A'],
-            interview_b_content=pair['interview_B']
-        )
-        
-        # Get engine
-        engine = get_engine("gpt-4o", temperature=0.5)
-        
-        # Call engine
-        print(f"Evaluating interview pair for user {user_id},"
-              f" session {session_id}...")
-        response = invoke_engine(engine, prompt)
-        
-        # Parse response
-        evaluation = parse_evaluation_response(response)
-        
-        # Add metadata to evaluation results
-        evaluation['metadata'] = {
-            'model_A': pair['model_A'],
-            'model_B': pair['model_B']
-        }
-        
-        # Setup evaluation logger
-        eval_logger = EvaluationLogger.setup_logger(user_id, session_id)
-        
-        # Log evaluation
-        timestamp = datetime.now()
-        eval_logger.log_prompt_response(
-            evaluation_type="interview_content_comparison",
-            prompt=prompt,
-            response=response,
-            timestamp=timestamp
-        )
-        
-        # Log comparative evaluation results
-        eval_logger.log_interview_comparison_evaluation(
-            evaluation_data=evaluation,
-            timestamp=timestamp
-        )
-        
-        return evaluation
-    
-    except Exception as e:
-        print(f"Error evaluating interview pair: {str(e)}")
-        raise
+    retries = 0
+    while retries < max_retries:
+        try:
+            # Format prompt
+            prompt = format_evaluation_prompt(
+                interview_a_content=pair['interview_A'],
+                interview_b_content=pair['interview_B']
+            )
+            
+            # Get engine
+            engine = get_engine("gemini-2.0-flash", temperature=0.5)
+            
+            # Call engine
+            print(f"Evaluating interview pair for user {user_id}, "
+                  f"session {session_id} (attempt {retries + 1}/{max_retries})...")
+            response = invoke_engine(engine, prompt)
+            
+            # Parse response
+            evaluation = parse_evaluation_response(response)
+            
+            # Add metadata to evaluation results
+            evaluation['metadata'] = {
+                'model_A': pair['model_A'],
+                'model_B': pair['model_B']
+            }
+            
+            # Setup evaluation logger
+            eval_logger = EvaluationLogger.setup_logger(user_id, session_id)
+            
+            # Log evaluation
+            timestamp = datetime.now()
+            eval_logger.log_prompt_response(
+                evaluation_type="interview_content_comparison",
+                prompt=prompt,
+                response=response,
+                timestamp=timestamp
+            )
+            
+            # Log comparative evaluation results
+            eval_logger.log_interview_comparison_evaluation(
+                evaluation_data=evaluation,
+                timestamp=timestamp
+            )
+            
+            return evaluation
+            
+        except Exception as e:
+            retries += 1
+            if retries >= max_retries:
+                print(f"Failed after {max_retries} attempts. Final error: {str(e)}")
+                raise
+            print(f"Attempt {retries}/{max_retries} failed: {str(e)}. Retrying...")
+            await asyncio.sleep(1)  # Add a small delay between retries
 
 async def main_async():
     parser = argparse.ArgumentParser(

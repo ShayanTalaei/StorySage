@@ -71,6 +71,8 @@ For each criterion:
 1. Vote for either Biography A, Biography B, or "Tie" if they are equally good
 2. Provide a detailed explanation (2-3 sentences) justifying your choice with specific examples from both biographies
 
+Important: If the biographies are difficult to compare or show similar quality for any criterion, don't hesitate to vote "Tie". A tie is a perfectly valid outcome when the differences are minimal or unclear.
+
 Your evaluation should be objective, fair, and based solely on the biographies provided. Do not try to guess which system generated which biography.
 """
 
@@ -94,16 +96,19 @@ Reminder:
 - Just specify A, B, or Tie for the voting, other formats like "Biography A", "Biography B", "model_A" or "model_B", "version_A" or "model_Tie", are not allowed.
 - Just specify A, B, or Tie!!!
 - Wrap your output in <tool_calls>...</tool_calls> tags.
+- Wrap your output in <tool_calls>...</tool_calls> tags!!!
 
 <tool_calls>
 <insightfulness_score>
     <explanation>Your explanation comparing both biographies</explanation>
     <voting>A or B or Tie</voting>
 </insightfulness_score>
+
 <narrativity_score>
     <explanation>Your explanation comparing both biographies</explanation>
     <voting>A or B or Tie</voting>
 </narrativity_score>
+
 <coherence_score>
     <explanation>Your explanation comparing both biographies</explanation>
     <voting>A or B or Tie</voting>
@@ -269,66 +274,74 @@ async def prepare_biography_pairs(user_id: str, biography_version: Optional[int]
     
     return pairs
 
-async def evaluate_biography_pair(user_id: str, pair: Dict[str, Any], our_version: int) -> Dict[str, Any]:
+async def evaluate_biography_pair(user_id: str, pair: Dict[str, Any], our_version: int, max_retries: int = 3) -> Dict[str, Any]:
     """Evaluate a pair of biographies through comparative voting.
     
     Args:
         user_id: User ID
         pair: Dictionary containing biography pair data
         our_version: Version number of our biography
+        max_retries: Maximum number of retry attempts (default: 3)
         
     Returns:
         Evaluation results
     """
-    try:
-        # Format prompt
-        prompt = format_evaluation_prompt(
-            biography_a_content=pair['biography_A'],
-            biography_b_content=pair['biography_B']
-        )
+    retries = 0
+    while retries < max_retries:
+        try:
+            # Format prompt
+            prompt = format_evaluation_prompt(
+                biography_a_content=pair['biography_A'],
+                biography_b_content=pair['biography_B']
+            )
+            
+            # Get engine
+            engine = get_engine("gemini-2.0-flash", temperature=0.5)
+            
+            # Call engine
+            print(f"Evaluating biography pair for user {user_id} "
+                  f"(attempt {retries + 1}/{max_retries})...")
+            response = invoke_engine(engine, prompt)
+            
+            # Parse response
+            evaluation = parse_evaluation_response(response)
+            
+            # Add metadata to evaluation results
+            evaluation['metadata'] = {
+                'model_A': pair['model_A'],
+                'model_B': pair['model_B'],
+                'version_A': pair['version_A'],
+                'version_B': pair['version_B']
+            }
+            
+            # Setup evaluation logger
+            eval_logger = EvaluationLogger.setup_logger(user_id)
+            
+            # Log evaluation
+            timestamp = datetime.now()
+            eval_logger.log_prompt_response(
+                evaluation_type="biography_content_comparison",
+                prompt=prompt,
+                response=response,
+                timestamp=timestamp
+            )
+            
+            # Log comparative evaluation results
+            eval_logger.log_biography_comparison_evaluation(
+                evaluation_data=evaluation,
+                biography_version=our_version,  # Pass our version
+                timestamp=timestamp
+            )
+            
+            return evaluation
         
-        # Get engine
-        engine = get_engine("gpt-4o", temperature=0.5)
-        
-        # Call engine
-        print(f"Evaluating biography pair for user {user_id}...")
-        response = invoke_engine(engine, prompt)
-        
-        # Parse response
-        evaluation = parse_evaluation_response(response)
-        
-        # Add metadata to evaluation results
-        evaluation['metadata'] = {
-            'model_A': pair['model_A'],
-            'model_B': pair['model_B'],
-            'version_A': pair['version_A'],
-            'version_B': pair['version_B']
-        }
-        
-        # Setup evaluation logger
-        eval_logger = EvaluationLogger.setup_logger(user_id)
-        
-        # Log evaluation
-        timestamp = datetime.now()
-        eval_logger.log_prompt_response(
-            evaluation_type="biography_content_comparison",
-            prompt=prompt,
-            response=response,
-            timestamp=timestamp
-        )
-        
-        # Log comparative evaluation results
-        eval_logger.log_biography_comparison_evaluation(
-            evaluation_data=evaluation,
-            biography_version=our_version,  # Pass our version
-            timestamp=timestamp
-        )
-        
-        return evaluation
-    
-    except Exception as e:
-        print(f"Error evaluating biography pair: {str(e)}")
-        raise
+        except Exception as e:
+            retries += 1
+            if retries >= max_retries:
+                print(f"Failed after {max_retries} attempts. Final error: {str(e)}")
+                raise
+            print(f"Attempt {retries}/{max_retries} failed: {str(e)}. Retrying...")
+            await asyncio.sleep(1)  # Add a small delay between retries
 
 async def main_async():
     parser = argparse.ArgumentParser(
