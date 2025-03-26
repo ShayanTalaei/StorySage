@@ -87,6 +87,8 @@ class EvaluationLogger:
             f.write("\n\n=== RESPONSE ===\n\n")
             f.write(response)
             f.write("\n")
+        
+        print(f"Saved to {filename}")
     
     def log_question_similarity(
         self,

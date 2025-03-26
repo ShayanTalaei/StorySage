@@ -5,7 +5,7 @@ USER_ID=""
 MODEL="gpt-4o"
 BASELINE=false
 RESTART=false
-MAX_TURNS=30
+MAX_TURNS=12
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do

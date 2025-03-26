@@ -226,7 +226,10 @@ def evaluate_biography_groundedness(
         for subsection in section.subsections.values():
             process_section(subsection)
     
-    process_section(biography.root)
+    # Skip root section and only process its subsections
+    for subsection in biography.root.subsections.values():
+        process_section(subsection)
+    
     return results
 
 def calculate_overall_groundedness(results: List[Dict]) -> float:
@@ -276,7 +279,7 @@ def main():
     args = parser.parse_args()
     
     # Initialize LLM engine
-    engine = get_engine("gpt-4o")
+    engine = get_engine("gemini-2.0-flash")
     
     # Load biography and memory bank
     biography = Biography.load_from_file(args.user_id, args.version)

@@ -166,10 +166,12 @@ class BiographyOrchestrator:
                 start_time = time.time()
                 await asyncio.sleep(wait_time)
                 actual_wait = time.time() - start_time
-                SessionLogger.log_to_file("execution_log", 
-                                        f"[BIOGRAPHY] Baseline mode: Simulated wait time "
-                                        f"without auto-updates: {wait_time:.2f}s "
-                                        f"(actual: {actual_wait:.2f}s)")
+                SessionLogger.log_to_file(
+                    "execution_log", 
+                    f"[BIOGRAPHY] Baseline mode: Simulated wait time "
+                    f"without auto-updates: {wait_time:.2f}s "
+                    f"(actual: {actual_wait:.2f}s)"
+                )
 
             # Get new memories for update
             new_memories: List[Memory] = await (

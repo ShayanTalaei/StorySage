@@ -10,7 +10,6 @@ from agents.interviewer.tools import EndConversation, RespondToUser
 from agents.shared.memory_tools import Recall
 from utils.llm.prompt_utils import format_prompt
 from interview_session.session_models import Participant, Message
-from utils.llm.xml_formatter import extract_tool_arguments
 from utils.logger.session_logger import SessionLogger
 from utils.constants.colors import GREEN, RESET
 

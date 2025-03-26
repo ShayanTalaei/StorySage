@@ -70,7 +70,7 @@ class TopicExtractor:
         prompt = self._create_topic_extraction_prompt(profile_content)
         
         # Get LLM response
-        engine = get_engine("gpt-4o")
+        engine = get_engine("gpt-4o-mini")
         response = invoke_engine(engine, prompt)
         
         # Extract topics from XML response
@@ -111,9 +111,9 @@ Profile content:
 
 For each topic you identify, make a separate tool call with the topic title and description. The title should be 2-5 words and the description should be 1-2 sentences.
 
-Please identify 10-15 major topics that would make for meaningful interview segments. Avoid overlapping topics and ensure each topic is distinct enough to warrant its own discussion.
+Please identify 10 major topics that would make for meaningful interview segments. Avoid overlapping topics and ensure each topic is distinct enough to warrant its own discussion.
 
-Make a separate <extract_topic> tool call for each topic you identify, with both <title> and <description> tags.
+Make a separate <extract_topic> tool call for each topic you identify, with both <title> and <description> tags. Wrap all tool calls in <tool_calls>..</tool_calls> tags.
 
 Example format:
 <tool_calls>
