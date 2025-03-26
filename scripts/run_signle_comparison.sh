@@ -193,7 +193,3 @@ fi
 echo "Running command: $COMMAND"
 eval "$COMMAND" 
 
-echo "Showing aggregated comparison results..."
-COMMAND="python ${SCRIPT_DIR}/analysis/comparison_results_aggregated.py --user_ids ${USER_IDS[@]}"
-echo "Running command: $COMMAND"
-eval "$COMMAND" 
