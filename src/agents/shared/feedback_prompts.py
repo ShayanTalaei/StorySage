@@ -99,8 +99,13 @@ Action Required:
 """
 
 QUESTION_WARNING_OUTPUT_FORMAT = """
-About the warning:
-If you are sure that you addressed the warning and want to proceed, append the XML tag: <proceed>true</proceed>.
+## Addressing the Warning
+
+If you've addressed the warning and want to proceed:
+1. Add the tag <proceed>true</proceed> inside your <thinking></thinking> section
+2. This confirms you've resolved the issues identified in the warning
+
+Important: This is not a tool call - it must be placed within your thinking tags.
 """
 
 SECTION_WRITER_TOOL_CALL_ERROR = """\

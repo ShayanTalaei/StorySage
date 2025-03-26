@@ -183,10 +183,15 @@ for user_id in "${USER_IDS[@]}"; do
 done
 
 # Show final comparison results
-echo "Showing final comparison results..."
+echo "Showing comparison results for session $SESSION_ID..."
 COMMAND="python ${SCRIPT_DIR}/analysis/comparison_results.py --user_ids ${USER_IDS[@]}"
 if [ -n "$SESSION_ID" ]; then
     COMMAND="$COMMAND --biography_version $SESSION_ID --session_id $SESSION_ID"
 fi
+echo "Running command: $COMMAND"
+eval "$COMMAND" 
+
+echo "Showing aggregated comparison results..."
+COMMAND="python ${SCRIPT_DIR}/analysis/comparison_results_aggregated.py --user_ids ${USER_IDS[@]}"
 echo "Running command: $COMMAND"
 eval "$COMMAND" 
