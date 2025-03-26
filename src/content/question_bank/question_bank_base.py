@@ -27,7 +27,7 @@ class QuestionBankBase(ABC):
     
     def __init__(self):
         self.questions: List[Question] = []
-        self.engine = get_engine("gpt-4o")
+        self.eval_engine = get_engine("gpt-4o")
         self.session_id: Optional[str] = None
     
     def set_session_id(self, session_id: str) -> None:
@@ -198,7 +198,7 @@ class QuestionBankBase(ABC):
         )
         
         # Get evaluation from LLM and parse response
-        output = invoke_engine(self.engine, prompt)
+        output = invoke_engine(self.eval_engine, prompt)
 
         if logger:
             logger.log_prompt_response(

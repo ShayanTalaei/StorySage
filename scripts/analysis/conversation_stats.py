@@ -21,7 +21,7 @@ def aggregate_single_file(df: pd.DataFrame, latency_df: Optional[pd.DataFrame] =
         'Sessions': len(df),
         'Total Turns': df['Total Turns'].sum(),
         'Total Memories': df['Total Memories'].sum(),
-        'Chars per Conv': df['Total Characters'].mean()
+        'Tokens per Conv': df['Total Tokens'].mean()
     }
     
     # Add latency and message length statistics if available
@@ -105,7 +105,7 @@ def aggregate_stats(stats: List[Dict]) -> Tuple[Dict, Dict]:
     else:
         baseline_avg = {
             'Sessions': 0, 'Total Turns': 0, 
-            'Total Memories': 0, 'Chars per Conv': 0, 'Avg Latency': 0, 'Msg Length': 0
+            'Total Memories': 0, 'Tokens per Conv': 0, 'Avg Latency': 0, 'Msg Length': 0
         }
     
     # Average all metrics for our stats
@@ -117,7 +117,7 @@ def aggregate_stats(stats: List[Dict]) -> Tuple[Dict, Dict]:
     else:
         our_avg = {
             'Sessions': 0, 'Total Turns': 0, 
-            'Total Memories': 0, 'Chars per Conv': 0, 'Avg Latency': 0, 'Msg Length': 0
+            'Total Memories': 0, 'Tokens per Conv': 0, 'Avg Latency': 0, 'Msg Length': 0
         }
     
     return baseline_avg, our_avg
@@ -159,22 +159,22 @@ def display_results(baseline_stats: Dict, our_stats: Dict) -> None:
     """
     print("\nConversation Statistics:")
     print("-" * 110)
-    print(f"{'Model':<20} {'Sessions':>8} {'Turns':>8} {'Memories':>10} {'Chars/Conv':>12} {'Latency(s)':>12} {'User Msg Len':>14}")
+    print(f"{'Model':<20} {'Sessions':>8} {'Turns':>8} {'Memories':>10} {'Tokens/Conv':>12} {'Latency(s)':>12} {'User Msg Len':>14}")
     print("-" * 110)
     
     # Format baseline stats
     print(f"(Avg.) baselines{' ':>4} {int(baseline_stats['Sessions']):>8} "
-          f"{int(baseline_stats['Total Turns']):>8} "
+          f"{int(baseline_stats['Total Turns'] / 2):>8} "
           f"{int(baseline_stats['Total Memories']):>10} "
-          f"{int(baseline_stats['Chars per Conv']):>12} "
+          f"{int(baseline_stats['Tokens per Conv']):>12} "
           f"{baseline_stats['Avg Latency']:>12.2f} "
           f"{int(baseline_stats['Msg Length']):>12}")
     
     # Format our stats
     print(f"Ours{' ':>16} {int(our_stats['Sessions']):>8} "
-          f"{int(our_stats['Total Turns']):>8} "
+          f"{int(our_stats['Total Turns'] / 2):>8} "
           f"{int(our_stats['Total Memories']):>10} "
-          f"{int(our_stats['Chars per Conv']):>12} "
+          f"{int(our_stats['Tokens per Conv']):>12} "
           f"{our_stats['Avg Latency']:>12.2f} "
           f"{int(our_stats['Msg Length']):>12}")
     print("-" * 110)
