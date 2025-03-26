@@ -24,20 +24,21 @@ EVALUATION_CRITERIA = {
     "smooth_score": {
         "description": "How smooth were the topic transitions in the conversation",
         "guidelines": [
-            "- Ensure transitions are smooth and natural.",
-            "- Avoid unnecessary transitions when the current topic isn't fully explored and the user remains engaged.",
-            "- Avoid reverting to previous topics or introducing new ones during an ongoing story.",
+            "- Focus on exploring 1-3 topics deeply in each session rather than switching many broad topics frequently.",
+            "- Ensure transitions are smooth and natural within the chosen topics.",
+            "- Avoid jumping between broad and general topics.",
+            "- Stay focused on the current topic until it's fully explored and the user remains engaged.",
             "- Only switch topics if the user shows disinterest (e.g., giving brief responses or wanting to skip questions).",
-            "- Avoid repetitive questions on the same topic.",
-            "- Prefer concrete questions over overly open-ended ones that are difficult to answer."
+            "- Prefer concrete topics over overly open-ended and broad ones that are difficult to answer."
         ]
     },
     "flexibility_score": {
-        "description": "How flexible was the interview process in adapting to user responses",
+        "description": "How flexible was the interview process in adapting to user responses within the chosen topics",
         "guidelines": [
-            "- Allow the user to ask questions and express thoughts, while avoiding too many broad, high-level questions."
-            "- Adapt flexibly to user responses and ask deeper follow-up questions.",
-            "- Change topics if the user shows disinterest in the current one.",
+            "- Allow the user to guide the direction within the current topic.",
+            "- Ask relevant follow-up questions that deepen the conversation.",
+            "- Change topics only if the user shows clear disinterest in the current one.",
+            "- Balance between structure and flexibility while maintaining topic focus."
         ]
     },
     "comforting_score": {
@@ -60,7 +61,9 @@ For each criterion:
 1. Vote for either Interview A, Interview B, or "Tie" if they are equally good
 2. Provide a detailed explanation (2-3 sentences) justifying your choice with specific examples from both interviews
 
-Important: If the interviews are difficult to compare or show similar quality for any criterion, don't hesitate to vote "Tie". A tie is a perfectly valid outcome when the differences are minimal or unclear.
+Important notes:
+- If the interviews are difficult to compare or show similar quality for any criterion, don't hesitate to vote "Tie". A tie is a perfectly valid outcome when the differences are minimal or unclear.
+- Remember that these interviews represent just one session of potentially many. The interviewer doesn't need to cover everything in a single conversation - depth on a few topics is better than breadth across many.
 
 Your evaluation should be objective, fair, and based solely on the interviews provided. Do not try to guess which system generated which interview.
 """

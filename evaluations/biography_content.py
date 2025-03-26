@@ -325,7 +325,7 @@ async def evaluate_biography_pair(user_id: str, pair: Dict[str, Any], our_versio
                 response=response,
                 timestamp=timestamp
             )
-            
+    
             # Log comparative evaluation results
             eval_logger.log_biography_comparison_evaluation(
                 evaluation_data=evaluation,

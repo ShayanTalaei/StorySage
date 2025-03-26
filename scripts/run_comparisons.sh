@@ -99,7 +99,7 @@ for user_id in "${USER_IDS[@]}"; do
     
     # Calculate total needed comparisons
     TOTAL_NEEDED=$((RUN_TIMES * NUM_BASELINES))
-    echo "Found $NUM_BASELINES baseline models, need $TOTAL_NEEDED total comparisons"
+    echo "Need $TOTAL_NEEDED total comparisons ($RUN_TIMES runs × $NUM_BASELINES baseline models)"
     
     # Check existing comparison counts
     bio_comparisons=0
@@ -129,8 +129,9 @@ for user_id in "${USER_IDS[@]}"; do
     bio_needed=0
     if [[ "$COMPARISON_TYPE" == "all" || "$COMPARISON_TYPE" == "bio" ]]; then
         if [ $bio_comparisons -lt $TOTAL_NEEDED ]; then
-            bio_needed=$((TOTAL_NEEDED - bio_comparisons))
-            echo "Need $bio_needed more biography evaluations to reach target of $TOTAL_NEEDED"
+            # Divide by NUM_BASELINES since each run generates NUM_BASELINES comparisons
+            bio_needed=$(( (TOTAL_NEEDED - bio_comparisons + NUM_BASELINES - 1) / NUM_BASELINES ))
+            echo "Need $bio_needed more biography evaluation runs to reach target of $TOTAL_NEEDED comparisons"
         else
             echo "Already have enough biography comparisons (target: $TOTAL_NEEDED)"
         fi
@@ -141,8 +142,9 @@ for user_id in "${USER_IDS[@]}"; do
     interview_needed=0
     if [[ "$COMPARISON_TYPE" == "all" || "$COMPARISON_TYPE" == "interview" ]]; then
         if [ $interview_comparisons -lt $TOTAL_NEEDED ]; then
-            interview_needed=$((TOTAL_NEEDED - interview_comparisons))
-            echo "Need $interview_needed more interview evaluations to reach target of $TOTAL_NEEDED"
+            # Divide by NUM_BASELINES since each run generates NUM_BASELINES comparisons
+            interview_needed=$(( (TOTAL_NEEDED - interview_comparisons + NUM_BASELINES - 1) / NUM_BASELINES ))
+            echo "Need $interview_needed more interview evaluation runs to reach target of $TOTAL_NEEDED comparisons"
         else
             echo "Already have enough interview comparisons (target: $TOTAL_NEEDED)"
         fi

@@ -443,6 +443,14 @@ class EvaluationLogger:
             narrativity_winner = narrativity.get('voting', 'unknown')
             coherence_winner = coherence.get('voting', 'unknown')
             
+            # Raise error if any voting value is unknown
+            if 'unknown' in \
+                  [insightfulness_winner, narrativity_winner, coherence_winner]:
+                raise ValueError(f"Got unknown voting value in biography comparison."
+                                 f" Insightfulness: {insightfulness_winner}, "
+                                 f"Narrativity: {narrativity_winner}, "
+                                 f"Coherence: {coherence_winner}")
+            
             # Write row
             row = [
                 timestamp.isoformat(),
@@ -514,6 +522,14 @@ class EvaluationLogger:
             smooth_winner = smooth.get('voting', 'unknown')
             flexibility_winner = flexibility.get('voting', 'unknown')
             comforting_winner = comforting.get('voting', 'unknown')
+            
+            # Raise error if any voting value is unknown
+            if 'unknown' in \
+                   [smooth_winner, flexibility_winner, comforting_winner]:
+                raise ValueError(f"Got unknown voting value in interview comparison."
+                                 f" Smooth: {smooth_winner}, "
+                                 f"Flexibility: {flexibility_winner}, "
+                                 f"Comforting: {comforting_winner}")
             
             # Write row
             row = [
