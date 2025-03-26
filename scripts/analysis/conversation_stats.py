@@ -2,7 +2,7 @@
 import os
 import csv
 import argparse
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Optional
 from collections import defaultdict
 import pandas as pd
 from pathlib import Path
@@ -56,12 +56,13 @@ def load_conversation_stats(user_id: str) -> List[Dict]:
             latency_df = pd.read_csv(latency_file) if \
                 latency_file.exists() else None
             file_stats = aggregate_single_file(conv_df, latency_df)
-            file_stats['Is Baseline'] = False  # our work
+            file_stats['Model'] = 'Ours'
             stats.append(file_stats)
     
     # Then check model-specific directories (baselines)
     for dir_name in os.listdir('.'):
         if dir_name.startswith('logs_'):  # baseline experiments
+            model_name = dir_name[5:]  # Remove 'logs_' prefix
             base_path = Path(dir_name) / user_id / "evaluations"
             if base_path.exists():
                 conv_file = base_path / "conversation_statistics.csv"
@@ -72,76 +73,90 @@ def load_conversation_stats(user_id: str) -> List[Dict]:
                     latency_df = pd.read_csv(latency_file) \
                         if latency_file.exists() else None
                     file_stats = aggregate_single_file(conv_df, latency_df)
-                    file_stats['Is Baseline'] = True  # baseline work
+                    file_stats['Model'] = model_name
                     stats.append(file_stats)
     
     return stats
 
-def aggregate_stats(stats: List[Dict]) -> Tuple[Dict, Dict]:
-    """Aggregate statistics into baseline and non-baseline groups.
-    Average all metrics across different files/users.
+def aggregate_stats(stats: List[Dict]) -> Dict[str, Dict]:
+    """Aggregate statistics by model.
+    Average metrics across different files/users for each model.
     
     Args:
         stats: List of statistics dictionaries
         
     Returns:
-        Tuple of (baseline_stats, our_stats)
+        Dictionary mapping model names to their statistics
     """
-    baseline_stats = defaultdict(list)
-    our_stats = defaultdict(list)
+    model_stats = defaultdict(list)
     
     for stat in stats:
-        target = baseline_stats if stat['Is Baseline'] else our_stats
-        for key, value in stat.items():
-            if key != 'Is Baseline':
-                target[key].append(value)
+        model = stat.pop('Model')  # Remove and get model name
+        model_stats[model].append(stat)
     
-    # Average all metrics for baseline stats
-    if baseline_stats:
-        baseline_avg = {
-            key: sum(values) / len(values) 
-            for key, values in baseline_stats.items()
-        }
-    else:
-        baseline_avg = {
-            'Sessions': 0, 'Total Turns': 0, 
-            'Total Memories': 0, 'Tokens per Conv': 0, 'Avg Latency': 0, 'Msg Length': 0
-        }
+    # Average metrics for each model
+    averaged_stats = {}
+    for model, model_data in model_stats.items():
+        if model_data:
+            # Initialize with first dict's keys
+            summed = defaultdict(float)
+            for data in model_data:
+                for key, value in data.items():
+                    summed[key] += value
+            
+            averaged_stats[model] = {
+                key: value / len(model_data)
+                for key, value in summed.items()
+            }
     
-    # Average all metrics for our stats
-    if our_stats:
-        our_avg = {
-            key: sum(values) / len(values)
-            for key, values in our_stats.items()
-        }
-    else:
-        our_avg = {
-            'Sessions': 0, 'Total Turns': 0, 
-            'Total Memories': 0, 'Tokens per Conv': 0, 'Avg Latency': 0, 'Msg Length': 0
-        }
-    
-    return baseline_avg, our_avg
+    return averaged_stats
 
-def analyze_user_stats(user_id: str) -> Tuple[Dict, Dict]:
+def display_results(stats_by_model: Dict[str, Dict]) -> None:
+    """Display results in a formatted table.
+    
+    Args:
+        stats_by_model: Dictionary mapping model names to their statistics
+    """
+    print("\nConversation Statistics:")
+    print("-" * 110)
+    print(f"{'Model':<20} {'Sessions':>8} {'Turns':>8} {'Memories':>10} {'Tokens/Conv':>12} {'Latency(s)':>12} {'User Msg Len':>14}")
+    print("-" * 110)
+    
+    # Sort models to ensure 'Ours' is last
+    models = sorted([m for m in stats_by_model.keys() if m != 'Ours']) + \
+             (['Ours'] if 'Ours' in stats_by_model else [])
+    
+    for model in models:
+        stats = stats_by_model[model]
+        print(f"{model:<20} {int(stats['Sessions']):>8} "
+              f"{int(stats['Total Turns'] / 2):>8} "
+              f"{int(stats['Total Memories']):>10} "
+              f"{int(stats['Tokens per Conv']):>12} "
+              f"{stats['Avg Latency']:>12.2f} "
+              f"{int(stats['Msg Length']):>12}")
+    
+    print("-" * 110)
+
+def analyze_user_stats(user_id: str) -> Dict[str, Dict]:
     """Analyze conversation statistics for a single user.
     
     Args:
         user_id: The user ID to analyze
         
     Returns:
-        Tuple of (baseline_stats, our_stats)
+        Dictionary mapping model names to their statistics
     """
     stats = load_conversation_stats(user_id)
     return aggregate_stats(stats)
 
-def analyze_multiple_users(user_ids: List[str]) -> Tuple[Dict, Dict]:
+def analyze_multiple_users(user_ids: List[str]) -> Dict[str, Dict]:
     """Analyze conversation statistics for multiple users.
     
     Args:
         user_ids: List of user IDs to analyze
         
     Returns:
-        Tuple of (baseline_stats, our_stats)
+        Dictionary mapping model names to their statistics
     """
     all_stats = []
     for user_id in user_ids:
@@ -150,35 +165,6 @@ def analyze_multiple_users(user_ids: List[str]) -> Tuple[Dict, Dict]:
     
     return aggregate_stats(all_stats)
 
-def display_results(baseline_stats: Dict, our_stats: Dict) -> None:
-    """Display results in a formatted table.
-    
-    Args:
-        baseline_stats: Aggregated baseline statistics
-        our_stats: Aggregated statistics for our method
-    """
-    print("\nConversation Statistics:")
-    print("-" * 110)
-    print(f"{'Model':<20} {'Sessions':>8} {'Turns':>8} {'Memories':>10} {'Tokens/Conv':>12} {'Latency(s)':>12} {'User Msg Len':>14}")
-    print("-" * 110)
-    
-    # Format baseline stats
-    print(f"(Avg.) baselines{' ':>4} {int(baseline_stats['Sessions']):>8} "
-          f"{int(baseline_stats['Total Turns'] / 2):>8} "
-          f"{int(baseline_stats['Total Memories']):>10} "
-          f"{int(baseline_stats['Tokens per Conv']):>12} "
-          f"{baseline_stats['Avg Latency']:>12.2f} "
-          f"{int(baseline_stats['Msg Length']):>12}")
-    
-    # Format our stats
-    print(f"Ours{' ':>16} {int(our_stats['Sessions']):>8} "
-          f"{int(our_stats['Total Turns'] / 2):>8} "
-          f"{int(our_stats['Total Memories']):>10} "
-          f"{int(our_stats['Tokens per Conv']):>12} "
-          f"{our_stats['Avg Latency']:>12.2f} "
-          f"{int(our_stats['Msg Length']):>12}")
-    print("-" * 110)
-
 def main():
     parser = argparse.ArgumentParser(description="Analyze conversation statistics")
     parser.add_argument('--user_ids', nargs='+', required=True,
@@ -186,11 +172,11 @@ def main():
     args = parser.parse_args()
     
     if len(args.user_ids) == 1:
-        baseline_stats, our_stats = analyze_user_stats(args.user_ids[0])
+        stats_by_model = analyze_user_stats(args.user_ids[0])
     else:
-        baseline_stats, our_stats = analyze_multiple_users(args.user_ids)
+        stats_by_model = analyze_multiple_users(args.user_ids)
     
-    display_results(baseline_stats, our_stats)
+    display_results(stats_by_model)
 
 if __name__ == '__main__':
     main() 

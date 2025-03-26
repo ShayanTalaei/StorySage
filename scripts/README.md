@@ -23,7 +23,7 @@ python scripts/run_experiments.py --user_id coates --max_turns 30
 ### Running a Single Experiment
 
 ```bash
-# Basic usage with user ID (defaults to gpt-4o without baseline)
+# Basic usage with user ID
 ./scripts/run_single_experiment.sh --user_id coates
 
 # Run with a specific model

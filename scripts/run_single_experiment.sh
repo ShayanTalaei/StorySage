@@ -2,10 +2,10 @@
 
 # Default values
 USER_ID=""
-MODEL="gpt-4o"
+MODEL=""
 BASELINE=false
 RESTART=false
-MAX_TURNS=12
+MAX_TURNS=20
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -48,7 +48,14 @@ fi
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # Build the command
-COMMAND="python ${SCRIPT_DIR}/experiments/run_single_experiment.py --user_id $USER_ID --model $MODEL"
+COMMAND="python ${SCRIPT_DIR}/experiments/run_single_experiment.py --user_id $USER_ID"
+
+# Only add model if specified
+if [ ! -z "$MODEL" ]; then
+  COMMAND="$COMMAND --model $MODEL"
+fi
+
+# Add other parameters
 if [ ! -z "$MAX_TURNS" ]; then
   COMMAND="$COMMAND --max_turns $MAX_TURNS"
 fi

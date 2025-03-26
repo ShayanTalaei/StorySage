@@ -4,7 +4,7 @@
 USER_ID=""
 SKIP_BASELINE=false
 RESTART=false
-MAX_TURNS=12
+MAX_TURNS=20
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do

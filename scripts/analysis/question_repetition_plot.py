@@ -226,7 +226,8 @@ def main():
             
             # Set x-axis to show all turn numbers
             max_turns = max(len(df[df['Session ID'] == session_id]) 
-                          for df in model_data.values() if session_id in df['Session ID'].unique())
+                          for df in model_data.values() if \
+                            session_id in df['Session ID'].unique())
             plt.xlim(0.5, max_turns + 0.5)
             plt.xticks(range(1, max_turns + 1))
             
