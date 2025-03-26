@@ -5,6 +5,7 @@ test_logs/*
 !data/sample_user_profiles
 data/sample_user_profiles/meijin/*
 data/sample_user_profiles/*/topics.json
+data/sample_user_profiles/*/conversation.md
 plots/*
 experiment_summary*
 local_cache/*
