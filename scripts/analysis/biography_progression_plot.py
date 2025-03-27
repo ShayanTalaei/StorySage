@@ -37,7 +37,13 @@ def get_session_metrics(eval_dir: Path) -> Dict[int, Dict[str, float]]:
         if completeness_file.exists():
             df = pd.read_csv(completeness_file, nrows=4)
             coverage = df.loc[df['Metric'] == 'Memory Coverage', 'Value'].iloc[0]
+            total_memories = df.loc[df['Metric'] == 'Total Memories', 'Value'].iloc[0]
+            referenced_memories = df.loc[df['Metric'] == 'Referenced Memories', 
+                                         'Value'].iloc[0]
+            
             metrics['completeness'] = float(coverage.strip('%'))
+            metrics['total_memories'] = int(total_memories)
+            metrics['referenced_memories'] = int(referenced_memories)
         
         # Load groundedness
         groundedness_file = bio_dir / "overall_groundedness.csv"
@@ -136,6 +142,89 @@ def plot_metrics_progression(metrics_data: Dict[str, Dict[int, Dict[str, float]]
         
         plt.close()
 
+def plot_memory_counts_progression(metrics_data: Dict[str, Dict[int, Dict[str, float]]], user_id: str):
+    """Plot how memory counts change across sessions for each model.
+    
+    Args:
+        metrics_data: Dictionary mapping model names to their session metrics
+        user_id: ID of the user being analyzed
+    """
+    if not metrics_data:
+        print("No metrics data available to plot")
+        return
+    
+    output_dir = Path('plots') / user_id
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Create separate plot for each model
+    for model_name, sessions in metrics_data.items():
+        if not sessions:
+            continue
+            
+        plt.figure(figsize=(10, 6))
+        
+        # Get all session numbers and values, sorted by session number
+        session_nums = sorted(sessions.keys())
+        total_memories = [sessions[num]['total_memories'] for num in session_nums 
+                         if 'total_memories' in sessions[num]]
+        referenced_memories = [sessions[num]['referenced_memories'] for num in session_nums 
+                             if 'referenced_memories' in sessions[num]]
+        
+        if not total_memories or not referenced_memories:
+            continue
+        
+        # Plot both lines
+        plt.plot(session_nums, total_memories, marker='o', linestyle='-', color='#2E86C1',
+                label='Total Memories', linewidth=2, markersize=6)
+        plt.plot(session_nums, referenced_memories, marker='o', linestyle='-',
+                  color='#E74C3C',
+                label='Referenced Memories', linewidth=2, markersize=6)
+        
+        # Annotate final values
+        plt.annotate(f'{total_memories[-1]}', 
+                    (session_nums[-1], total_memories[-1]),
+                    textcoords="offset points",
+                    xytext=(5, 5),
+                    ha='left',
+                    fontsize=9,
+                    color='#2E86C1')
+        plt.annotate(f'{referenced_memories[-1]}', 
+                    (session_nums[-1], referenced_memories[-1]),
+                    textcoords="offset points",
+                    xytext=(5, 5),
+                    ha='left',
+                    fontsize=9,
+                    color='#E74C3C')
+        
+        # Customize the plot
+        plt.xlabel('Session Number', fontsize=12)
+        plt.ylabel('Number of Memories', fontsize=12)
+        plt.title(f'Memory Counts Progression - {model_name}', fontsize=14, pad=15)
+        
+        plt.grid(True, linestyle='--', alpha=0.7)
+        plt.legend(fontsize=10, loc='upper left')
+        
+        # Set y-axis range
+        all_values = total_memories + referenced_memories
+        min_y = max(min(all_values) - 2, 0)
+        max_y = max(all_values) + 2
+        plt.ylim(min_y, max_y)
+        
+        # Set x-axis to show all session numbers
+        plt.xlim(min(session_nums) - 0.5, max(session_nums) + 0.5)
+        plt.xticks(session_nums)
+        
+        # Add padding and adjust layout
+        plt.margins(x=0.1)
+        plt.tight_layout()
+        
+        # Save the plot
+        plot_path = output_dir / f'biography_memory_counts_{model_name}.png'
+        plt.savefig(plot_path, bbox_inches='tight', dpi=300)
+        print(f"Plot saved: {plot_path}")
+        
+        plt.close()
+
 def load_progression_data(user_id: str) -> Dict[str, Dict[int, Dict[str, float]]]:
     """Load biography progression data for all models.
     
@@ -182,6 +271,7 @@ def main():
             continue
         
         plot_metrics_progression(metrics_data, user_id)
+        plot_memory_counts_progression(metrics_data, user_id)
         print(f"\nAll plots have been saved in: plots/{user_id}/")
 
 if __name__ == '__main__':

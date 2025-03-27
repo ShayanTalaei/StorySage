@@ -80,6 +80,27 @@ def calculate_session_rates(df: pd.DataFrame) -> Dict[int, float]:
         rates[session_id] = (duplicates / total) if total > 0 else 0
     return rates
 
+def calculate_accumulated_rates(df: pd.DataFrame) -> Dict[int, float]:
+    """Calculate accumulated repetition rates up to each session.
+    
+    Args:
+        df: DataFrame with question similarity data
+        
+    Returns:
+        Dictionary mapping session IDs to their accumulated repetition rates
+    """
+    rates = {}
+    total_questions = 0
+    total_duplicates = 0
+    
+    for session_id in sorted(df['Session ID'].unique()):
+        session_data = df[df['Session ID'] == session_id]
+        total_questions += len(session_data)
+        total_duplicates += session_data['Is Duplicate'].sum()
+        rates[session_id] = (total_duplicates / total_questions) if total_questions > 0 \
+              else 0
+    return rates
+
 def plot_progression(metrics_data: Dict[str, Dict[int, float]], user_id: str, 
                     output_dir: Path):
     """Plot how repetition rates change across sessions.
@@ -141,6 +162,72 @@ def plot_progression(metrics_data: Dict[str, Dict[int, float]], user_id: str,
     
     # Save the plot
     plot_path = output_dir / 'question_repetition_progression.png'
+    plt.savefig(plot_path, bbox_inches='tight', dpi=300)
+    print(f"Plot saved: {plot_path}")
+    
+    plt.close()
+
+def plot_accumulated_progression(metrics_data: Dict[str, Dict[int, float]], user_id: str, 
+                               output_dir: Path):
+    """Plot how accumulated repetition rates change across sessions.
+    
+    Args:
+        metrics_data: Dictionary mapping model names to their session rates
+        user_id: ID of the user being analyzed
+        output_dir: Directory to save the plot
+    """
+    if not metrics_data:
+        return
+        
+    # Colors for different models
+    colors = ['#2E86C1', '#E74C3C', '#27AE60', '#8E44AD', '#F39C12', '#16A085']
+    
+    plt.figure(figsize=(12, 6))
+    
+    # Plot each model's progression
+    for (model_name, rates), color in zip(metrics_data.items(), colors):
+        if not rates:
+            continue
+        
+        # Get session numbers and rates, sorted by session number
+        session_nums = sorted(rates.keys())
+        values = [rates[num] * 100 for num in session_nums]  # Convert to percentage
+        
+        # Plot progression
+        plt.plot(session_nums, values, marker='o', linestyle='-', color=color,
+                label=f'{model_name}', linewidth=2, markersize=6)
+        
+        # Annotate final value
+        plt.annotate(f'{values[-1]:.1f}%', 
+                   (session_nums[-1], values[-1]),
+                   textcoords="offset points",
+                   xytext=(5, 5),
+                   ha='left',
+                   fontsize=9,
+                   color=color)
+    
+    # Customize the plot
+    plt.xlabel('Session Number', fontsize=12)
+    plt.ylabel('Accumulated Question Repetition Rate (%)', fontsize=12)
+    plt.title('Accumulated Question Repetition Rate Progression', fontsize=14, pad=15)
+    
+    plt.grid(True, linestyle='--', alpha=0.7)
+    plt.legend(fontsize=10, loc='upper left', bbox_to_anchor=(1, 1))
+    
+    # Set y-axis range from 0 to 100
+    plt.ylim(0, 100)
+    
+    # Set x-axis to show all session numbers
+    all_sessions = {num for rates in metrics_data.values() for num in rates.keys()}
+    plt.xlim(min(all_sessions) - 0.5, max(all_sessions) + 0.5)
+    plt.xticks(sorted(all_sessions))
+    
+    # Add some padding and adjust layout
+    plt.margins(x=0.1)
+    plt.tight_layout()
+    
+    # Save the plot
+    plot_path = output_dir / 'accumulated_question_repetition_progression.png'
     plt.savefig(plot_path, bbox_inches='tight', dpi=300)
     print(f"Plot saved: {plot_path}")
     
@@ -248,6 +335,13 @@ def main():
             for model_name, df in model_data.items()
         }
         plot_progression(progression_data, user_id, output_dir)
+        
+        # Calculate and plot accumulated progression
+        accumulated_data = {
+            model_name: calculate_accumulated_rates(df)
+            for model_name, df in model_data.items()
+        }
+        plot_accumulated_progression(accumulated_data, user_id, output_dir)
         
         print(f"\nAll plots have been saved in: plots/{user_id}/")
 
