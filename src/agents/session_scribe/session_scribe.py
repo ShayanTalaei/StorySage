@@ -188,11 +188,19 @@ class SessionScribe(BaseAgent, Participant):
                 # Handle the tool calls to add questions
                 await self.handle_tool_calls_async(response)
                 break
-
-            # Extract proposed questions from add_interview_question tool calls
-            proposed_questions = extract_tool_arguments(
-                response, "add_interview_question", "question"
-            )
+            
+            try:
+                # Extract proposed questions from add_interview_question tool calls
+                proposed_questions = extract_tool_arguments(
+                    response, "add_interview_question", "question"
+                )
+            except Exception as e:
+                SessionLogger.log_to_file(
+                    "execution_log",
+                    f"[ERROR] Error extracting tool arguments: {e}"
+                    f"Set proposed questions to empty list"
+                )
+                proposed_questions = []
             
             if not proposed_questions:
                 if "recall" in response:

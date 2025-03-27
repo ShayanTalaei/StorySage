@@ -33,9 +33,9 @@ def main():
         
         # Configuration for experiments
         experiments = [
-            {"model_name": "gemini-1.5-pro-001", "use_baseline": False},
+            {"model_name": "gemini-1.5-pro-002", "use_baseline": False},
             # {"model_name": "gpt-4o", "use_baseline": True},
-            {"model_name": "gemini-1.5-pro-001", "use_baseline": True},
+            {"model_name": "gemini-1.5-pro-002", "use_baseline": True},
         ]
         
         # Create a summary file

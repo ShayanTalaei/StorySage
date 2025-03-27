@@ -1,4 +1,4 @@
-from src.utils.llm.xml_formatter import extract_tool_arguments
+from src.utils.llm.xml_formatter import extract_tool_arguments, clean_malformed_xml
 
 def test_memory_ids_extraction_formats():
     """Test that extract_tool_arguments can handle different memory_ids formats."""
@@ -202,4 +202,54 @@ def test_malformed_xml():
     </output_format>"""
     
     result = extract_tool_arguments(response_malformed, "add_plan", "question")
-    assert result[0] == "How do you like to be contacted?", "Should handle malformed XML gracefully" 
+    assert result[0] == "How do you like to be contacted?", "Should handle malformed XML gracefully"
+
+def test_long_content_with_memory_ids():
+    """Test parsing XML with long content containing multiple memory IDs and special characters."""
+    
+    response = """<tool_calls>
+    <update_section>
+    <path>2 Moscow Experience/2.2 Finding Solace and Inspiration: Tretyakov Gallery and Gorky Park</path>
+    <content>During my time in Moscow, I discovered pockets of peace and inspiration amidst the bustling city life. The Tretyakov Gallery became my sanctuary, a place where I could lose myself in the world of Russian art [MEM_03270052_UTA]. It was a &quot;wonderful escape into the world of Russian art, offering a rich tapestry of history and culture&quot; [MEM_03270052_UTA]. One of my favorite exhibits showcased the works of Ivan Shishkin [MEM_03270052_JA0]. His landscapes, especially those portraying the Russian countryside, resonated with me [MEM_03270052_JA0][MEM_03270052_AMT]. Shishkin&apos;s meticulous attention to detail, the way he captured light and shadow, and the overall sense of tranquility in his paintings were captivating [MEM_03270052_AMT]. They offered a &quot;refreshing contrast to the urban environment of Moscow&quot; and a moment of reflection and peace [MEM_03270052_AMT]. I also admired the works of Ilya Repin, whose paintings vividly depicted Russian life and history [MEM_03270052_JA0][MEM_03270052_SMF].  I was particularly drawn to the way Repin captured the essence of Russian culture and history in his art [MEM_03270052_SMF]. Through these artists, I gained a deeper understanding of the cultural and historical richness of Russia, which I found both fascinating and inspiring [MEM_03270052_JA0]. These places provided a sense of tranquility and inspiration amidst the bustling city life [MEM_03270052_KLR].
+    
+    Beyond the gallery walls, Gorky Park provided another avenue for respite [MEM_03270052_MC8]. Especially during winter, when it transformed into a &quot;picturesque snowy landscape,&quot; the park held a particular charm [MEM_03270052_UTA][MEM_03270052_XAX]. I have fond memories of the ice skating rink, a popular spot for locals and visitors alike [MEM_03270052_K0H]. It was an experience filled with &quot;joy and camaraderie,&quot; a true testament to the community spirit [MEM_03270052_K0H].  The rink often had music playing, which added to the enchanting atmosphere [MEM_03270053_516]. They played a variety of genres, from classical pieces that added a touch of elegance to the experience, to popular Russian songs that brought a lively atmosphere [MEM_03270053_03Y]. I loved going skating in the late afternoon, as the sun began to set [MEM_03270053_3M3]. &quot;The park would be bathed in a warm, golden light, and the atmosphere was both peaceful and lively&quot; [MEM_03270053_3M3]. One song that left a lasting impression was &quot;Podmoskovnye Vechera&quot; (Moscow Nights) [MEM_03270053_A5B]. Hearing this classic Russian song, which evokes such nostalgia and beauty, while gliding across the ice under the setting sun, made those moments truly magical [MEM_03270053_A5B].</path>
+    </content>
+    </update_section>
+    </tool_calls>"""
+    
+    # Test extraction of content
+    result = extract_tool_arguments(response, "update_section", "content")
+    
+    # Assertions
+    assert len(result) == 1, "Should extract single content section"
+    assert "&quot;" in result[0], "Should preserve HTML entities"
+    assert "&apos;" in result[0], "Should preserve apostrophe entities"
+    assert "Tretyakov Gallery" in result[0], "Should preserve regular text"
+
+def test_clean_malformed_xml():
+    """Test cleaning of malformed XML by removing unmatched tags."""
+    
+    # Test case with unmatched closing tag
+    xml1 = """<tool_calls>
+        <update_section>
+            <content>Some text</path>
+        </update_section>
+    </tool_calls>"""
+    
+    cleaned1 = clean_malformed_xml(xml1)
+    assert "<content>Some text" in cleaned1, "Should preserve content"
+    assert "</path>" not in cleaned1, "Should remove unmatched closing tag"
+    
+    # Test case with unmatched closing tag in nested structure
+    xml2 = """<tool_calls>
+        <update_section>
+            <content>Some text</wrong_tag>
+            <next>More text</next>
+        </update_section>
+    </tool_calls>"""
+    
+    cleaned2 = clean_malformed_xml(xml2)
+    assert "</wrong_tag>" not in cleaned2, "Should remove unmatched tag"
+    assert "<next>More text</next>" in cleaned2, "Should preserve matched tags"
+
+ 

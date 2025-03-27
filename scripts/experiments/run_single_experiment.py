@@ -12,8 +12,8 @@ def main():
         description="Run a single experiment with a specific configuration")
     parser.add_argument("--user_id", required=True, 
                         help="User ID for the experiment")
-    parser.add_argument("--model", default="gemini-1.5-pro-001", 
-                        help="Model to use (default: gemini-1.5-pro-001)")
+    parser.add_argument("--model", default="gemini-1.5-pro-002", 
+                        help="Model to use (default: gemini-1.5-pro-002)")
     parser.add_argument("--baseline", action="store_true", 
                         help="Use baseline prompt")
     parser.add_argument("--max_turns", type=int, required=True, 
