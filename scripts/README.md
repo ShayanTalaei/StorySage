@@ -40,7 +40,7 @@ This directory contains scripts for running experiments with different configura
 ./scripts/run_multiple_sessions.sh --user_id coates
 
 # Run 5 sessions with 20 turns each
-./scripts/run_multiple_sessions.sh --user_id coates --num_sessions 10 --max_turns 20
+./scripts/run_multiple_sessions.sh --user_id coates --num_sessions 10 --max_turns 20 --restart
 ```
 
 ## Running Comparisons
@@ -65,13 +65,13 @@ This directory contains scripts for running experiments with different configura
 
 ```bash
 # Run interview comparisons for all sessions and biography for latest session
-./scripts/run_all_interview_comparisons.sh coates
+./scripts/run_all_comparisons.sh coates
 
 # Run with specific number of comparison runs per session
-./scripts/run_all_interview_comparisons.sh --run_times 5 coates
+./scripts/run_all_comparisons.sh --run_times 5 coates
 
 # Run for multiple users
-./scripts/run_all_interview_comparisons.sh coates ellie alex
+./scripts/run_all_comparisons.sh coates ellie alex
 ```
 
 ## Parameters

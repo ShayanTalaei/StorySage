@@ -7,12 +7,13 @@ from collections import defaultdict
 import pandas as pd
 from pathlib import Path
 
-def aggregate_single_file(df: pd.DataFrame, latency_df: Optional[pd.DataFrame] = None) -> Dict:
+def aggregate_single_file(df: pd.DataFrame, latency_df: Optional[pd.DataFrame] = None, bio_update_df: Optional[pd.DataFrame] = None) -> Dict:
     """Aggregate statistics from a single CSV file.
     
     Args:
         df: DataFrame containing conversation statistics
         latency_df: Optional DataFrame containing response latency data
+        bio_update_df: Optional DataFrame containing biography update times
         
     Returns:
         Dictionary with aggregated statistics
@@ -32,6 +33,14 @@ def aggregate_single_file(df: pd.DataFrame, latency_df: Optional[pd.DataFrame] =
         stats['Avg Latency'] = 0
         stats['Msg Length'] = 0
     
+    # Add biography update time statistics if available
+    if bio_update_df is not None and not bio_update_df.empty:
+        # Filter for final updates only
+        final_updates = bio_update_df[bio_update_df['Update Type'] == 'final']
+        stats['Bio Update Time'] = final_updates['Duration (seconds)'].mean()
+    else:
+        stats['Bio Update Time'] = 0
+    
     return stats
 
 def load_conversation_stats(user_id: str) -> List[Dict]:
@@ -50,12 +59,15 @@ def load_conversation_stats(user_id: str) -> List[Dict]:
     if base_path.exists():
         conv_file = base_path / "conversation_statistics.csv"
         latency_file = base_path / "response_latency.csv"
+        bio_update_file = base_path / "biography_update_times.csv"
         
         if conv_file.exists():
             conv_df = pd.read_csv(conv_file)
             latency_df = pd.read_csv(latency_file) if \
                 latency_file.exists() else None
-            file_stats = aggregate_single_file(conv_df, latency_df)
+            bio_update_df = pd.read_csv(bio_update_file) if \
+                bio_update_file.exists() else None
+            file_stats = aggregate_single_file(conv_df, latency_df, bio_update_df)
             file_stats['Model'] = 'Ours'
             stats.append(file_stats)
     
@@ -67,12 +79,15 @@ def load_conversation_stats(user_id: str) -> List[Dict]:
             if base_path.exists():
                 conv_file = base_path / "conversation_statistics.csv"
                 latency_file = base_path / "response_latency.csv"
+                bio_update_file = base_path / "biography_update_times.csv"
                 
                 if conv_file.exists():
                     conv_df = pd.read_csv(conv_file)
                     latency_df = pd.read_csv(latency_file) \
                         if latency_file.exists() else None
-                    file_stats = aggregate_single_file(conv_df, latency_df)
+                    bio_update_df = pd.read_csv(bio_update_file) \
+                        if bio_update_file.exists() else None
+                    file_stats = aggregate_single_file(conv_df, latency_df, bio_update_df)
                     file_stats['Model'] = model_name
                     stats.append(file_stats)
     
@@ -118,9 +133,10 @@ def display_results(stats_by_model: Dict[str, Dict]) -> None:
         stats_by_model: Dictionary mapping model names to their statistics
     """
     print("\nConversation Statistics:")
-    print("-" * 110)
-    print(f"{'Model':<20} {'Sessions':>8} {'Turns':>8} {'Memories':>10} {'Tokens/Conv':>12} {'Latency(s)':>12} {'User Msg Len':>14}")
-    print("-" * 110)
+    print("-" * 125)  # Increased width for new column
+    print(f"{'Model':<20} {'Sessions':>8} {'Turns':>8} {'Memories':>10} {'Tokens/Conv':>12} "
+          f"{'Latency(s)':>12} {'User Msg Len':>14} {'Bio Update(s)':>12}")
+    print("-" * 125)  # Increased width for new column
     
     # Sort models to ensure 'Ours' is last
     models = sorted([m for m in stats_by_model.keys() if m != 'Ours']) + \
@@ -133,9 +149,10 @@ def display_results(stats_by_model: Dict[str, Dict]) -> None:
               f"{int(stats['Total Memories']):>10} "
               f"{int(stats['Tokens per Conv']):>12} "
               f"{stats['Avg Latency']:>12.2f} "
-              f"{int(stats['Msg Length']):>12}")
+              f"{int(stats['Msg Length']):>12} "
+              f"{stats['Bio Update Time']:>12.2f}")
     
-    print("-" * 110)
+    print("-" * 125)  # Increased width for new column
 
 def analyze_user_stats(user_id: str) -> Dict[str, Dict]:
     """Analyze conversation statistics for a single user.

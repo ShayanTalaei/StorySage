@@ -514,7 +514,10 @@ class InterviewSession:
             eval_logger = EvaluationLogger.setup_logger(self.user_id, self.session_id)
             eval_logger.log_biography_update_time(
                 update_type="final",
-                duration=duration
+                duration=duration if not BaseAgent.use_baseline \
+                    else (duration + self._accumulated_auto_update_time)
+                    # We do auto-update for quick experiments running
+                    # However, no auto-update time in baseline mode in real user testing
             )
 
     def end_session(self):

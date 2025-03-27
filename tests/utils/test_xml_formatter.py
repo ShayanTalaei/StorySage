@@ -68,9 +68,18 @@ def test_memory_ids_edge_cases():
         </add_plan>
     </tool_calls>"""
     
+    # Test case 3: Empty tool_calls tags
+    response_empty_tags = """<tool_calls></tool_calls>"""
+    
+    # Test case 4: Empty tool_calls with whitespace
+    response_empty_with_space = """<tool_calls>
+    </tool_calls>"""
+    
     # Extract memory IDs from each response
     result_empty = extract_tool_arguments(response_empty, "add_plan", "memory_ids")
     result_malformed = extract_tool_arguments(response_malformed, "add_plan", "memory_ids")
+    result_empty_tags = extract_tool_arguments(response_empty_tags, "add_plan", "memory_ids")
+    result_empty_with_space = extract_tool_arguments(response_empty_with_space, "add_plan", "memory_ids")
     
     # Assertions
     assert isinstance(result_empty, list), "Result should be a list"
@@ -86,6 +95,10 @@ def test_memory_ids_edge_cases():
     # For malformed list, we should still get a result
     assert len(result_malformed) > 0, "Should return some result for malformed list"
     assert result_malformed[0] is not None, "Malformed list should not return None"
+    
+    # Assertions for empty tool_calls
+    assert result_empty_tags == [], "Empty tool_calls should return empty list"
+    assert result_empty_with_space == [], "Empty tool_calls with whitespace should return empty list"
 
 def test_normal_parameter_extraction():
     """Test extraction of normal parameters like section_path."""
@@ -123,4 +136,70 @@ def test_normal_parameter_extraction():
     multi_result = extract_tool_arguments(multi_response, "add_plan", "section_path")
     assert len(multi_result) == 2, "Should extract parameters from multiple tool calls"
     assert multi_result[0] == "2 Education", "First section path not correctly extracted"
-    assert multi_result[1] == "3 Career", "Second section path not correctly extracted" 
+    assert multi_result[1] == "3 Career", "Second section path not correctly extracted"
+
+def test_nested_tool_calls():
+    """Test extraction when tool_calls tag is nested inside other tags."""
+    
+    # Test case with nested tool_calls
+    response_nested = """<output_format>
+        <thinking>
+        The user shared some information. Let's update our records.
+        </thinking>
+        <tool_calls>
+            <add_plan>
+                <section_path>2 Education</section_path>
+                <memory_ids>["MEM_123", "MEM_456"]</memory_ids>
+            </add_plan>
+        </tool_calls>
+    </output_format>"""
+    
+    # Test case with nested empty tool_calls
+    response_nested_empty = """<output_format>
+        <thinking>
+        The user just shared their name. It's too early for follow-up questions.
+        </thinking>
+        <tool_calls>
+        </tool_calls>
+    </output_format>"""
+    
+    # Extract memory IDs from each response
+    result_nested = extract_tool_arguments(response_nested, "add_plan", "memory_ids")
+    result_nested_empty = extract_tool_arguments(response_nested_empty, "add_plan", "memory_ids")
+    
+    # Assertions
+    assert len(result_nested) == 1, "Should extract arguments from nested tool_calls"
+    assert result_nested[0] == ["MEM_123", "MEM_456"], "Should correctly parse nested memory IDs"
+    assert result_nested_empty == [], "Empty nested tool_calls should return empty list"
+    
+    # Test with multiple levels of nesting
+    response_deeply_nested = """<output_format>
+        <step_1>
+            <thinking>Processing user input...</thinking>
+            <tool_calls>
+                <add_plan>
+                    <memory_ids>["MEM_789"]</memory_ids>
+                </add_plan>
+            </tool_calls>
+        </step_1>
+    </output_format>"""
+    
+    result_deeply_nested = extract_tool_arguments(response_deeply_nested, "add_plan", "memory_ids")
+    assert len(result_deeply_nested) == 1, "Should extract arguments from deeply nested tool_calls"
+    assert result_deeply_nested[0] == ["MEM_789"], "Should correctly parse deeply nested memory IDs"
+
+def test_malformed_xml():
+    """Test handling of malformed XML."""
+    
+    # Test case with mismatched tags
+    response_malformed = """<output_format>
+        <tool_calls>
+            <add_plan>
+                <question>How do you like to be contacted?</question>
+            </add_plan>
+        </tool_calls>
+        </thinking>  <!-- Mismatched tag -->
+    </output_format>"""
+    
+    result = extract_tool_arguments(response_malformed, "add_plan", "question")
+    assert result[0] == "How do you like to be contacted?", "Should handle malformed XML gracefully" 

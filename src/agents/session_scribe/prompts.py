@@ -546,7 +546,7 @@ Your reasoning process on reflecting on the available information and deciding o
         <topic>Topic name</topic>
         <parent_id>ID of the parent question</parent_id>
         <parent_text>Full text of the parent question</parent_text>
-        <question_id>ID in proper parent-child format</question_id>
+        <question_id>ID in proper parent-child format. NEVER include a level 5 question id like '1.1.1.1.1'</question_id>
         <question>[FACT-GATHERING] or [DEEPER] or [TANGENTIAL] Your question here</question>
     </add_interview_question>
     ...

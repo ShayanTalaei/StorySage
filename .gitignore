@@ -1,6 +1,6 @@
 data/*
-data_*/*
-logs_*/*
+data*/*
+logs*/*
 test_logs/*
 !data/sample_user_profiles
 data/sample_user_profiles/meijin/*

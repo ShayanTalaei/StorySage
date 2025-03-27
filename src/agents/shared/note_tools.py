@@ -26,7 +26,7 @@ Shared tools for updating the session notes:
 class AddInterviewQuestionInput(BaseModel):
     topic: str = Field(description="The topic category for the question (e.g., 'Career', 'Education')")
     question: str = Field(description="The actual question text")
-    question_id: str = Field(description="The ID for the question (e.g., '1', '1.1', '2.3')")
+    question_id: str = Field(description="The ID for the question (e.g., '1', '1.1', '2.3'). Max level is 4. NEVER include a level 5 question id like '1.1.1.1.1'.")
     parent_id: Optional[str] = Field(default=None, description="The ID of the parent question (e.g., '1', '2', etc.). No need to include if it is a top-level question.")
     parent_text: Optional[str] = Field(default=None, description="The text of the parent question. No need to include if it is a top-level question.")
 
