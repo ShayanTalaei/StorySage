@@ -77,7 +77,13 @@ class AddPlan(BaseTool):
         run_manager: Optional[CallbackManagerForToolRun] = None,
     ) -> str:
         try:
-            # processed_memory_ids = self._process_memory_ids(memory_ids or [])
+            # Validate that at least one of section_path or section_title is provided
+            if not section_path and not section_title:
+                raise ToolException(
+                    "Failed to add plan: No section specified. This may be due to:\n"
+                    "1. Missing section_path and section_title in the tool call\n"
+                    "2. XML parsing error from mismatched tags causing loss of section data"
+                )
             
             plan = {
                 "section_path": section_path,

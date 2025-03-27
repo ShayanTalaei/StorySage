@@ -214,7 +214,7 @@ def run_experiment(user_id: str, model_name: str, use_baseline: bool, max_turns:
     else:
         logs_dir = "logs"
         data_dir = "data"
-        update_env_file(model_name, use_baseline)
+        update_env_file(model_name, use_baseline, logs_dir, data_dir)
     
     # Create directories if they don't exist
     os.makedirs(logs_dir, exist_ok=True)

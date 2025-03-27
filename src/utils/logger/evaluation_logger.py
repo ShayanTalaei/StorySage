@@ -550,6 +550,7 @@ class EvaluationLogger:
         self,
         update_type: str,
         duration: float,
+        accumulated_auto_time: float = 0.0,
         timestamp: Optional[datetime] = None
     ) -> None:
         """Log the time taken for biography updates.
@@ -557,6 +558,7 @@ class EvaluationLogger:
         Args:
             update_type: Type of update ('auto' or 'final')
             duration: Duration of the update in seconds
+            accumulated_auto_time: Total time spent on auto-updates (default 0)
             timestamp: Optional timestamp (defaults to current time)
         """
         # Create logs directory
@@ -579,7 +581,8 @@ class EvaluationLogger:
                     'Timestamp',
                     'Session ID',
                     'Update Type',
-                    'Duration (seconds)'
+                    'Duration (seconds)',
+                    'Accumulated Auto Time'
                 ]
                 writer.writerow(headers)
             
@@ -588,5 +591,6 @@ class EvaluationLogger:
                 timestamp.isoformat(),
                 self.session_id,
                 update_type,
-                f"{duration:.2f}"
+                f"{duration:.2f}",
+                f"{accumulated_auto_time:.2f}"
             ]) 

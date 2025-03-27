@@ -370,7 +370,8 @@ class InterviewSession:
                                 f"Waiting for session scribe to finish processing..."
                             )
                         )
-                        await self.final_update_biography_and_notes(selected_topics=[])
+                        await self.final_update_biography_and_notes(
+                            selected_topics=[])
 
                 # Wait for biography update to complete if it's in progress
                 start_time = time.time()
@@ -506,18 +507,21 @@ class InterviewSession:
             await self.biography_orchestrator.final_update_biography_and_notes(
                 selected_topics=selected_topics,
                 wait_time=self._accumulated_auto_update_time if \
-                    BaseAgent.use_baseline else None
+                    (BaseAgent.use_baseline and 
+                    self.interaction_mode == "api") else None
+                # Simulate baseline mode without auto-updates for web user testing
             )
         finally:
             # Calculate and log duration
             duration = time.time() - start_time
-            eval_logger = EvaluationLogger.setup_logger(self.user_id, self.session_id)
+            eval_logger = EvaluationLogger.setup_logger(
+                self.user_id, self.session_id)
             eval_logger.log_biography_update_time(
                 update_type="final",
                 duration=duration if not BaseAgent.use_baseline \
-                    else (duration + self._accumulated_auto_update_time)
-                    # We do auto-update for quick experiments running
-                    # However, no auto-update time in baseline mode in real user testing
+                    else (duration + self._accumulated_auto_update_time),
+                accumulated_auto_time=self._accumulated_auto_update_time
+                # Simulate baseline mode without auto-updates
             )
 
     def end_session(self):

@@ -24,38 +24,31 @@ load_dotenv()
 EVALUATION_CRITERIA = {
     "insightfulness_score": {
         "description": "Reveals profound perspectives on the subject's experiences and motivations, offering readers meaningful interpretations beyond surface facts",
-        "scale": "0-5",
         "guidelines": [
-            "0: Completely superficial, only lists basic facts with no interpretation",
-            "1: Mostly superficial with minimal interpretation of experiences",
-            "2: Some attempt at interpretation but lacks depth and meaningful insights",
-            "3: Good balance of facts and interpretation with some meaningful insights",
-            "4: Strong insights that reveal deeper motivations and perspectives",
-            "5: Exceptional insights that profoundly illuminate the subject's life and character"
+            "- Cover all important life events and experiences",
+            "- Provide meaningful interpretations of experiences",
+            "- Reveal deeper motivations and perspectives that shaped the subject's decisions",
+            "- Connect individual experiences to broader themes in the subject's life",
         ]
     },
     "narrativity_score": {
         "description": "Employs compelling storytelling techniques that engage readers through vivid description, appropriate pacing, and emotional resonance",
-        "scale": "0-5",
         "guidelines": [
-            "0: No narrative structure, just a list of disconnected facts",
-            "1: Basic chronology but lacks storytelling elements and engagement",
-            "2: Some storytelling elements but lacks vivid description or emotional resonance",
-            "3: Good narrative flow with some vivid descriptions and emotional elements",
-            "4: Strong storytelling with engaging descriptions and consistent emotional resonance",
-            "5: Masterful storytelling with captivating descriptions, perfect pacing, and powerful emotional impact"
+            "- Use vivid descriptions that bring scenes and experiences to life",
+            "- Maintain appropriate pacing that keeps readers engaged",
+            "- Create emotional resonance through effective storytelling",
+            "- Employ narrative techniques that make the biography engaging",
+            "- Balance description with action to maintain reader interest"
         ]
     },
     "coherence_score": {
         "description": "Presents a logical flow of events with clear chronology, establishing meaningful connections between life phases while maintaining narrative continuity",
-        "scale": "0-5",
         "guidelines": [
-            "0: Completely disjointed with no logical flow or connections",
-            "1: Mostly disconnected sections with unclear chronology",
-            "2: Basic chronology but weak connections between life phases",
-            "3: Clear chronology with some meaningful connections between events",
-            "4: Strong logical flow with well-established connections between life phases",
-            "5: Exceptional coherence with seamless transitions and profound connections across the entire life story"
+            "- Maintain a clear and logical chronological flow",
+            "- Create meaningful connections between different life phases",
+            "- Ensure smooth transitions between events and time periods",
+            "- Establish cause-and-effect relationships between life events",
+            "- Present a cohesive narrative that ties different aspects of life together"
         ]
     }
 }

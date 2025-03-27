@@ -23,6 +23,10 @@ while [[ $# -gt 0 ]]; do
             COMPARISON_TYPE="$2"
             shift 2
             ;;
+        --user_id)
+            USER_IDS+=("$2")
+            shift 2
+            ;;
         *)
             USER_IDS+=("$1")
             shift
@@ -186,7 +190,7 @@ done
 
 # Show final comparison results
 echo "Showing comparison results for session $SESSION_ID..."
-COMMAND="python ${SCRIPT_DIR}/analysis/comparison_results.py --user_ids ${USER_IDS[@]}"
+COMMAND="python ${SCRIPT_DIR}/analysis/comparison_results.py --user_ids ${USER_IDS[*]}"
 if [ -n "$SESSION_ID" ]; then
     COMMAND="$COMMAND --biography_version $SESSION_ID --session_id $SESSION_ID"
 fi

@@ -161,8 +161,7 @@ class BiographyOrchestrator:
             self.session_note_update_in_progress = True
 
             # Simulate baseline mode without auto-updates for web user testing
-            if wait_time and self._section_writer.use_baseline and \
-                    self._interview_session.interaction_mode == "api":
+            if wait_time:
                 start_time = time.time()
                 await asyncio.sleep(wait_time)
                 actual_wait = time.time() - start_time
@@ -189,7 +188,8 @@ class BiographyOrchestrator:
             # Skip session note update if baseline is used or no new memories
             if not new_memories or self._section_writer.use_baseline:
                 if new_memories:
-                    await self._session_coordinator.update_session_summary(new_memories)
+                    await self._session_coordinator.update_session_summary(
+                        new_memories)
                 self._interview_session.session_note.save(save_type="next_version")
                 return
 
