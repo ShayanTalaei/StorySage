@@ -70,23 +70,14 @@ for user_id in "${USER_IDS[@]}"; do
     for ((session_id=1; session_id<=$max_session; session_id++)); do
         echo "Running interview comparisons for session $session_id..."
         
-        # Run interview comparisons for this session
-        COMMAND="${SCRIPT_DIR}/run_single_comparison.sh --type interview --session_id $session_id --run_times $RUN_TIMES $user_id"
+        # Run comparisons for this session
+        COMMAND="${SCRIPT_DIR}/run_single_comparison.sh --session_id $session_id --run_times $RUN_TIMES $user_id"
         echo "Running command: $COMMAND"
         eval "$COMMAND"
         
-        echo "Completed session $session_id interviews"
+        echo "Completed session $session_id comparisons"
         echo "-------------------"
     done
-    
-    # Run biography comparisons for the latest session
-    echo "Running biography comparisons for latest session ($max_session)..."
-    COMMAND="${SCRIPT_DIR}/run_single_comparison.sh --type bio --session_id $max_session --run_times $RUN_TIMES $user_id"
-    echo "Running command: $COMMAND"
-    eval "$COMMAND"
-    
-    echo "Completed all evaluations for user $user_id"
-    echo "==================="
 done
 
 # Show final aggregated results

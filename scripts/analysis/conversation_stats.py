@@ -133,10 +133,14 @@ def display_results(stats_by_model: Dict[str, Dict]) -> None:
         stats_by_model: Dictionary mapping model names to their statistics
     """
     print("\nConversation Statistics:")
-    print("-" * 125)  # Increased width for new column
-    print(f"{'Model':<20} {'Sessions':>8} {'Turns':>8} {'Memories':>10} {'Tokens/Conv':>12} "
-          f"{'Latency(s)':>12} {'User Msg Len':>14} {'Bio Update(s)':>12}")
-    print("-" * 125)  # Increased width for new column
+    print("-" * 80)  # Increased width for new column
+    print(f"{'Model':<20} "
+          f"{'Sessions':>8} {'Turns':>8} {'Memories':>10} "
+        #   f"{'Tokens/Conv':>12} "
+          f"{'Latency(s)':>12} "
+        #   f"{'User Msg Len':>14} "
+          f"{'Bio Update(s)':>12}")
+    print("-" * 80)  # Increased width for new column
     
     # Sort models to ensure 'Ours' is last
     models = sorted([m for m in stats_by_model.keys() if m != 'Ours']) + \
@@ -147,12 +151,12 @@ def display_results(stats_by_model: Dict[str, Dict]) -> None:
         print(f"{model:<20} {int(stats['Sessions']):>8} "
               f"{int(stats['Total Turns'] / 2):>8} "
               f"{int(stats['Total Memories']):>10} "
-              f"{int(stats['Tokens per Conv']):>12} "
+            #   f"{int(stats['Tokens per Conv']):>12} "
               f"{stats['Avg Latency']:>12.2f} "
-              f"{int(stats['Msg Length']):>12} "
+            #   f"{int(stats['Msg Length']):>12} "
               f"{stats['Bio Update Time']:>12.2f}")
     
-    print("-" * 125)  # Increased width for new column
+    print("-" * 80)  # Increased width for new column
 
 def analyze_user_stats(user_id: str) -> Dict[str, Dict]:
     """Analyze conversation statistics for a single user.

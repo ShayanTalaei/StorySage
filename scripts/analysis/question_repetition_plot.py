@@ -62,6 +62,9 @@ def plot_session_repetition(df: pd.DataFrame, session_id: int, model_name: str,
     plt.plot(session_data['Turn'], session_data['Is Duplicate'].astype(int),
             color=color, marker='o', linestyle='-', markersize=8,
             label=model_name, linewidth=2, alpha=0.7)
+    
+    # Set y-axis ticks and labels
+    plt.yticks([0, 1], ['Non-Duplicate', 'Duplicate'])
 
 def calculate_session_rates(df: pd.DataFrame) -> Dict[int, float]:
     """Calculate repetition rates for each session.
@@ -131,14 +134,15 @@ def plot_progression(metrics_data: Dict[str, Dict[int, float]], user_id: str,
         plt.plot(session_nums, values, marker='o', linestyle='-', color=color,
                 label=f'{model_name}', linewidth=2, markersize=6)
         
-        # Annotate final value
-        plt.annotate(f'{values[-1]:.1f}%', 
-                   (session_nums[-1], values[-1]),
-                   textcoords="offset points",
-                   xytext=(5, 5),
-                   ha='left',
-                   fontsize=9,
-                   color=color)
+        # Annotate all values
+        for x, y in zip(session_nums, values):
+            plt.annotate(f'{y:.1f}%', 
+                       (x, y),
+                       textcoords="offset points",
+                       xytext=(5, 5),
+                       ha='left',
+                       fontsize=9,
+                       color=color)
     
     # Customize the plot
     plt.xlabel('Session Number', fontsize=12)
@@ -148,8 +152,9 @@ def plot_progression(metrics_data: Dict[str, Dict[int, float]], user_id: str,
     plt.grid(True, linestyle='--', alpha=0.7)
     plt.legend(fontsize=10, loc='upper left', bbox_to_anchor=(1, 1))
     
-    # Set y-axis range from 0 to 100
+    # Set y-axis range from 0 to 100 with ticks every 10%
     plt.ylim(0, 100)
+    plt.yticks(range(0, 101, 10))
     
     # Set x-axis to show all session numbers
     all_sessions = {num for rates in metrics_data.values() for num in rates.keys()}
@@ -197,14 +202,15 @@ def plot_accumulated_progression(metrics_data: Dict[str, Dict[int, float]], user
         plt.plot(session_nums, values, marker='o', linestyle='-', color=color,
                 label=f'{model_name}', linewidth=2, markersize=6)
         
-        # Annotate final value
-        plt.annotate(f'{values[-1]:.1f}%', 
-                   (session_nums[-1], values[-1]),
-                   textcoords="offset points",
-                   xytext=(5, 5),
-                   ha='left',
-                   fontsize=9,
-                   color=color)
+        # Annotate all values
+        for x, y in zip(session_nums, values):
+            plt.annotate(f'{y:.1f}%', 
+                       (x, y),
+                       textcoords="offset points",
+                       xytext=(5, 5),
+                       ha='left',
+                       fontsize=9,
+                       color=color)
     
     # Customize the plot
     plt.xlabel('Session Number', fontsize=12)
@@ -214,8 +220,9 @@ def plot_accumulated_progression(metrics_data: Dict[str, Dict[int, float]], user
     plt.grid(True, linestyle='--', alpha=0.7)
     plt.legend(fontsize=10, loc='upper left', bbox_to_anchor=(1, 1))
     
-    # Set y-axis range from 0 to 100
+    # Set y-axis range from 0 to 100 with ticks every 10%
     plt.ylim(0, 100)
+    plt.yticks(range(0, 101, 10))
     
     # Set x-axis to show all session numbers
     all_sessions = {num for rates in metrics_data.values() for num in rates.keys()}

@@ -14,7 +14,7 @@ dotenv.load_dotenv(override=True)
 
 class UserAgent(BaseAgent, User):
     def __init__(self, user_id: str, interview_session, config: dict = None):
-        config["model_name"] = "gpt-4o" # Always use gpt-4o for user agent
+        config["model_name"] = "gpt-4o-mini" # Always use gpt-4o for user agent
         BaseAgent.__init__(
             self, name="UserAgent", 
             description="Agent that plays the role of the user", config=config)

@@ -376,8 +376,10 @@ class Biography:
 
         if path is not None:
             if not self.is_valid_path_format(path):
-                raise ValueError(f"Invalid path format: {path}")
-            section = self._get_section_by_path(path)
+                potential_title = path.split('/')[-1]
+                section = self._get_section_by_title(potential_title)
+            else:
+                section = self._get_section_by_path(path)
         else:
             section = self._get_section_by_title(title)
 
