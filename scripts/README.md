@@ -15,6 +15,7 @@ This directory contains scripts for running experiments with different configura
 ```
 
 Parameters:
+
 - `--user_id`: (Required) User ID for the experiment
 - `--model`: (Optional) Model to use
 - `--baseline`: (Optional) Use baseline prompt
@@ -35,6 +36,7 @@ Parameters:
 ```
 
 Parameters:
+
 - `--user_id`: (Required) User ID for the experiment
 - `--max_turns`: (Optional) Maximum turns per session (default: 20)
 - `--restart`: (Optional) Clear existing data before running
@@ -50,6 +52,7 @@ Parameters:
 ```
 
 Parameters:
+
 - `--user_id`: (Required) User ID for the experiment
 - `--num_sessions`: (Optional) Number of sessions to run (default: 10)
 - `--max_turns`: (Optional) Maximum turns per session (default: 20)
@@ -71,6 +74,7 @@ Parameters:
 ```
 
 Parameters:
+
 - `--run_times`: (Optional) Number of comparison runs (default: 5)
 - `--session_id`: (Optional) Specific session to evaluate
 - `--type`: (Optional) Type of comparison: "bio" or "interview"
@@ -89,6 +93,7 @@ Parameters:
 ```
 
 Parameters:
+
 - `--run_times`: (Optional) Number of comparison runs per session (default: 5)
 
 ## Python Scripts
