@@ -86,6 +86,9 @@ class BaseAgent:
                 (interviewer_response, user_response, system_response, etc.)
             content: The content of the event.
         '''
+        # Convert None content to empty string to satisfy Pydantic validation
+        content = "" if content is None else str(content)
+        
         self.event_stream.append(BaseAgent.Event(sender=sender, 
                                                  tag=tag,
                                                  content=content, 
