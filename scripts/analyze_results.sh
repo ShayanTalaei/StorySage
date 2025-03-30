@@ -27,37 +27,68 @@ if [ ${#USER_IDS[@]} -eq 0 ]; then
     exit 1
 fi
 
-# Convert user IDs array to space-separated string
-USER_IDS_STR="${USER_IDS[@]}"
-
 # Build the commands
-CONV_COMMAND="python ${SCRIPT_DIR}/analysis/conversation_stats.py --user_ids ${USER_IDS_STR}"
-BIO_COMMAND="python ${SCRIPT_DIR}/analysis/biography_quality.py --user_ids ${USER_IDS_STR} ${BIO_VERSION}"
-QUEST_COMMAND="python ${SCRIPT_DIR}/analysis/question_repetition.py --user_ids ${USER_IDS_STR}"
-LATENCY_COMMAND="python ${SCRIPT_DIR}/analysis/latency_plot.py --user_ids ${USER_IDS_STR}"
-QUEST_PLOT_COMMAND="python ${SCRIPT_DIR}/analysis/question_repetition_plot.py --user_ids ${USER_IDS_STR}"
-PROG_COMMAND="python ${SCRIPT_DIR}/analysis/biography_progression_plot.py --user_ids ${USER_IDS_STR}"
+CONV_COMMAND="python ${SCRIPT_DIR}/analysis/conversation_stats.py"
+BIO_COMMAND="python ${SCRIPT_DIR}/analysis/biography_quality.py"
+QUEST_COMMAND="python ${SCRIPT_DIR}/analysis/question_repetition.py"
+QUEST_PLOT_COMMAND="python ${SCRIPT_DIR}/analysis/question_repetition_plot.py"
+PROG_COMMAND="python ${SCRIPT_DIR}/analysis/biography_progression_plot.py"
 
-# Run conversation statistics analysis
-echo "Running conversation statistics analysis..."
-eval "$CONV_COMMAND"
+# Function to run analysis for a given user ID or list of user IDs
+run_analysis() {
+    local user_ids="$1"
+    local output_file="$2"
+    
+    # Create directory for output file if it doesn't exist
+    mkdir -p "$(dirname "$output_file")"
+    
+    {
+        echo "Analysis Report"
+        echo "Generated on: $(date)"
+        echo "User IDs analyzed: ${user_ids}"
+        echo "----------------------------------------"
 
-# Run biography quality analysis
-echo -e "\nRunning biography quality analysis..."
-eval "$BIO_COMMAND"
+        # Run conversation statistics analysis
+        echo -e "\nConversation Statistics Analysis:"
+        eval "${CONV_COMMAND} --user_ids ${user_ids}"
 
-# Run question repetition analysis
-echo -e "\nRunning question repetition analysis..."
-eval "$QUEST_COMMAND"
+        # Run biography quality analysis
+        echo -e "\nBiography Quality Analysis:"
+        eval "${BIO_COMMAND} --user_ids ${user_ids} ${BIO_VERSION}"
 
-# Run latency analysis
-echo -e "\nRunning latency analysis..."
-eval "$LATENCY_COMMAND"
+        # Run question repetition analysis
+        echo -e "\nQuestion Repetition Analysis:"
+        eval "${QUEST_COMMAND} --user_ids ${user_ids}"
 
-# Run question repetition plot analysis
-echo -e "\nRunning question repetition plot analysis..."
-eval "$QUEST_PLOT_COMMAND"
+        # Run question repetition plot analysis
+        echo -e "\nQuestion Repetition Plot Analysis:"
+        eval "${QUEST_PLOT_COMMAND} --user_ids ${user_ids}"
 
-# Run biography progression analysis
-echo -e "\nRunning biography progression analysis..."
-eval "$PROG_COMMAND" 
+        # Run biography progression analysis
+        echo -e "\nBiography Progression Plot Analysis:"
+        eval "${PROG_COMMAND} --user_ids ${user_ids}"
+
+    } 2>&1 | tee "$output_file"
+
+    echo -e "\nAnalysis complete. Results saved to: $output_file"
+}
+
+# Handle single vs multiple users
+if [ ${#USER_IDS[@]} -eq 1 ]; then
+    # Single user case
+    OUTPUT_FILE="${SCRIPT_DIR}/../plots/${USER_IDS[0]}/report.txt"
+    run_analysis "${USER_IDS[0]}" "$OUTPUT_FILE"
+else
+    # Multiple users case
+    # First run individual analysis for each user
+    for user_id in "${USER_IDS[@]}"; do
+        echo -e "\nRunning individual analysis for user: $user_id"
+        OUTPUT_FILE="${SCRIPT_DIR}/../plots/${user_id}/report.txt"
+        run_analysis "$user_id" "$OUTPUT_FILE"
+    done
+    
+    # Then run aggregated analysis for all users
+    echo -e "\nRunning aggregated analysis for all users"
+    OUTPUT_FILE="${SCRIPT_DIR}/../plots/aggregated_report.txt"
+    run_analysis "${USER_IDS[*]}" "$OUTPUT_FILE"
+fi 

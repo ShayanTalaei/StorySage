@@ -255,12 +255,108 @@ def load_progression_data(user_id: str) -> Dict[str, Dict[int, Dict[str, float]]
     
     return model_data
 
+def plot_aggregated_metrics_progression(all_users_data: Dict[str, Dict[str, Dict[int, Dict[str, float]]]], 
+                                      output_dir: Path):
+    """Plot average biography metrics across all users.
+    
+    Args:
+        all_users_data: Dictionary mapping user_ids to their model data
+                       {user_id: {model_name: {session_id: metrics}}}
+        output_dir: Directory to save the plot
+    """
+    if not all_users_data:
+        print("No metrics data available to plot")
+        return
+    
+    # Colors for different models
+    colors = ['#2E86C1', '#E74C3C', '#27AE60', '#8E44AD', '#F39C12', '#16A085']
+    
+    # Get all model names from the first user's data
+    first_user = next(iter(all_users_data.values()))
+    model_names = list(first_user.keys())
+    
+    # Get all session numbers (should be same for all users)
+    first_model = next(iter(first_user.values()))
+    session_nums = sorted(first_model.keys())
+    
+    # Create separate plots for completeness and groundedness
+    metrics_to_plot = ['completeness', 'groundedness']
+    titles = ['Average Memory Coverage Progression Across Users', 
+             'Average Groundedness Score Progression Across Users']
+    y_labels = ['Memory Coverage (%)', 'Groundedness Score (%)']
+    
+    for metric, title, y_label in zip(metrics_to_plot, titles, y_labels):
+        plt.figure(figsize=(12, 6))
+        
+        # Plot each model's progression
+        for model_name, color in zip(model_names, colors):
+            # Calculate average values across users for each session
+            avg_values = []
+            for session in session_nums:
+                values = [user_data[model_name][session][metric] 
+                         for user_data in all_users_data.values()
+                         if metric in user_data[model_name][session]]
+                if values:
+                    avg_values.append(sum(values) / len(values))
+            
+            if not avg_values:
+                continue
+            
+            # Plot progression
+            plt.plot(session_nums[:len(avg_values)], avg_values, marker='o', 
+                    linestyle='-', color=color,
+                    label=f'{model_name}', linewidth=2, markersize=6)
+            
+            # Annotate final value
+            plt.annotate(f'{avg_values[-1]:.1f}%', 
+                       (session_nums[len(avg_values)-1], avg_values[-1]),
+                       textcoords="offset points",
+                       xytext=(5, 5),
+                       ha='left',
+                       fontsize=9,
+                       color=color)
+        
+        # Customize the plot
+        plt.xlabel('Session Number', fontsize=12)
+        plt.ylabel(y_label, fontsize=12)
+        plt.title(title, fontsize=14, pad=15)
+        
+        plt.grid(True, linestyle='--', alpha=0.7)
+        plt.legend(fontsize=10, loc='upper left', bbox_to_anchor=(1, 1))
+        
+        # Set y-axis range from 0 to 100
+        plt.ylim(0, 100)
+        plt.yticks(range(0, 101, 10))
+        
+        # Set x-axis to show all session numbers
+        plt.xlim(min(session_nums) - 0.5, max(session_nums) + 0.5)
+        plt.xticks(session_nums)
+        
+        # Add some padding and adjust layout
+        plt.margins(x=0.1)
+        plt.tight_layout()
+        
+        # Save the plot
+        metric_name = metric.lower()
+        plot_path = output_dir / f'aggregated_biography_{metric_name}_progression.png'
+        plt.savefig(plot_path, bbox_inches='tight', dpi=300)
+        print(f"Plot saved: {plot_path}")
+        
+        plt.close()
+
 def main():
     parser = argparse.ArgumentParser(
         description="Analyze and visualize biography metrics progression")
     parser.add_argument('--user_ids', nargs='+', required=True,
                       help='One or more user IDs to analyze')
     args = parser.parse_args()
+    
+    # Create base output directory for aggregated plot
+    base_output_dir = Path('plots')
+    base_output_dir.mkdir(exist_ok=True)
+    
+    # Store data for all users
+    all_users_data = {}
     
     for user_id in args.user_ids:
         print(f"\nAnalyzing biography progression for user: {user_id}")
@@ -269,10 +365,21 @@ def main():
         if not metrics_data:
             print(f"No biography data found for user {user_id}")
             continue
-        
-        plot_metrics_progression(metrics_data, user_id)
-        plot_memory_counts_progression(metrics_data, user_id)
-        print(f"\nAll plots have been saved in: plots/{user_id}/")
+            
+        # Store the metrics data for this user
+        all_users_data[user_id] = metrics_data
+    
+    # Choose plotting based on number of users
+    if len(all_users_data) == 1:
+        # For single user, plot individual progression
+        user_id = next(iter(all_users_data))
+        plot_metrics_progression(all_users_data[user_id], user_id)
+        plot_memory_counts_progression(all_users_data[user_id], user_id)
+        print(f"Plots saved in: plots/{user_id}/")
+    elif len(all_users_data) > 1:
+        # For multiple users, only plot aggregated progression
+        plot_aggregated_metrics_progression(all_users_data, base_output_dir)
+        print(f"Aggregated plots saved in: plots/")
 
 if __name__ == '__main__':
     main() 

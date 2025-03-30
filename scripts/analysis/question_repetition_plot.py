@@ -4,7 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from pathlib import Path
 from typing import Dict, Optional
-import numpy as np
+from statistics import mean
 
 def load_question_data(user_id: str, model_name: Optional[str] = None) -> pd.DataFrame:
     """Load question similarity data for a user.
@@ -39,32 +39,6 @@ def load_question_data(user_id: str, model_name: Optional[str] = None) -> pd.Dat
     except Exception as e:
         print(f"Error loading question similarity data: {e}")
         return pd.DataFrame()
-
-def plot_session_repetition(df: pd.DataFrame, session_id: int, model_name: str, 
-                          color: str):
-    """Plot question repetition pattern for a single session.
-    
-    Args:
-        df: DataFrame with question similarity data
-        session_id: Session ID to plot
-        model_name: Name of the model
-        color: Color to use for the plot
-    """
-    # Filter data for the session
-    session_data = df[df['Session ID'] == session_id].copy()
-    if session_data.empty:
-        return
-    
-    # Create turn numbers (1-based index)
-    session_data['Turn'] = range(1, len(session_data) + 1)
-    
-    # Plot points and connecting lines
-    plt.plot(session_data['Turn'], session_data['Is Duplicate'].astype(int),
-            color=color, marker='o', linestyle='-', markersize=8,
-            label=model_name, linewidth=2, alpha=0.7)
-    
-    # Set y-axis ticks and labels
-    plt.yticks([0, 1], ['Non-Duplicate', 'Duplicate'])
 
 def calculate_session_rates(df: pd.DataFrame) -> Dict[int, float]:
     """Calculate repetition rates for each session.
@@ -112,6 +86,9 @@ def plot_progression(metrics_data: Dict[str, Dict[int, float]], user_id: str,
         metrics_data: Dictionary mapping model names to their session rates
         user_id: ID of the user being analyzed
         output_dir: Directory to save the plot
+    
+    Deprecated:
+        Calculating the accumulated rates instead of the session rates.
     """
     if not metrics_data:
         return
@@ -240,6 +217,81 @@ def plot_accumulated_progression(metrics_data: Dict[str, Dict[int, float]], user
     
     plt.close()
 
+def plot_aggregated_users_progression(all_users_data: Dict[str, Dict[str, Dict[int, float]]], 
+                                    output_dir: Path):
+    """Plot average accumulated repetition rates across all users.
+    
+    Args:
+        all_users_data: Dictionary mapping user_ids to their model data
+                       {user_id: {model_name: {session_id: rate}}}
+        output_dir: Directory to save the plot
+    """
+    if not all_users_data:
+        return
+        
+    # Colors for different models
+    colors = ['#2E86C1', '#E74C3C', '#27AE60', '#8E44AD', '#F39C12', '#16A085']
+    
+    plt.figure(figsize=(12, 6))
+    
+    # Get all model names from the first user's data
+    first_user = next(iter(all_users_data.values()))
+    model_names = list(first_user.keys())
+    
+    # Get all session numbers (should be same for all users)
+    first_model = next(iter(first_user.values()))
+    session_nums = sorted(first_model.keys())
+    
+    # Calculate average rates across users for each model and session
+    for model_name, color in zip(model_names, colors):
+        # For each session, get the rate from all users and calculate mean
+        avg_values = []
+        for session in session_nums:
+            rates = [user_data[model_name][session] * 100 
+                    for user_data in all_users_data.values()]
+            avg_values.append(mean(rates))
+        
+        # Plot progression
+        plt.plot(session_nums, avg_values, marker='o', linestyle='-', color=color,
+                label=f'{model_name}', linewidth=2, markersize=6)
+        
+        # Annotate values
+        for x, y in zip(session_nums, avg_values):
+            plt.annotate(f'{y:.1f}%', 
+                       (x, y),
+                       textcoords="offset points",
+                       xytext=(5, 5),
+                       ha='left',
+                       fontsize=9,
+                       color=color)
+    
+    # Customize the plot
+    plt.xlabel('Session Number', fontsize=12)
+    plt.ylabel('Average Accumulated Question Repetition Rate (%)', fontsize=12)
+    plt.title('Average Accumulated Question Repetition Rate Across Users', fontsize=14, pad=15)
+    
+    plt.grid(True, linestyle='--', alpha=0.7)
+    plt.legend(fontsize=10, loc='upper left', bbox_to_anchor=(1, 1))
+    
+    # Set y-axis range from 0 to 100 with ticks every 10%
+    plt.ylim(0, 100)
+    plt.yticks(range(0, 101, 10))
+    
+    # Set x-axis to show all session numbers
+    plt.xlim(min(session_nums) - 0.5, max(session_nums) + 0.5)
+    plt.xticks(session_nums)
+    
+    # Add some padding and adjust layout
+    plt.margins(x=0.1)
+    plt.tight_layout()
+    
+    # Save the plot
+    plot_path = output_dir / 'aggregated_question_repetition_progression.png'
+    plt.savefig(plot_path, bbox_inches='tight', dpi=300)
+    print(f"Plot saved: {plot_path}")
+    
+    plt.close()
+
 def main():
     parser = argparse.ArgumentParser(
         description="Visualize question repetition patterns")
@@ -247,26 +299,17 @@ def main():
                       help='One or more user IDs to analyze')
     args = parser.parse_args()
     
-    # Define colors that will be used for models
-    colors = [
-        '#2E86C1',  # Blue
-        '#E74C3C',  # Red
-        '#27AE60',  # Green
-        '#8E44AD',  # Purple
-        '#F39C12',  # Orange
-        '#16A085',  # Teal
-        '#D35400',  # Dark Orange
-        '#7F8C8D',  # Gray
-        '#2980B9',  # Light Blue
-        '#C0392B',  # Dark Red
-        '#27AE60',  # Light Green
-        '#8E44AD'   # Purple
-    ]
+    # Create base output directory for aggregated plot
+    base_output_dir = Path('plots')
+    base_output_dir.mkdir(exist_ok=True)
+    
+    # Store data for all users
+    all_users_data = {}
     
     for user_id in args.user_ids:
         print(f"\nAnalyzing question repetition for user: {user_id}")
         
-        # Create output directory
+        # Create output directory for individual user plots
         output_dir = Path('plots') / user_id
         output_dir.mkdir(parents=True, exist_ok=True)
         
@@ -290,67 +333,26 @@ def main():
             print(f"No question data found for user {user_id}")
             continue
         
-        # Create color mapping based on sorted model names
-        sorted_models = sorted(model_data.keys())
-        model_to_color = {model: colors[i % len(colors)] 
-                         for i, model in enumerate(sorted_models)}
-        
-        # Plot repetition patterns for each session
-        all_sessions = {session_id for df in model_data.values() 
-                       for session_id in df['Session ID'].unique()}
-        
-        for session_id in sorted(all_sessions):
-            # Create one figure for all models in this session
-            plt.figure(figsize=(12, 4))
-            
-            # Plot all models on the same figure
-            for model_name in sorted_models:
-                df = model_data[model_name]
-                color = model_to_color[model_name]
-                plot_session_repetition(df, session_id, model_name, color)
-            
-            # Customize the plot
-            plt.yticks([0, 1], ['Non-Duplicate', 'Duplicate'])
-            plt.xlabel('Turn Number', fontsize=12)
-            plt.title(f'Question Repetition Pattern - Session {session_id}', 
-                     fontsize=14, pad=15)
-            
-            plt.grid(True, linestyle='--', alpha=0.7)
-            plt.legend(fontsize=10, loc='center left', bbox_to_anchor=(1, 0.5))
-            
-            # Set x-axis to show all turn numbers
-            max_turns = max(len(df[df['Session ID'] == session_id]) 
-                          for df in model_data.values() if \
-                            session_id in df['Session ID'].unique())
-            plt.xlim(0.5, max_turns + 0.5)
-            plt.xticks(range(1, max_turns + 1))
-            
-            # Add some padding
-            plt.margins(y=0.2)
-            plt.tight_layout()
-            
-            # Save the plot
-            plot_path = output_dir / f'question_repetition_session_{session_id}.png'
-            plt.savefig(plot_path, bbox_inches='tight', dpi=300)
-            print(f"Plot saved: {plot_path}")
-            
-            plt.close()
-        
-        # Calculate and plot progression across sessions
-        progression_data = {
-            model_name: calculate_session_rates(df)
-            for model_name, df in model_data.items()
-        }
-        plot_progression(progression_data, user_id, output_dir)
-        
-        # Calculate and plot accumulated progression
+        # Calculate accumulated progression for individual user
         accumulated_data = {
             model_name: calculate_accumulated_rates(df)
             for model_name, df in model_data.items()
         }
-        plot_accumulated_progression(accumulated_data, user_id, output_dir)
         
-        print(f"\nAll plots have been saved in: plots/{user_id}/")
+        # Store the accumulated data for this user
+        all_users_data[user_id] = accumulated_data
+    
+    # Choose plotting based on number of users
+    if len(all_users_data) == 1:
+        # For single user, plot individual progression
+        user_id = next(iter(all_users_data))
+        output_dir = Path('plots') / user_id
+        plot_accumulated_progression(all_users_data[user_id], user_id, output_dir)
+        print(f"Plot saved in: plots/{user_id}/")
+    elif len(all_users_data) > 1:
+        # For multiple users, only plot aggregated progression
+        plot_aggregated_users_progression(all_users_data, base_output_dir)
+        print(f"Aggregated plot saved in: plots/")
 
 if __name__ == '__main__':
     main() 
