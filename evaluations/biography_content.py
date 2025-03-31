@@ -83,13 +83,14 @@ Biography B:
 </B>
 
 ## Output Format
-Use the tool calls to output your evaluation.
+IMPORTANT: Use XML tags for your output. DO NOT use code blocks (```). The output should be pure XML.
 
 Reminder: 
 - Just specify A, B, or Tie for the voting, other formats like "Biography A", "Biography B", "model_A" or "model_B", "version_A" or "model_Tie", are not allowed.
 - Just specify A, B, or Tie!!!
-- Wrap your output in <tool_calls>...</tool_calls> tags.
-- Wrap your output in <tool_calls>...</tool_calls> tags!!!
+- Use XML tags <tool_calls>...</tool_calls> directly, NOT inside code blocks
+- DO NOT use backticks (```) or any other code formatting
+- The output should look exactly like this:
 
 <tool_calls>
 <insightfulness_score>
@@ -139,6 +140,15 @@ def format_evaluation_prompt(biography_a_content: str, biography_b_content: str)
 def parse_evaluation_response(response: str) -> Dict[str, Any]:
     """Parse the evaluation response to extract ratings and explanations."""
     result = {}
+    
+    # Remove code block formatting if present
+    if response.startswith("```") and response.endswith("```"):
+        response = response[3:-3]  # Remove leading/trailing ```
+    # Replace malformed tool_calls tag with proper XML tag
+    if response.startswith("```tool_calls>"):
+        response = "<tool_calls>" + response[len("```tool_calls>"):]
+    if response.endswith("```"):
+        response = response[:-3]
     
     # Define criteria to extract
     criteria = ["insightfulness_score", "narrativity_score", "coherence_score"]
