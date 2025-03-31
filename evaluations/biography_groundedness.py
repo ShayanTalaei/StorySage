@@ -279,7 +279,7 @@ def main():
     args = parser.parse_args()
     
     # Initialize LLM engine
-    engine = get_engine("gemini-2.0-flash")
+    engine = get_engine("gemini-2.0-flash", max_tokens=20000)
     
     # Load biography and memory bank
     biography = Biography.load_from_file(args.user_id, args.version)

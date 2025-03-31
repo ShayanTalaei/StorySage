@@ -439,6 +439,7 @@ class Biography:
                 
                 # Create and add the new section
                 new_section = Section(title, content, current)
+                new_section.update_memory_ids()
                 current.subsections[path_parts[-1]] = new_section
                 
                 # Sort the subsections after adding the new one

@@ -30,7 +30,13 @@ def get_engine(model_name, **kwargs):
             - DeepSeek models: deepseek-ai/DeepSeek-V3 (671B parameter model)
             - Claude models: via Vertex AI
             - Gemini models: via Vertex AI
-        **kwargs: Additional keyword arguments to pass to the model constructor
+        **kwargs: Additional keyword arguments to pass to the model constructor.
+            - temperature: Float between 0 and 1 (default: 0.0)
+            - max_tokens/max_output_tokens: Maximum number of tokens in the response (default: 4096)
+                Note: This will be mapped to the appropriate parameter name for each model:
+                - OpenAI/Llama/DeepSeek: max_tokens
+                - Gemini: max_output_tokens
+                - Claude: max_tokens_to_sample
 
     Returns:
         LangChain chat model instance or custom engine configured with the specified parameters
@@ -38,25 +44,35 @@ def get_engine(model_name, **kwargs):
     # Set default temperature if not provided
     if "temperature" not in kwargs:
         kwargs["temperature"] = 0.0
-    if "max_tokens" not in kwargs:
-        kwargs["max_tokens"] = 4096
+
+    # Standardize max token handling
+    max_tokens = kwargs.pop("max_tokens", None)
+    max_output_tokens = kwargs.pop("max_output_tokens", None)
+    max_tokens_to_sample = kwargs.pop("max_tokens_to_sample", None)
+    
+    # Use the first non-None value in order of precedence
+    token_limit = max_output_tokens or max_tokens or max_tokens_to_sample or 4096
         
     if model_name == "gpt-4o-mini":
         model_name = "gpt-4o-mini-2024-07-18"
     
     # Handle Claude models via Vertex AI
     if model_name in claude_vertex_model_mapping or "claude" in model_name:
+        kwargs["max_tokens_to_sample"] = token_limit
         return ClaudeVertexEngine(model_name=model_name, **kwargs)
     
     # Handle Gemini models via Vertex AI
     if model_name in gemini_models or "gemini" in model_name:
+        kwargs["max_output_tokens"] = token_limit
         return GeminiVertexEngine(model_name=model_name, **kwargs)
         
     # Handle DeepSeek models
     if model_name in deepseek_models or "deepseek" in model_name.lower():
+        kwargs["max_tokens"] = token_limit
         return DeepSeekEngine(model_name=model_name, **kwargs)
     
-    # For other models, use the standard approach
+    # For other models (OpenAI, Llama), use max_tokens
+    kwargs["max_tokens"] = token_limit
     kwargs["model_name"] = model_name
     return engine_constructor[model_name](**kwargs)
 
