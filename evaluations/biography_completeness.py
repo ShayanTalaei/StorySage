@@ -33,10 +33,10 @@ def extract_memory_ids_from_biography(biography: Biography) -> Set[str]:
     process_section(biography.root)
     return memory_ids
 
-def calculate_biography_completeness(user_id: str, logger: EvaluationLogger, biography_version: int) -> dict:
+def calculate_biography_completeness(user_id: str, logger: EvaluationLogger, biography_version: int = -1) -> dict:
     """Calculate biography completeness metrics based on memory coverage."""
-    # Load latest biography and memory bank
-    biography = Biography.load_from_file(user_id)
+    # Load biography and memory bank
+    biography = Biography.load_from_file(user_id, biography_version)
     memory_bank = VectorMemoryBank.load_from_file(user_id)
     
     # Get all memory IDs from biography
@@ -63,22 +63,22 @@ def calculate_biography_completeness(user_id: str, logger: EvaluationLogger, bio
     }
     
     # Get details for unreferenced memories
-    unreferenced_details = get_unreferenced_memory_details(user_id)
+    unreferenced_details = get_unreferenced_memory_details(user_id, biography_version)
     
     # Log evaluation results
     if logger:  # Allow None logger for testing/reuse
         logger.log_biography_completeness(
             metrics=metrics,
             unreferenced_details=unreferenced_details,
-            biography_version=biography_version
+            biography_version=biography.version
         )
     
     return metrics
 
-def get_unreferenced_memory_details(user_id: str) -> List[dict]:
+def get_unreferenced_memory_details(user_id: str, version: int = -1) -> List[dict]:
     """Get details of memories not referenced in the biography."""
     # Get unreferenced memory IDs
-    biography = Biography.load_from_file(user_id)
+    biography = Biography.load_from_file(user_id, version)
     biography_memory_ids = extract_memory_ids_from_biography(biography)
     memory_bank = VectorMemoryBank.load_from_file(user_id)
     all_memory_ids = {memory.id for memory in memory_bank.memories}
@@ -113,18 +113,22 @@ def main():
         help='ID of the user whose biography to evaluate',
         required=True
     )
+    parser.add_argument(
+        '--version',
+        type=int,
+        help='Version of the biography to evaluate',
+        required=False,
+        default=-1
+    )
     
     args = parser.parse_args()
-    
-    # Load biography to get version
-    biography = Biography.load_from_file(args.user_id)
     
     # Initialize logger
     logger = EvaluationLogger(user_id=args.user_id)
     
     # Run evaluation
     print(f"Evaluating biography completeness for user: {args.user_id}")
-    calculate_biography_completeness(args.user_id, logger, biography.version)
+    calculate_biography_completeness(args.user_id, logger, args.version)
     print("Evaluation complete. Results saved to logs directory.")
 
 if __name__ == "__main__":
