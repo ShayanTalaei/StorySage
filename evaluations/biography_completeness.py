@@ -140,13 +140,19 @@ def main():
     )
     
     args = parser.parse_args()
-    
+
+    # Get the latest version of the biography
+    bio_version = args.version
+    if bio_version == -1:
+        biography = Biography.load_from_file(args.user_id)
+        bio_version = biography.version
+
     # Initialize shared logger
-    logger = EvaluationLogger.setup_logger(args.user_id, args.version)
+    logger = EvaluationLogger.setup_logger(args.user_id, bio_version)
     
     # Run evaluation
     print(f"Evaluating biography completeness for user: {args.user_id}")
-    calculate_biography_completeness(args.user_id, logger, args.version)
+    calculate_biography_completeness(args.user_id, logger, bio_version)
     print("Evaluation complete. Results saved to logs directory.")
 
 if __name__ == "__main__":

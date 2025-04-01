@@ -474,7 +474,7 @@ def main():
     memory_bank = VectorMemoryBank.load_from_file(args.user_id)
     
     # Initialize shared logger
-    logger = EvaluationLogger.setup_logger(args.user_id, args.version)
+    logger = EvaluationLogger.setup_logger(args.user_id, biography.version)
     
     # Run evaluation
     print(f"Evaluating biography groundedness for user: {args.user_id}")
