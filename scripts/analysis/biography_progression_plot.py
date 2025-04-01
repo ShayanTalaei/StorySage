@@ -116,13 +116,21 @@ def plot_metrics_progression(metrics_data: Dict[str, Dict[int, Dict[str, float]]
         plt.grid(True, linestyle='--', alpha=0.7)
         plt.legend(fontsize=10, loc='upper left', bbox_to_anchor=(1, 1))
         
-        # Set y-axis range dynamically based on data
+        # Set y-axis range based on metric
         all_values = [val for model_data in metrics_data.values() 
                      for session in model_data.values() 
                      if metric in session
                      for val in [session[metric]]]
-        min_y = max(min(all_values) - 5, 0)  # Add 5% padding below, but don't go below 0
+        
+        # Calculate dynamic min_y with 30% padding (but not below 0)
+        min_val = min(all_values) if all_values else 0
+        padding = 30  # 30% padding
+        min_y = max(min_val - padding, 0)
         plt.ylim(min_y, 100)
+        
+        # Set appropriate tick spacing based on the y-axis range
+        tick_spacing = 5 if (100 - min_y) <= 50 else 10
+        plt.yticks(range(int(min_y), 101, tick_spacing))
         
         # Set x-axis to show all session numbers
         all_sessions = {num for model_data in metrics_data.values() 
@@ -324,9 +332,24 @@ def plot_aggregated_metrics_progression(all_users_data: Dict[str, Dict[str, Dict
         plt.grid(True, linestyle='--', alpha=0.7)
         plt.legend(fontsize=10, loc='upper left', bbox_to_anchor=(1, 1))
         
-        # Set y-axis range from 0 to 100
-        plt.ylim(0, 100)
-        plt.yticks(range(0, 101, 10))
+        # Set y-axis range based on metric
+        all_values = []
+        for model_name in model_names:
+            for session in session_nums:
+                for user_id, user_data in all_users_data.items():
+                    if model_name in user_data and session in user_data[model_name]:
+                        if metric in user_data[model_name][session]:
+                            all_values.append(user_data[model_name][session][metric])
+        
+        # Calculate dynamic min_y with 30% padding (but not below 0)
+        min_val = min(all_values) if all_values else 0
+        padding = 30  # 30% padding
+        min_y = max(min_val - padding, 0)
+        plt.ylim(min_y, 100)
+        
+        # Set appropriate tick spacing based on the y-axis range
+        tick_spacing = 5 if (100 - min_y) <= 50 else 10
+        plt.yticks(range(int(min_y), 101, tick_spacing))
         
         # Set x-axis to show all session numbers
         plt.xlim(min(session_nums) - 0.5, max(session_nums) + 0.5)

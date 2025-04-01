@@ -394,6 +394,57 @@ def calculate_overall_groundedness(results: List[Dict]) -> float:
     
     return total_score / len(results)
 
+def clean_invalid_groundedness_entries(user_id: str, version: int) -> None:
+    """Clean invalid entries (score <= 0 or NaN) from the groundedness summary CSV.
+    
+    Args:
+        user_id: User ID
+        version: Biography version
+    """
+    eval_path = os.path.join(
+        os.getenv("LOGS_DIR"),
+        user_id,
+        "evaluations",
+        f"biography_{version}",
+        "groundedness_summary.csv"
+    )
+    
+    if not os.path.exists(eval_path):
+        print("No groundedness summary file found to clean")
+        return
+    
+    try:
+        # Read CSV using pandas
+        df = pd.read_csv(eval_path)
+        
+        # Convert score to numeric, replacing errors with NaN
+        df['Groundedness Score'] = pd.to_numeric(df['Groundedness Score'], errors='coerce')
+        
+        # Find invalid rows (score <= 0 or NaN)
+        valid_mask = (df['Groundedness Score'] > 0) & df['Groundedness Score'].notna()
+        invalid_rows = ~valid_mask
+        
+        if invalid_rows.any():
+            invalid_count = invalid_rows.sum()
+            # Get the titles of invalid sections for reporting
+            invalid_titles = df.loc[invalid_rows, 'Section Title'].tolist()
+            
+            print(f"Cleaning {invalid_count} invalid entries from groundedness_summary.csv:")
+            for title in invalid_titles:
+                print(f"  - {title}")
+            
+            # Keep only valid rows
+            df_cleaned = df[valid_mask].copy()
+            
+            # Save cleaned DataFrame back to CSV
+            df_cleaned.to_csv(eval_path, index=False)
+            print(f"Successfully cleaned groundedness_summary.csv")
+        else:
+            print("No invalid entries found in groundedness_summary.csv")
+    
+    except Exception as e:
+        print(f"Error cleaning groundedness summary: {e}")
+
 def main():
     """Main function to run the biography groundedness evaluation."""
     parser = argparse.ArgumentParser(
@@ -428,6 +479,10 @@ def main():
     # Run evaluation
     print(f"Evaluating biography groundedness for user: {args.user_id}")
     results = evaluate_biography_groundedness(biography, memory_bank, engine, logger)
+    
+    # Clean invalid entries from the groundedness summary CSV
+    print("\nCleaning invalid entries from groundedness summary...")
+    clean_invalid_groundedness_entries(args.user_id, biography.version)
     
     # Calculate and print overall groundedness score
     overall_score = calculate_overall_groundedness(results)
