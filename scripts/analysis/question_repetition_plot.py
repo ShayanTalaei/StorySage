@@ -239,9 +239,12 @@ def plot_aggregated_users_progression(all_users_data: Dict[str, Dict[str, Dict[i
     first_user = next(iter(all_users_data.values()))
     model_names = list(first_user.keys())
     
-    # Get all session numbers (should be same for all users)
-    first_model = next(iter(first_user.values()))
-    session_nums = sorted(first_model.keys())
+    # Get all possible session numbers across all users
+    all_sessions = set()
+    for user_data in all_users_data.values():
+        for model_data in user_data.values():
+            all_sessions.update(model_data.keys())
+    session_nums = sorted(all_sessions)
     
     # Calculate average rates across users for each model and session
     for model_name, color in zip(model_names, colors):
@@ -250,23 +253,49 @@ def plot_aggregated_users_progression(all_users_data: Dict[str, Dict[str, Dict[i
         std_values = []
         
         for session in session_nums:
-            rates = [user_data[model_name][session] * 100 
-                    for user_data in all_users_data.values()]
-            avg_values.append(mean(rates))
-            std_values.append(np.std(rates))
+            # Only include users who have data for this session and model
+            rates = []
+            for user_id, user_data in all_users_data.items():
+                if model_name in user_data and session in user_data[model_name]:
+                    rates.append(user_data[model_name][session] * 100)
+            
+            if rates:  # Only calculate statistics if we have data
+                avg_values.append(mean(rates))
+                std_values.append(np.std(rates))
+            else:
+                # No data for this session, skip it
+                avg_values.append(None)
+                std_values.append(None)
+        
+        # Filter out None values for plotting
+        valid_sessions = []
+        valid_avgs = []
+        valid_stds = []
+        for i, (session, avg, std) in enumerate(
+            zip(session_nums, avg_values, std_values)):
+            if avg is not None:
+                valid_sessions.append(session)
+                valid_avgs.append(avg)
+                valid_stds.append(std)
+        
+        if not valid_sessions:
+            print(f"No valid data for model {model_name}, skipping")
+            continue
         
         # Plot progression with mean line
-        plt.plot(session_nums, avg_values, marker='o', linestyle='-', color=color,
+        plt.plot(valid_sessions, valid_avgs, marker='o', linestyle='-', color=color,
                 label=f'{model_name}', linewidth=2, markersize=6)
         
         # Add standard deviation band
-        plt.fill_between(session_nums, 
-                       [max(0, avg - std) for avg, std in zip(avg_values, std_values)],
-                       [min(100, avg + std) for avg, std in zip(avg_values, std_values)],
+        plt.fill_between(valid_sessions, 
+                       [max(0, avg - std) for avg, std in 
+                        zip(valid_avgs, valid_stds)],
+                       [min(100, avg + std) for avg, std in 
+                        zip(valid_avgs, valid_stds)],
                        color=color, alpha=0.2)
         
         # Annotate values
-        for x, y in zip(session_nums, avg_values):
+        for x, y in zip(valid_sessions, valid_avgs):
             plt.annotate(f'{y:.1f}%', 
                        (x, y),
                        textcoords="offset points",
@@ -288,8 +317,9 @@ def plot_aggregated_users_progression(all_users_data: Dict[str, Dict[str, Dict[i
     plt.yticks(range(0, 101, 10))
     
     # Set x-axis to show all session numbers
-    plt.xlim(min(session_nums) - 0.5, max(session_nums) + 0.5)
-    plt.xticks(session_nums)
+    if session_nums:
+        plt.xlim(min(session_nums) - 0.5, max(session_nums) + 0.5)
+        plt.xticks(session_nums)
     
     # Add some padding and adjust layout
     plt.margins(x=0.1)
