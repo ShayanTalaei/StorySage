@@ -91,23 +91,36 @@ def plot_metrics_progression(metrics_data: Dict[str, Dict[int, Dict[str, float]]
             
             # Get all session numbers and values, sorted by session number
             session_nums = sorted(sessions.keys())
-            values = [sessions[num][metric] for num in session_nums if metric in sessions[num]]
+            values = [sessions[num].get(metric, None) for num in session_nums]
             
-            if not values:
+            # Filter out None values and their corresponding session numbers
+            valid_data = [(num, val) for num, val in zip(session_nums, values) if val is not None]
+            
+            if not valid_data:
+                print(f"Warning: No valid {metric} data for model {model_name}")
                 continue
             
-            # Plot progression
-            plt.plot(session_nums, values, marker='o', linestyle='-', color=color,
-                    label=f'{model_name}', linewidth=2, markersize=6)
+            # Unpack the valid data
+            valid_session_nums, valid_values = zip(*valid_data)
             
-            # Annotate final value
-            plt.annotate(f'{values[-1]:.1f}%', 
-                       (session_nums[-1], values[-1]),
-                       textcoords="offset points",
-                       xytext=(5, 5),
-                       ha='left',
-                       fontsize=9,
-                       color=color)
+            try:
+                # Plot progression
+                plt.plot(valid_session_nums, valid_values, marker='o', linestyle='-', color=color,
+                        label=f'{model_name}', linewidth=2, markersize=6)
+                
+                # Annotate final value
+                plt.annotate(f'{valid_values[-1]:.1f}%', 
+                           (valid_session_nums[-1], valid_values[-1]),
+                           textcoords="offset points",
+                           xytext=(5, 5),
+                           ha='left',
+                           fontsize=9,
+                           color=color)
+            except Exception as e:
+                print(f"Error plotting {metric} for model {model_name}: {e}")
+                print(f"Session numbers: {valid_session_nums}")
+                print(f"Values: {valid_values}")
+                continue
         
         # Customize the plot
         plt.xlabel('Session Number', fontsize=12)
@@ -118,11 +131,17 @@ def plot_metrics_progression(metrics_data: Dict[str, Dict[int, Dict[str, float]]
         plt.legend(fontsize=10, loc='upper left', bbox_to_anchor=(1, 1))
         
         # Set y-axis range based on metric
-        all_values = [val for model_data in metrics_data.values() 
-                     for session in model_data.values() 
-                     if metric in session
-                     for val in [session[metric]]]
+        all_values = []
+        for model_data in metrics_data.values():
+            for session in model_data.values():
+                if metric in session:
+                    all_values.append(session[metric])
         
+        if not all_values:
+            print(f"No valid data for {metric} across all models")
+            plt.close()
+            continue
+            
         # Calculate dynamic min_y with 30% padding (but not below 0)
         min_val = min(all_values) if all_values else 0
         padding = 30  # 30% padding
@@ -134,8 +153,17 @@ def plot_metrics_progression(metrics_data: Dict[str, Dict[int, Dict[str, float]]
         plt.yticks(range(int(min_y), 101, tick_spacing))
         
         # Set x-axis to show all session numbers
-        all_sessions = {num for model_data in metrics_data.values() 
-                       for num in model_data.keys()}
+        all_sessions = set()
+        for model_data in metrics_data.values():
+            for session_num, metrics in model_data.items():
+                if metric in metrics:
+                    all_sessions.add(session_num)
+        
+        if not all_sessions:
+            print(f"No valid session numbers for {metric}")
+            plt.close()
+            continue
+            
         plt.xlim(min(all_sessions) - 0.5, max(all_sessions) + 0.5)
         plt.xticks(sorted(all_sessions))
         
@@ -165,91 +193,94 @@ def plot_memory_counts_progression(metrics_data: Dict[str, Dict[int, Dict[str, f
     output_dir = Path('plots') / user_id
     output_dir.mkdir(parents=True, exist_ok=True)
     
-    # Create a single plot for all models
-    plt.figure(figsize=(12, 7))
-    
-    # Define a color palette for different models
-    colors = ['#2E86C1', '#E74C3C', '#27AE60', '#8E44AD', '#F39C12', '#16A085', '#D35400']
-    
-    # Track all values for y-axis scaling
-    all_values = []
-    all_session_nums = set()
-    
-    # Plot each model
-    for i, (model_name, sessions) in enumerate(metrics_data.items()):
+    # Create separate plot for each model
+    for model_name, sessions in metrics_data.items():
         if not sessions:
             continue
             
-        # Get color for this model (cycle through colors if needed)
-        color = colors[i % len(colors)]
+        plt.figure(figsize=(10, 6))
         
         # Get all session numbers and values, sorted by session number
         session_nums = sorted(sessions.keys())
-        all_session_nums.update(session_nums)
         
-        total_memories = [sessions[num]['total_memories'] for num in session_nums 
-                         if 'total_memories' in sessions[num]]
-        referenced_memories = [sessions[num]['referenced_memories'] for num in session_nums 
-                             if 'referenced_memories' in sessions[num]]
+        # Get valid data points for total memories
+        total_data = [(num, sessions[num]['total_memories']) 
+                     for num in session_nums 
+                     if 'total_memories' in sessions[num]]
         
-        if not total_memories or not referenced_memories:
+        # Get valid data points for referenced memories
+        ref_data = [(num, sessions[num]['referenced_memories']) 
+                   for num in session_nums 
+                   if 'referenced_memories' in sessions[num]]
+        
+        if not total_data or not ref_data:
+            print(f"Insufficient memory count data for model {model_name}")
+            plt.close()
             continue
         
-        all_values.extend(total_memories + referenced_memories)
+        try:
+            # Unpack the data
+            total_nums, total_memories = zip(*total_data)
+            ref_nums, referenced_memories = zip(*ref_data)
+            
+            # Plot both lines
+            plt.plot(total_nums, total_memories, marker='o', linestyle='-', color='#2E86C1',
+                    label='Total Memories', linewidth=2, markersize=6)
+            plt.plot(ref_nums, referenced_memories, marker='o', linestyle='-',
+                      color='#E74C3C',
+                    label='Referenced Memories', linewidth=2, markersize=6)
+            
+            # Annotate final values
+            plt.annotate(f'{total_memories[-1]}', 
+                        (total_nums[-1], total_memories[-1]),
+                        textcoords="offset points",
+                        xytext=(5, 5),
+                        ha='left',
+                        fontsize=9,
+                        color='#2E86C1')
+            plt.annotate(f'{referenced_memories[-1]}', 
+                        (ref_nums[-1], referenced_memories[-1]),
+                        textcoords="offset points",
+                        xytext=(5, 5),
+                        ha='left',
+                        fontsize=9,
+                        color='#E74C3C')
+        except Exception as e:
+            print(f"Error plotting memory counts for model {model_name}: {e}")
+            print(f"Total memories data: {total_data}")
+            print(f"Referenced memories data: {ref_data}")
+            plt.close()
+            continue
         
-        # Plot total memories with solid line
-        plt.plot(session_nums, total_memories, marker='o', linestyle='-', color=color,
-                label=f'{model_name} - Total', linewidth=2, markersize=6)
+        # Customize the plot
+        plt.xlabel('Session Number', fontsize=12)
+        plt.ylabel('Number of Memories', fontsize=12)
+        plt.title(f'Memory Counts Progression - {model_name}', fontsize=14, pad=15)
         
-        # Plot referenced memories with dashed line
-        plt.plot(session_nums, referenced_memories, marker='s', linestyle='--', color=color,
-                label=f'{model_name} - Referenced', linewidth=2, markersize=5)
+        plt.grid(True, linestyle='--', alpha=0.7)
+        plt.legend(fontsize=10, loc='upper left')
         
-        # Annotate final values
-        plt.annotate(f'{total_memories[-1]}', 
-                    (session_nums[-1], total_memories[-1]),
-                    textcoords="offset points",
-                    xytext=(5, 5),
-                    ha='left',
-                    fontsize=9,
-                    color=color)
-        plt.annotate(f'{referenced_memories[-1]}', 
-                    (session_nums[-1], referenced_memories[-1]),
-                    textcoords="offset points",
-                    xytext=(5, 5),
-                    ha='left',
-                    fontsize=9,
-                    color=color)
-    
-    # Customize the plot
-    plt.xlabel('Session Number', fontsize=12)
-    plt.ylabel('Number of Memories', fontsize=12)
-    plt.title(f'Memory Counts Progression - All Models', fontsize=14, pad=15)
-    
-    plt.grid(True, linestyle='--', alpha=0.7)
-    plt.legend(fontsize=10, loc='upper left', bbox_to_anchor=(1.01, 1), borderaxespad=0)
-    
-    # Set y-axis range
-    min_y = max(min(all_values) - 2, 0) if all_values else 0
-    max_y = max(all_values) + 2 if all_values else 10
-    plt.ylim(min_y, max_y)
-    
-    # Set x-axis to show all session numbers
-    all_session_nums = sorted(all_session_nums)
-    if all_session_nums:
-        plt.xlim(min(all_session_nums) - 0.5, max(all_session_nums) + 0.5)
-        plt.xticks(all_session_nums)
-    
-    # Add padding and adjust layout
-    plt.margins(x=0.1)
-    plt.tight_layout()
-    
-    # Save the plot
-    plot_path = output_dir / f'biography_memory_counts_all_models.png'
-    plt.savefig(plot_path, bbox_inches='tight', dpi=300)
-    print(f"Plot saved: {plot_path}")
-    
-    plt.close()
+        # Set y-axis range
+        all_values = list(total_memories) + list(referenced_memories)
+        min_y = max(min(all_values) - 2, 0)
+        max_y = max(all_values) + 2
+        plt.ylim(min_y, max_y)
+        
+        # Set x-axis to show all session numbers
+        all_nums = set(total_nums).union(set(ref_nums))
+        plt.xlim(min(all_nums) - 0.5, max(all_nums) + 0.5)
+        plt.xticks(sorted(all_nums))
+        
+        # Add padding and adjust layout
+        plt.margins(x=0.1)
+        plt.tight_layout()
+        
+        # Save the plot
+        plot_path = output_dir / f'biography_memory_counts_{model_name}.png'
+        plt.savefig(plot_path, bbox_inches='tight', dpi=300)
+        print(f"Plot saved: {plot_path}")
+        
+        plt.close()
 
 def load_progression_data(user_id: str) -> Dict[str, Dict[int, Dict[str, float]]]:
     """Load biography progression data for all models.
@@ -558,6 +589,14 @@ def main():
             print(f"No biography data found for user {user_id}")
             continue
             
+        # Print summary of available data
+        print(f"Data summary for user {user_id}:")
+        for model, sessions in metrics_data.items():
+            print(f"  Model: {model}")
+            print(f"  Sessions: {sorted(sessions.keys())}")
+            for session_num, metrics in sessions.items():
+                print(f"    Session {session_num}: {list(metrics.keys())}")
+        
         # Store the metrics data for this user
         all_users_data[user_id] = metrics_data
     
@@ -565,14 +604,21 @@ def main():
     if len(all_users_data) == 1:
         # For single user, plot individual progression
         user_id = next(iter(all_users_data))
-        plot_metrics_progression(all_users_data[user_id], user_id)
-        plot_memory_counts_progression(all_users_data[user_id], user_id)
-        print(f"Plots saved in: plots/{user_id}/")
+        try:
+            plot_metrics_progression(all_users_data[user_id], user_id)
+            plot_memory_counts_progression(all_users_data[user_id], user_id)
+            print(f"Plots saved in: plots/{user_id}/")
+        except Exception as e:
+            print(f"Error generating plots for user {user_id}: {e}")
     elif len(all_users_data) > 1:
-        # For multiple users, plot aggregated progression
-        plot_aggregated_metrics_progression(all_users_data, base_output_dir)
-        plot_aggregated_memory_counts_progression(all_users_data, base_output_dir)
-        print(f"Aggregated plots saved in: plots/")
+        # For multiple users, only plot aggregated progression
+        try:
+            plot_aggregated_metrics_progression(all_users_data, base_output_dir)
+            print(f"Aggregated plots saved in: plots/")
+        except Exception as e:
+            print(f"Error generating aggregated plots: {e}")
+    else:
+        print("No valid data found for any user")
 
 if __name__ == '__main__':
     main() 
