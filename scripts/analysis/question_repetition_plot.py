@@ -128,7 +128,7 @@ def plot_progression(metrics_data: Dict[str, Dict[int, float]], user_id: str,
     plt.title('Question Repetition Rate Progression', fontsize=14, pad=15)
     
     plt.grid(True, linestyle='--', alpha=0.7)
-    plt.legend(fontsize=10, loc='upper left', bbox_to_anchor=(1, 1))
+    plt.legend(fontsize=10, loc='upper left')
     
     # Set y-axis range from 0 to 100 with ticks every 10%
     plt.ylim(0, 100)
@@ -196,7 +196,7 @@ def plot_accumulated_progression(metrics_data: Dict[str, Dict[int, float]], user
     plt.title('Accumulated Question Repetition Rate Progression', fontsize=14, pad=15)
     
     plt.grid(True, linestyle='--', alpha=0.7)
-    plt.legend(fontsize=10, loc='upper left', bbox_to_anchor=(1, 1))
+    plt.legend(fontsize=10, loc='upper left')
     
     # Set y-axis range from 0 to 100 with ticks every 10%
     plt.ylim(0, 100)
@@ -281,7 +281,7 @@ def plot_aggregated_users_progression(all_users_data: Dict[str, Dict[str, Dict[i
     plt.title('Average Accumulated Question Repetition Rate Across Users', fontsize=14, pad=15)
     
     plt.grid(True, linestyle='--', alpha=0.7)
-    plt.legend(fontsize=10, loc='upper left', bbox_to_anchor=(1, 1))
+    plt.legend(fontsize=10, loc='upper left')
     
     # Set y-axis range from 0 to 100 with ticks every 10%
     plt.ylim(0, 100)
