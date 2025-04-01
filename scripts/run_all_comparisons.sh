@@ -2,6 +2,7 @@
 
 # Get the directory of this script
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PROJECT_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
 
 # Default values
 RUN_TIMES=5
@@ -27,6 +28,9 @@ if [ ${#USER_IDS[@]} -eq 0 ]; then
     echo "Usage: ./scripts/run_all_interview_comparisons.sh [--run_times N] <user_id1> [user_id2 ...]"
     exit 1
 fi
+
+# Ensure plots directory exists
+mkdir -p "$PROJECT_ROOT/plots"
 
 # Function to get max session ID for a user
 get_max_session_id() {
@@ -78,10 +82,26 @@ for user_id in "${USER_IDS[@]}"; do
         echo "Completed session $session_id comparisons"
         echo "-------------------"
     done
+    
+    # Run the individual user report and save to file
+    echo "Generating individual report for user: $user_id"
+    USER_REPORT_DIR="$PROJECT_ROOT/plots/$user_id"
+    mkdir -p "$USER_REPORT_DIR"
+    COMMAND="python ${SCRIPT_DIR}/analysis/comparison_results_aggregated.py --user_ids $user_id"
+    echo "Running command: $COMMAND"
+    eval "$COMMAND > $USER_REPORT_DIR/comparison_report.txt"
+    echo "Individual report saved to: $USER_REPORT_DIR/comparison_report.txt"
+    echo "-------------------"
 done
 
-# Show final aggregated results
-echo "Showing final aggregated comparison results..."
-COMMAND="python ${SCRIPT_DIR}/analysis/comparison_results_aggregated.py --user_ids ${USER_IDS[@]}"
-echo "Running command: $COMMAND"
-eval "$COMMAND" 
+# Show final aggregated results only if multiple users are provided
+if [ ${#USER_IDS[@]} -gt 1 ]; then
+    echo "Generating final aggregated comparison results for all users..."
+    COMMAND="python ${SCRIPT_DIR}/analysis/comparison_results_aggregated.py --user_ids ${USER_IDS[@]}"
+    echo "Running command: $COMMAND"
+    # Save to file
+    eval "$COMMAND > $PROJECT_ROOT/plots/comparison_report.txt"
+    # Also display in console
+    eval "$COMMAND"
+    echo "Final report saved to: $PROJECT_ROOT/plots/comparison_report.txt"
+fi 

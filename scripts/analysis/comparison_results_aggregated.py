@@ -9,152 +9,8 @@ sys.path.append(project_root)
 
 import argparse
 import pandas as pd
-from typing import Dict, Tuple, List
+from typing import Dict, List
 from collections import defaultdict
-
-def load_interview_comparisons_by_session(user_id: str) -> Dict[str, Dict[str, Tuple[int, int, int]]]:
-    """Load interview comparison results for a user, aggregating by session first.
-    
-    Args:
-        user_id: The user ID to analyze
-        
-    Returns:
-        Dictionary mapping baseline models to their metrics (wins, ties, total)
-    """
-    # First aggregate by session
-    session_results = defaultdict(
-        lambda: defaultdict(
-            lambda: defaultdict(
-                lambda: [0, 0, 0])))
-    
-    # Load from the main logs directory
-    comparison_file = Path("logs") / user_id / "evaluations" / "interview_comparisons.csv"
-    
-    if comparison_file.exists():
-        df = pd.read_csv(comparison_file)
-        
-        # Group by session ID
-        for session_id, session_df in df.groupby('Session ID'):
-            for _, row in session_df.iterrows():
-                # Determine which model is baseline and get voting results
-                if row['Model A'] == 'ours':
-                    baseline_model = row['Model B']
-                    for criterion in ['Smooth Score', 'Flexibility Score', 
-                                      'Comforting Score']:
-                        winner_col = f'{criterion} Winner'
-                        if winner_col in df.columns:
-                            winner = row[winner_col]
-                            session_results[session_id][baseline_model][criterion][2] += 1
-                            if winner == 'A':  # Our model won
-                                session_results[session_id][baseline_model][criterion][0] += 1
-                            elif winner == 'Tie':  # Tie
-                                session_results[session_id][baseline_model][criterion][1] += 1
-                else:
-                    baseline_model = row['Model A']
-                    for criterion in ['Smooth Score', 'Flexibility Score', 'Comforting Score']:
-                        winner_col = f'{criterion} Winner'
-                        if winner_col in df.columns:
-                            winner = row[winner_col]
-                            session_results[session_id][baseline_model][criterion][2] += 1
-                            if winner == 'B':  # Our model won
-                                session_results[session_id][baseline_model][criterion][0] += 1
-                            elif winner == 'Tie':  # Tie
-                                session_results[session_id][baseline_model][criterion][1] += 1
-    
-    # Now aggregate across sessions
-    final_results = defaultdict(lambda: defaultdict(lambda: [0, 0, 0]))
-    session_count = defaultdict(int)
-    
-    for session_id, model_results in session_results.items():
-        for model, criterion_results in model_results.items():
-            session_count[model] += 1
-            for criterion, (wins, ties, total) in criterion_results.items():
-                final_results[model][criterion][0] += wins
-                final_results[model][criterion][1] += ties
-                final_results[model][criterion][2] += total
-    
-    # Average the results by number of sessions
-    for model in final_results:
-        for criterion in final_results[model]:
-            for i in range(3):
-                final_results[model][criterion][i] /= session_count[model]
-            # Round to nearest integer after averaging
-            final_results[model][criterion] = [round(x) for x in final_results[model][criterion]]
-    
-    return final_results
-
-def load_biography_comparisons_by_version(user_id: str) -> Dict[str, Dict[str, Tuple[int, int, int]]]:
-    """Load biography comparison results for a user, aggregating by version first.
-    
-    Args:
-        user_id: The user ID to analyze
-        
-    Returns:
-        Dictionary mapping baseline models to their metrics (wins, ties, total)
-    """
-    # First aggregate by version
-    version_results = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: [0, 0, 0])))
-    
-    # Find all biography version directories
-    eval_dir = Path("logs") / user_id / "evaluations"
-    if not eval_dir.exists():
-        return defaultdict(lambda: defaultdict(lambda: [0, 0, 0]))
-    
-    bio_dirs = [d for d in eval_dir.glob("biography_*") if d.is_dir()]
-    
-    for bio_dir in bio_dirs:
-        version = int(bio_dir.name.split('_')[1])
-        comparison_file = bio_dir / "biography_comparisons.csv"
-        
-        if comparison_file.exists():
-            df = pd.read_csv(comparison_file)
-            
-            for _, row in df.iterrows():
-                # Determine which model is baseline and get voting results
-                if row['Model A'] == 'ours':
-                    baseline_model = row['Model B']
-                    for criterion in ['Insightfulness', 'Narrativity', 'Coherence']:
-                        winner_col = f'{criterion} Winner'
-                        if winner_col in df.columns:
-                            winner = row[winner_col]
-                            version_results[version][baseline_model][criterion][2] += 1
-                            if winner == 'A':  # Our model won
-                                version_results[version][baseline_model][criterion][0] += 1
-                            elif winner == 'Tie':  # Tie
-                                version_results[version][baseline_model][criterion][1] += 1
-                else:
-                    baseline_model = row['Model A']
-                    for criterion in ['Insightfulness', 'Narrativity', 'Coherence']:
-                        winner_col = f'{criterion} Winner'
-                        if winner_col in df.columns:
-                            winner = row[winner_col]
-                            version_results[version][baseline_model][criterion][2] += 1
-                            if winner == 'B':  # Our model won
-                                version_results[version][baseline_model][criterion][0] += 1
-                            elif winner == 'Tie':  # Tie
-                                version_results[version][baseline_model][criterion][1] += 1
-    
-    # Now aggregate across versions
-    final_results = defaultdict(lambda: defaultdict(lambda: [0, 0, 0]))
-    version_count = defaultdict(int)
-    
-    for version, model_results in version_results.items():
-        for model, criterion_results in model_results.items():
-            version_count[model] += 1
-            for criterion, (wins, ties, total) in criterion_results.items():
-                final_results[model][criterion][0] += wins
-                final_results[model][criterion][1] += ties
-                final_results[model][criterion][2] += total
-    
-    # Average the results by number of versions
-    for model in final_results:
-        for criterion in final_results[model]:
-            for i in range(3):
-                final_results[model][criterion][i] /= version_count[model]
-            # Round to nearest integer after averaging
-            final_results[model][criterion] = [round(x) for x in final_results[model][criterion]]
-    
-    return final_results
 
 def format_table_cell(wins: int, ties: int, total: int) -> str:
     """Format a table cell with win rate and loss rate as percentages."""
@@ -233,37 +89,94 @@ def display_results(interview_results: Dict[str, Dict[str, List[int]]],
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Display comparison results aggregated by session/version")
+        description="Display comparison results aggregated across all sessions and users")
     parser.add_argument('--user_ids', nargs='+', required=True,
                       help='One or more user IDs to analyze')
     args = parser.parse_args()
     
-    # Aggregate results across all users
-    all_interview_results = defaultdict(lambda: defaultdict(lambda: [0, 0, 0]))
-    all_biography_results = defaultdict(lambda: defaultdict(lambda: [0, 0, 0]))
+    # First, collect all comparison data from all users
+    all_interview_data = []
+    all_biography_data = []
     
     for user_id in args.user_ids:
-        # Load interview comparisons (aggregated by session)
-        interview_results = load_interview_comparisons_by_session(user_id)
+        # Load comparison files for interview
+        comparison_file = Path("logs") / user_id / "evaluations" / "interview_comparisons.csv"
+        if comparison_file.exists():
+            df = pd.read_csv(comparison_file)
+            all_interview_data.append(df)
         
-        # Load biography comparisons (aggregated by version)
-        biography_results = load_biography_comparisons_by_version(user_id)
-        
-        # Aggregate results across users
-        for model in interview_results:
-            for criterion, stats in interview_results[model].items():
-                all_interview_results[model][criterion][0] += stats[0]  # Add wins
-                all_interview_results[model][criterion][1] += stats[1]  # Add ties
-                all_interview_results[model][criterion][2] += stats[2]  # Add total
-        
-        for model in biography_results:
-            for criterion, stats in biography_results[model].items():
-                all_biography_results[model][criterion][0] += stats[0]  # Add wins
-                all_biography_results[model][criterion][1] += stats[1]  # Add ties
-                all_biography_results[model][criterion][2] += stats[2]  # Add total
+        # Load comparison files for biography
+        eval_dir = Path("logs") / user_id / "evaluations"
+        if eval_dir.exists():
+            bio_dirs = [d for d in eval_dir.glob("biography_*") if d.is_dir()]
+            for bio_dir in bio_dirs:
+                comparison_file = bio_dir / "biography_comparisons.csv"
+                if comparison_file.exists():
+                    df = pd.read_csv(comparison_file)
+                    all_biography_data.append(df)
+    
+    # Combine all dataframes
+    interview_df = pd.concat(all_interview_data) if all_interview_data else pd.DataFrame()
+    biography_df = pd.concat(all_biography_data) if all_biography_data else pd.DataFrame()
+    
+    # Calculate results from combined data
+    interview_results = defaultdict(lambda: defaultdict(lambda: [0, 0, 0]))
+    biography_results = defaultdict(lambda: defaultdict(lambda: [0, 0, 0]))
+    
+    # Process interview data
+    for _, row in interview_df.iterrows():
+        # Determine which model is baseline and get voting results
+        if row['Model A'] == 'ours':
+            baseline_model = row['Model B']
+            for criterion in ['Smooth Score', 'Flexibility Score', 'Comforting Score']:
+                winner_col = f'{criterion} Winner'
+                if winner_col in interview_df.columns:
+                    winner = row[winner_col]
+                    interview_results[baseline_model][criterion][2] += 1
+                    if winner == 'A':  # Our model won
+                        interview_results[baseline_model][criterion][0] += 1
+                    elif winner == 'Tie':  # Tie
+                        interview_results[baseline_model][criterion][1] += 1
+        else:
+            baseline_model = row['Model A']
+            for criterion in ['Smooth Score', 'Flexibility Score', 'Comforting Score']:
+                winner_col = f'{criterion} Winner'
+                if winner_col in interview_df.columns:
+                    winner = row[winner_col]
+                    interview_results[baseline_model][criterion][2] += 1
+                    if winner == 'B':  # Our model won
+                        interview_results[baseline_model][criterion][0] += 1
+                    elif winner == 'Tie':  # Tie
+                        interview_results[baseline_model][criterion][1] += 1
+    
+    # Process biography data
+    for _, row in biography_df.iterrows():
+        # Determine which model is baseline and get voting results
+        if row['Model A'] == 'ours':
+            baseline_model = row['Model B']
+            for criterion in ['Insightfulness', 'Narrativity', 'Coherence']:
+                winner_col = f'{criterion} Winner'
+                if winner_col in biography_df.columns:
+                    winner = row[winner_col]
+                    biography_results[baseline_model][criterion][2] += 1
+                    if winner == 'A':  # Our model won
+                        biography_results[baseline_model][criterion][0] += 1
+                    elif winner == 'Tie':  # Tie
+                        biography_results[baseline_model][criterion][1] += 1
+        else:
+            baseline_model = row['Model A']
+            for criterion in ['Insightfulness', 'Narrativity', 'Coherence']:
+                winner_col = f'{criterion} Winner'
+                if winner_col in biography_df.columns:
+                    winner = row[winner_col]
+                    biography_results[baseline_model][criterion][2] += 1
+                    if winner == 'B':  # Our model won
+                        biography_results[baseline_model][criterion][0] += 1
+                    elif winner == 'Tie':  # Tie
+                        biography_results[baseline_model][criterion][1] += 1
     
     # Display the aggregated results
-    display_results(all_interview_results, all_biography_results)
+    display_results(interview_results, biography_results)
 
 if __name__ == '__main__':
     main() 
