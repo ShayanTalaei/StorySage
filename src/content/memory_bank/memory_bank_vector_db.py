@@ -3,7 +3,7 @@ import os
 import json
 import uuid
 from datetime import datetime
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 # Third-party imports
 import faiss
@@ -119,9 +119,13 @@ class VectorMemoryBank(MemoryBankBase):
         with open(embedding_filepath, 'w') as f:
             json.dump(embedding_data, f)
 
-    def _load_implementation_specific(self, user_id: str) -> None:
+    def _load_implementation_specific(self, user_id: str, base_path: Optional[str] = None) -> None:
         """Load embeddings from file and reconstruct the FAISS index."""
-        embedding_filepath = os.getenv("LOGS_DIR") + f"/{user_id}/memory_bank_embeddings.json"
+        # Determine embedding filepath based on base_path
+        if base_path:
+            embedding_filepath = os.path.join(base_path, "memory_bank_embeddings.json")
+        else:
+            embedding_filepath = os.getenv("LOGS_DIR") + f"/{user_id}/memory_bank_embeddings.json"
         
         try:
             with open(embedding_filepath, 'r') as f:

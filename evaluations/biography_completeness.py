@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import List, Set
 import argparse
 import sys
+import os
 
 # Add the src directory to Python path
 src_dir = str(Path(__file__).parent.parent / "src")
@@ -37,7 +38,15 @@ def calculate_biography_completeness(user_id: str, logger: EvaluationLogger, bio
     """Calculate biography completeness metrics based on memory coverage."""
     # Load biography and memory bank
     biography = Biography.load_from_file(user_id, biography_version)
-    memory_bank = VectorMemoryBank.load_from_file(user_id)
+    
+    # Determine memory bank path based on version
+    if biography_version > 0:
+        # For specific version, load from session directory
+        base_path = os.path.join(os.getenv("LOGS_DIR"), user_id, "execution_logs", f"session_{biography_version}")
+        memory_bank = VectorMemoryBank.load_from_file(user_id, base_path=base_path)
+    else:
+        # For latest version, load from default path
+        memory_bank = VectorMemoryBank.load_from_file(user_id)
     
     # Get all memory IDs from biography
     biography_memory_ids = extract_memory_ids_from_biography(biography)
@@ -80,7 +89,16 @@ def get_unreferenced_memory_details(user_id: str, version: int = -1) -> List[dic
     # Get unreferenced memory IDs
     biography = Biography.load_from_file(user_id, version)
     biography_memory_ids = extract_memory_ids_from_biography(biography)
-    memory_bank = VectorMemoryBank.load_from_file(user_id)
+    
+    # Determine memory bank path based on version
+    if version > 0:
+        # For specific version, load from session directory
+        base_path = os.path.join(os.getenv("LOGS_DIR"), user_id, "execution_logs", f"session_{version}")
+        memory_bank = VectorMemoryBank.load_from_file(user_id, base_path=base_path)
+    else:
+        # For latest version, load from default path
+        memory_bank = VectorMemoryBank.load_from_file(user_id)
+        
     all_memory_ids = {memory.id for memory in memory_bank.memories}
     unreferenced_ids = all_memory_ids - biography_memory_ids
     

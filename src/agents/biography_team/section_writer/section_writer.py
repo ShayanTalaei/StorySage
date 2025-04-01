@@ -118,15 +118,15 @@ class SectionWriter(BiographyTeamAgent):
                         )
                         return UpdateResult(success=True, 
                                          message="Section updated successfully")
+                    
+                    # Save tool calls for next iteration
+                    previous_tool_call = extract_tool_calls_xml(response)
 
                     # Extract memory IDs from section content in tool calls
                     current_memory_ids = set(
-                        Section.extract_memory_ids(response)
+                        Section.extract_memory_ids(previous_tool_call)
                     )
                     covered_memory_ids.update(current_memory_ids)
-                        
-                    # Save tool calls for next iteration
-                    previous_tool_call = extract_tool_calls_xml(response)
 
                     # Check if all memories are covered
                     if covered_memory_ids >= all_memory_ids or len(all_memory_ids) == 0:
