@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List, Set
+from typing import List, Set, Optional
 import argparse
 import sys
 import os
@@ -72,7 +72,7 @@ def calculate_biography_completeness(user_id: str, logger: EvaluationLogger, bio
     }
     
     # Get details for unreferenced memories
-    unreferenced_details = get_unreferenced_memory_details(user_id, biography_version)
+    unreferenced_details = get_unreferenced_memory_details(user_id, biography_version, logger)
     
     # Log evaluation results
     if logger:  # Allow None logger for testing/reuse
@@ -84,7 +84,7 @@ def calculate_biography_completeness(user_id: str, logger: EvaluationLogger, bio
     
     return metrics
 
-def get_unreferenced_memory_details(user_id: str, version: int = -1) -> List[dict]:
+def get_unreferenced_memory_details(user_id: str, version: int = -1, logger: Optional[EvaluationLogger] = None) -> List[dict]:
     """Get details of memories not referenced in the biography."""
     # Get unreferenced memory IDs
     biography = Biography.load_from_file(user_id, version)
@@ -141,8 +141,8 @@ def main():
     
     args = parser.parse_args()
     
-    # Initialize logger
-    logger = EvaluationLogger(user_id=args.user_id)
+    # Initialize shared logger
+    logger = EvaluationLogger.setup_logger(args.user_id, args.version)
     
     # Run evaluation
     print(f"Evaluating biography completeness for user: {args.user_id}")

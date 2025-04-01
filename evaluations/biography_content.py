@@ -277,13 +277,14 @@ async def prepare_biography_pairs(user_id: str, biography_version: Optional[int]
     
     return pairs
 
-async def evaluate_biography_pair(user_id: str, pair: Dict[str, Any], our_version: int, max_retries: int = 3) -> Dict[str, Any]:
+async def evaluate_biography_pair(user_id: str, pair: Dict[str, Any], our_version: int, logger: EvaluationLogger, max_retries: int = 3) -> Dict[str, Any]:
     """Evaluate a pair of biographies through comparative voting.
     
     Args:
         user_id: User ID
         pair: Dictionary containing biography pair data
         our_version: Version number of our biography
+        logger: Shared evaluation logger instance
         max_retries: Maximum number of retry attempts (default: 3)
         
     Returns:
@@ -317,12 +318,9 @@ async def evaluate_biography_pair(user_id: str, pair: Dict[str, Any], our_versio
                 'version_B': pair['version_B']
             }
             
-            # Setup evaluation logger
-            eval_logger = EvaluationLogger.setup_logger(user_id)
-            
             # Log evaluation
             timestamp = datetime.now()
-            eval_logger.log_prompt_response(
+            logger.log_prompt_response(
                 evaluation_type="biography_content_comparison",
                 prompt=prompt,
                 response=response,
@@ -330,7 +328,7 @@ async def evaluate_biography_pair(user_id: str, pair: Dict[str, Any], our_versio
             )
     
             # Log comparative evaluation results
-            eval_logger.log_biography_comparison_evaluation(
+            logger.log_biography_comparison_evaluation(
                 evaluation_data=evaluation,
                 biography_version=our_version,  # Pass our version
                 timestamp=timestamp
@@ -380,6 +378,9 @@ async def main_async():
             print("Could not determine our biography version")
             return
             
+        # Initialize shared logger
+        logger = EvaluationLogger.setup_logger(args.user_id, our_version)
+            
         # Evaluate each pair
         print(f"\nFound {len(pairs)} pairs for comparison")
         print(f"Using our biography version: {our_version}")
@@ -390,7 +391,7 @@ async def main_async():
             print(f"Model B: {pair['model_B']}")
             
             evaluation = \
-                await evaluate_biography_pair(args.user_id, pair, our_version)
+                await evaluate_biography_pair(args.user_id, pair, our_version, logger)
             
             print(f"\nComparison {i} completed")
             

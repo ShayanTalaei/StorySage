@@ -1,7 +1,9 @@
 from pathlib import Path
 import sys
 import argparse
-from typing import List, Dict
+from typing import List, Dict, Optional
+import os
+import pandas as pd
 
 # Add the src directory to Python path
 src_dir = str(Path(__file__).parent.parent / "src")
@@ -116,6 +118,58 @@ Step 5: Summarize overall assessment
 </tool_calls>
 """
 
+def check_existing_section_evaluation(user_id: str, version: int, section_id: str) -> Optional[Dict]:
+    """Check if evaluation already exists for this biography section.
+    Identifies invalid rows but does not remove them to avoid race conditions.
+    
+    Args:
+        user_id: User ID
+        version: Biography version
+        section_id: Section ID to check
+        
+    Returns:
+        Optional[Dict]: Existing evaluation results if found and valid, None otherwise
+    """
+    try:
+        eval_path = os.path.join(
+            os.getenv("LOGS_DIR"),
+            user_id,
+            "evaluations",
+            f"biography_{version}",
+            "groundedness_summary.csv"
+        )
+        
+        if os.path.exists(eval_path):
+            # Read CSV using pandas
+            df = pd.read_csv(eval_path)
+            
+            # Find row for this section
+            section_row = df[df['Section ID'] == section_id]
+            
+            if not section_row.empty:
+                # Convert score to numeric, replacing errors with NaN
+                score = pd.to_numeric(section_row['Groundedness Score'].iloc[0], errors='coerce')
+                
+                # Check if score is valid (> 0 and not NaN)
+                if pd.isna(score) or score <= 0:
+                    print(f"Found invalid score for section '{section_row['Section Title'].iloc[0]}'")
+                    return None
+                
+                return {
+                    "section_id": section_id,
+                    "section_title": section_row['Section Title'].iloc[0],
+                    "evaluation": {
+                        "groundedness_score": score,
+                        "unsubstantiated_claims": section_row['Unsubstantiated Claims'].iloc[0].split(';') if pd.notna(section_row['Unsubstantiated Claims'].iloc[0]) else [],
+                        "unsubstantiated_details_explanation": section_row['Missing Details'].iloc[0].split(';') if pd.notna(section_row['Missing Details'].iloc[0]) else [],
+                        "overall_assessment": section_row['Overall Assessment'].iloc[0] if pd.notna(section_row['Overall Assessment'].iloc[0]) else "No assessment provided"
+                    }
+                }
+        return None
+    except Exception as e:
+        print(f"Error checking existing evaluation: {e}")
+        return None
+
 def evaluate_section_groundedness(
     section: Section,
     memory_bank: VectorMemoryBank,
@@ -124,6 +178,16 @@ def evaluate_section_groundedness(
     biography_version: int
 ) -> Dict:
     """Evaluate how well a section's content is grounded in its source memories."""
+    # Check if section has already been evaluated
+    existing_eval = check_existing_section_evaluation(
+        logger.user_id, 
+        biography_version, 
+        section.id
+    )
+    if existing_eval is not None:
+        print(f"Found existing evaluation for section '{section.title}' with score: {existing_eval['evaluation']['groundedness_score']:.2f}%")
+        return existing_eval
+        
     # Get formatted memories
     memories_xml = memory_bank.get_formatted_memories_from_ids(
         section.memory_ids,
@@ -204,11 +268,11 @@ def evaluate_section_groundedness(
 def evaluate_biography_groundedness(
     biography: Biography,
     memory_bank: VectorMemoryBank,
-    engine
+    engine,
+    logger: EvaluationLogger
 ) -> List[Dict]:
     """Evaluate groundedness for all sections in a biography."""
     results = []
-    logger = EvaluationLogger(user_id=biography.user_id)
     
     def process_section(section: Section):
         # Evaluate current section
@@ -279,22 +343,24 @@ def main():
     args = parser.parse_args()
     
     # Initialize LLM engine
-    engine = get_engine("gemini-2.0-flash", max_tokens=20000)
+    engine = get_engine("gemini-2.0-flash", max_output_tokens=8192)
     
     # Load biography and memory bank
     biography = Biography.load_from_file(args.user_id, args.version)
     memory_bank = VectorMemoryBank.load_from_file(args.user_id)
     
+    # Initialize shared logger
+    logger = EvaluationLogger.setup_logger(args.user_id, args.version)
+    
     # Run evaluation
     print(f"Evaluating biography groundedness for user: {args.user_id}")
-    results = evaluate_biography_groundedness(biography, memory_bank, engine)
+    results = evaluate_biography_groundedness(biography, memory_bank, engine, logger)
     
     # Calculate and print overall groundedness score
     overall_score = calculate_overall_groundedness(results)
     print(f"\nOverall Biography Groundedness Score: {overall_score:.2f}%")
     
-    # Log overall score using the logger
-    logger = EvaluationLogger(user_id=args.user_id)
+    # Log overall score
     logger.log_biography_overall_groundedness(
         overall_score=overall_score,
         section_scores=results,
