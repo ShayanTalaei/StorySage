@@ -15,6 +15,7 @@ from utils.llm.engines import get_engine, invoke_engine
 from utils.logger.evaluation_logger import EvaluationLogger
 from utils.llm.xml_formatter import extract_tool_arguments
 
+# Base evaluation instructions and format
 GROUNDEDNESS_INSTRUCTIONS = r"""
 You are an expert at evaluating if biographical text is grounded in source memories.
 
@@ -66,7 +67,7 @@ All reasonable inferences are acceptable, particularly when describing how exper
 Avoid unsupported claims about specific achievements, relationships, or emotional impacts not mentioned in the memories.
 """
 
-GROUNDEDNESS_IO = r"""
+GROUNDEDNESS_IO_TEMPLATE = r"""
 ## Input Context
 
 Biography Section:
@@ -114,6 +115,28 @@ Step 5: Summarize overall assessment
         <unsubstantiated_claims>["claim 1", "claim 2", ...]</unsubstantiated_claims>
         <unsubstantiated_details_explanation>["explanation 1", "explanation 2", ...]</unsubstantiated_details_explanation>
         <overall_assessment>Your brief explanation of the evaluation</overall_assessment>
+    </evaluate_groundedness>
+</tool_calls>
+"""
+
+# Retry prompt templates
+CONTINUATION_PROMPT_TEMPLATE = """
+Your previous response was incomplete. Here's what you provided so far:
+
+{previous_output}
+
+Please continue from where you left off and ensure you provide the groundedness score in the XML format. Be more concise in your analysis and focus on providing the final <tool_calls> output.
+"""
+
+DIRECT_SCORE_PROMPT = """
+Based on the biography section and memories you've been analyzing, please provide ONLY the groundedness score as a number between 0-100. Skip all explanations and just respond with the score in this exact format:
+
+<tool_calls>
+    <evaluate_groundedness>
+        <groundedness_score>NUMBER</groundedness_score>
+        <unsubstantiated_claims>[]</unsubstantiated_claims>
+        <unsubstantiated_details_explanation>[]</unsubstantiated_details_explanation>
+        <overall_assessment>Brief assessment</overall_assessment>
     </evaluate_groundedness>
 </tool_calls>
 """
@@ -170,6 +193,44 @@ def check_existing_section_evaluation(user_id: str, version: int, section_id: st
         print(f"Error checking existing evaluation: {e}")
         return None
 
+def create_evaluation_prompt(section_text: str, memories_xml: str) -> str:
+    """Create the evaluation prompt with the section text and memories."""
+    return GROUNDEDNESS_INSTRUCTIONS + GROUNDEDNESS_IO_TEMPLATE.format(
+        section_text=section_text,
+        memories_xml=memories_xml
+    )
+
+def parse_evaluation_response(output: str) -> Dict:
+    """Parse the evaluation response to extract data."""
+    result = {
+        "groundedness_score": 0,
+        "unsubstantiated_claims": [],
+        "unsubstantiated_details_explanation": [],
+        "overall_assessment": "No assessment provided"
+    }
+    
+    # Parse response using XML formatter
+    groundedness_scores = extract_tool_arguments(
+        output, "evaluate_groundedness", "groundedness_score")
+    
+    if groundedness_scores:
+        result["groundedness_score"] = groundedness_scores[0]
+        
+        # Extract other elements if we have a score
+        claims = extract_tool_arguments(
+            output, "evaluate_groundedness", "unsubstantiated_claims")
+        result["unsubstantiated_claims"] = claims[0] if claims else []
+        
+        details = extract_tool_arguments(
+            output, "evaluate_groundedness", "unsubstantiated_details_explanation")
+        result["unsubstantiated_details_explanation"] = details[0] if details else []
+        
+        assessments = extract_tool_arguments(
+            output, "evaluate_groundedness", "overall_assessment")
+        result["overall_assessment"] = assessments[0] if assessments else "No assessment provided"
+    
+    return result
+
 def evaluate_section_groundedness(
     section: Section,
     memory_bank: VectorMemoryBank,
@@ -194,74 +255,86 @@ def evaluate_section_groundedness(
         include_source=True
     )
     
-    # Prepare prompt
-    prompt = GROUNDEDNESS_INSTRUCTIONS + GROUNDEDNESS_IO.format(
-        section_text=section.content,
-        memories_xml=memories_xml
-    )
+    # Prepare initial prompt
+    base_prompt = create_evaluation_prompt(section.content, memories_xml)
     
-    # Get evaluation using the engine
-    output = invoke_engine(engine, prompt)
-
-    # Log prompt and response separately
-    logger.log_prompt_response(
-        evaluation_type=f"biography_groundedness_section_{section.id}",
-        prompt=prompt,
-        response=output
-    )
-
-    # Parse response using XML formatter with error handling
-    try:
-        groundedness_scores = extract_tool_arguments(
-            output, "evaluate_groundedness", "groundedness_score")
-        groundedness_score = groundedness_scores[0] \
-              if groundedness_scores else 0
-
-        claims = extract_tool_arguments(
-            output, "evaluate_groundedness", "unsubstantiated_claims")
-        unsubstantiated_claims = claims[0] if claims else []
-
-        details = extract_tool_arguments(
-            output, "evaluate_groundedness", "unsubstantiated_details_explanation")
-        unsubstantiated_details_explanation = details[0] if details else []
-
-        assessments = extract_tool_arguments(
-            output, "evaluate_groundedness", "overall_assessment")
-        overall_assessment = assessments[0] if assessments \
-              else "No assessment provided"
-
-    except Exception as e:
-        print(f"Error parsing evaluation response: {str(e)}")
-        # Provide default values if parsing fails
-        groundedness_score = 0
-        unsubstantiated_claims = []
-        unsubstantiated_details_explanation = []
-        overall_assessment = "Failed to parse evaluation response"
+    # Get max iterations from environment variable, default to 3
+    max_iterations = int(os.getenv("MAX_CONSIDERATION_ITERATIONS", "3"))
     
+    # Initialize result variables
+    evaluation_result = None
+    output = ""
+    
+    for iteration in range(max_iterations):
+        try:
+            print(f"Evaluating section '{section.title}' (attempt {iteration+1}/{max_iterations})...")
+            
+            # Determine prompt based on iteration
+            if iteration == 0:
+                # First attempt: use base prompt
+                prompt = base_prompt
+            elif iteration == max_iterations - 1:
+                # Last attempt: use direct score prompt
+                prompt = DIRECT_SCORE_PROMPT
+            else:
+                # Middle attempts: use continuation prompt
+                prompt = base_prompt + CONTINUATION_PROMPT_TEMPLATE.format(previous_output=output)
+            
+            # Get evaluation using the engine
+            output = invoke_engine(engine, prompt)
+            
+            # Log attempt
+            log_type = f"biography_groundedness_section_{section.id}"
+            if iteration > 0:
+                log_type += f"_retry_{iteration}"
+                
+            logger.log_prompt_response(
+                evaluation_type=log_type,
+                prompt=prompt,
+                response=output
+            )
+            
+            # Parse response
+            parsed_result = parse_evaluation_response(output)
+            
+            # If we successfully extracted a score, save the result and break
+            if parsed_result["groundedness_score"]:
+                evaluation_result = parsed_result
+                break
+            else:
+                print(f"Failed to extract groundedness score on attempt {iteration+1}. Retrying...")
+        
+        except Exception as e:
+            print(f"Error during evaluation attempt {iteration+1}: {str(e)}")
+            if iteration == max_iterations - 1:
+                print(f"Max retries reached. Using default values.")
+    
+    # If all attempts failed, use default values
+    if evaluation_result is None:
+        evaluation_result = {
+            "groundedness_score": 0,
+            "unsubstantiated_claims": [],
+            "unsubstantiated_details_explanation": [],
+            "overall_assessment": "Failed to evaluate after multiple attempts"
+        }
+    
+    # Construct final result
     result = {
         "section_id": section.id,
         "section_title": section.title,
-        "evaluation": {
-            "groundedness_score": groundedness_score,
-            "unsubstantiated_claims": unsubstantiated_claims,
-            "unsubstantiated_details_explanation": \
-                unsubstantiated_details_explanation,
-            "overall_assessment": overall_assessment
-        }
+        "evaluation": evaluation_result
     }
     
     # Log evaluation results
-    if logger:  # Allow None logger for testing/reuse
-        logger.log_biography_section_groundedness(
-            section_id=section.id,
-            section_title=section.title,
-            groundedness_score=groundedness_score,
-            unsubstantiated_claims=unsubstantiated_claims,
-            unsubstantiated_details_explanation=\
-                unsubstantiated_details_explanation,
-            overall_assessment=overall_assessment,
-            biography_version=biography_version
-        )
+    logger.log_biography_section_groundedness(
+        section_id=section.id,
+        section_title=section.title,
+        groundedness_score=evaluation_result["groundedness_score"],
+        unsubstantiated_claims=evaluation_result["unsubstantiated_claims"],
+        unsubstantiated_details_explanation=evaluation_result["unsubstantiated_details_explanation"],
+        overall_assessment=evaluation_result["overall_assessment"],
+        biography_version=biography_version
+    )
     
     return result
 
@@ -342,7 +415,7 @@ def main():
     
     args = parser.parse_args()
     
-    # Initialize LLM engine
+    # Initialize LLM engine with higher token limit to handle detailed analysis
     engine = get_engine("gemini-2.0-flash", max_output_tokens=8192)
     
     # Load biography and memory bank
