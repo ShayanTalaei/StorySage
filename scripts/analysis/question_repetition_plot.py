@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from typing import Dict, Optional
 from statistics import mean
+import numpy as np
 
 def load_question_data(user_id: str, model_name: Optional[str] = None) -> pd.DataFrame:
     """Load question similarity data for a user.
@@ -244,16 +245,25 @@ def plot_aggregated_users_progression(all_users_data: Dict[str, Dict[str, Dict[i
     
     # Calculate average rates across users for each model and session
     for model_name, color in zip(model_names, colors):
-        # For each session, get the rate from all users and calculate mean
+        # For each session, get the rate from all users and calculate mean and std
         avg_values = []
+        std_values = []
+        
         for session in session_nums:
             rates = [user_data[model_name][session] * 100 
                     for user_data in all_users_data.values()]
             avg_values.append(mean(rates))
+            std_values.append(np.std(rates))
         
-        # Plot progression
+        # Plot progression with mean line
         plt.plot(session_nums, avg_values, marker='o', linestyle='-', color=color,
                 label=f'{model_name}', linewidth=2, markersize=6)
+        
+        # Add standard deviation band
+        plt.fill_between(session_nums, 
+                       [max(0, avg - std) for avg, std in zip(avg_values, std_values)],
+                       [min(100, avg + std) for avg, std in zip(avg_values, std_values)],
+                       color=color, alpha=0.2)
         
         # Annotate values
         for x, y in zip(session_nums, avg_values):

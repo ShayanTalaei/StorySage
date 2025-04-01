@@ -6,6 +6,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import re
 from typing import Dict
+import numpy as np
 
 def get_session_metrics(eval_dir: Path) -> Dict[int, Dict[str, float]]:
     """Get biography metrics for each session in chronological order.
@@ -298,26 +299,37 @@ def plot_aggregated_metrics_progression(all_users_data: Dict[str, Dict[str, Dict
         
         # Plot each model's progression
         for model_name, color in zip(model_names, colors):
-            # Calculate average values across users for each session
+            # Calculate average values and standard deviations across users for each session
             avg_values = []
+            std_values = []
+            valid_sessions = []
+            
             for session in session_nums:
                 values = [user_data[model_name][session][metric] 
                          for user_data in all_users_data.values()
                          if metric in user_data[model_name][session]]
                 if values:
                     avg_values.append(sum(values) / len(values))
+                    std_values.append(np.std(values))
+                    valid_sessions.append(session)
             
             if not avg_values:
                 continue
             
-            # Plot progression
-            plt.plot(session_nums[:len(avg_values)], avg_values, marker='o', 
+            # Plot progression with mean line
+            plt.plot(valid_sessions, avg_values, marker='o', 
                     linestyle='-', color=color,
                     label=f'{model_name}', linewidth=2, markersize=6)
             
+            # Add standard deviation band
+            plt.fill_between(valid_sessions, 
+                           [max(0, avg - std) for avg, std in zip(avg_values, std_values)],
+                           [min(100, avg + std) for avg, std in zip(avg_values, std_values)],
+                           color=color, alpha=0.2)
+            
             # Annotate final value
             plt.annotate(f'{avg_values[-1]:.1f}%', 
-                       (session_nums[len(avg_values)-1], avg_values[-1]),
+                       (valid_sessions[-1], avg_values[-1]),
                        textcoords="offset points",
                        xytext=(5, 5),
                        ha='left',
