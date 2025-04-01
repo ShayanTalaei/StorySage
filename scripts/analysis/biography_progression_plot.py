@@ -165,15 +165,28 @@ def plot_memory_counts_progression(metrics_data: Dict[str, Dict[int, Dict[str, f
     output_dir = Path('plots') / user_id
     output_dir.mkdir(parents=True, exist_ok=True)
     
-    # Create separate plot for each model
-    for model_name, sessions in metrics_data.items():
+    # Create a single plot for all models
+    plt.figure(figsize=(12, 7))
+    
+    # Define a color palette for different models
+    colors = ['#2E86C1', '#E74C3C', '#27AE60', '#8E44AD', '#F39C12', '#16A085', '#D35400']
+    
+    # Track all values for y-axis scaling
+    all_values = []
+    all_session_nums = set()
+    
+    # Plot each model
+    for i, (model_name, sessions) in enumerate(metrics_data.items()):
         if not sessions:
             continue
             
-        plt.figure(figsize=(10, 6))
+        # Get color for this model (cycle through colors if needed)
+        color = colors[i % len(colors)]
         
         # Get all session numbers and values, sorted by session number
         session_nums = sorted(sessions.keys())
+        all_session_nums.update(session_nums)
+        
         total_memories = [sessions[num]['total_memories'] for num in session_nums 
                          if 'total_memories' in sessions[num]]
         referenced_memories = [sessions[num]['referenced_memories'] for num in session_nums 
@@ -182,12 +195,15 @@ def plot_memory_counts_progression(metrics_data: Dict[str, Dict[int, Dict[str, f
         if not total_memories or not referenced_memories:
             continue
         
-        # Plot both lines
-        plt.plot(session_nums, total_memories, marker='o', linestyle='-', color='#2E86C1',
-                label='Total Memories', linewidth=2, markersize=6)
-        plt.plot(session_nums, referenced_memories, marker='o', linestyle='-',
-                  color='#E74C3C',
-                label='Referenced Memories', linewidth=2, markersize=6)
+        all_values.extend(total_memories + referenced_memories)
+        
+        # Plot total memories with solid line
+        plt.plot(session_nums, total_memories, marker='o', linestyle='-', color=color,
+                label=f'{model_name} - Total', linewidth=2, markersize=6)
+        
+        # Plot referenced memories with dashed line
+        plt.plot(session_nums, referenced_memories, marker='s', linestyle='--', color=color,
+                label=f'{model_name} - Referenced', linewidth=2, markersize=5)
         
         # Annotate final values
         plt.annotate(f'{total_memories[-1]}', 
@@ -196,43 +212,44 @@ def plot_memory_counts_progression(metrics_data: Dict[str, Dict[int, Dict[str, f
                     xytext=(5, 5),
                     ha='left',
                     fontsize=9,
-                    color='#2E86C1')
+                    color=color)
         plt.annotate(f'{referenced_memories[-1]}', 
                     (session_nums[-1], referenced_memories[-1]),
                     textcoords="offset points",
                     xytext=(5, 5),
                     ha='left',
                     fontsize=9,
-                    color='#E74C3C')
-        
-        # Customize the plot
-        plt.xlabel('Session Number', fontsize=12)
-        plt.ylabel('Number of Memories', fontsize=12)
-        plt.title(f'Memory Counts Progression - {model_name}', fontsize=14, pad=15)
-        
-        plt.grid(True, linestyle='--', alpha=0.7)
-        plt.legend(fontsize=10, loc='upper left')
-        
-        # Set y-axis range
-        all_values = total_memories + referenced_memories
-        min_y = max(min(all_values) - 2, 0)
-        max_y = max(all_values) + 2
-        plt.ylim(min_y, max_y)
-        
-        # Set x-axis to show all session numbers
-        plt.xlim(min(session_nums) - 0.5, max(session_nums) + 0.5)
-        plt.xticks(session_nums)
-        
-        # Add padding and adjust layout
-        plt.margins(x=0.1)
-        plt.tight_layout()
-        
-        # Save the plot
-        plot_path = output_dir / f'biography_memory_counts_{model_name}.png'
-        plt.savefig(plot_path, bbox_inches='tight', dpi=300)
-        print(f"Plot saved: {plot_path}")
-        
-        plt.close()
+                    color=color)
+    
+    # Customize the plot
+    plt.xlabel('Session Number', fontsize=12)
+    plt.ylabel('Number of Memories', fontsize=12)
+    plt.title(f'Memory Counts Progression - All Models', fontsize=14, pad=15)
+    
+    plt.grid(True, linestyle='--', alpha=0.7)
+    plt.legend(fontsize=10, loc='upper left', bbox_to_anchor=(1.01, 1), borderaxespad=0)
+    
+    # Set y-axis range
+    min_y = max(min(all_values) - 2, 0) if all_values else 0
+    max_y = max(all_values) + 2 if all_values else 10
+    plt.ylim(min_y, max_y)
+    
+    # Set x-axis to show all session numbers
+    all_session_nums = sorted(all_session_nums)
+    if all_session_nums:
+        plt.xlim(min(all_session_nums) - 0.5, max(all_session_nums) + 0.5)
+        plt.xticks(all_session_nums)
+    
+    # Add padding and adjust layout
+    plt.margins(x=0.1)
+    plt.tight_layout()
+    
+    # Save the plot
+    plot_path = output_dir / f'biography_memory_counts_all_models.png'
+    plt.savefig(plot_path, bbox_inches='tight', dpi=300)
+    print(f"Plot saved: {plot_path}")
+    
+    plt.close()
 
 def load_progression_data(user_id: str) -> Dict[str, Dict[int, Dict[str, float]]]:
     """Load biography progression data for all models.
@@ -379,6 +396,146 @@ def plot_aggregated_metrics_progression(all_users_data: Dict[str, Dict[str, Dict
         
         plt.close()
 
+def plot_aggregated_memory_counts_progression(all_users_data: Dict[str, Dict[str, Dict[int, Dict[str, float]]]], 
+                                            output_dir: Path):
+    """Plot average memory counts across all users.
+    
+    Args:
+        all_users_data: Dictionary mapping user_ids to their model data
+                       {user_id: {model_name: {session_id: metrics}}}
+        output_dir: Directory to save the plot
+    """
+    if not all_users_data:
+        print("No metrics data available to plot")
+        return
+    
+    # Create a single plot for all models
+    plt.figure(figsize=(12, 7))
+    
+    # Define a color palette for different models
+    colors = ['#2E86C1', '#E74C3C', '#27AE60', '#8E44AD', '#F39C12', '#16A085', '#D35400']
+    
+    # Get all model names from the first user's data
+    first_user = next(iter(all_users_data.values()))
+    model_names = list(first_user.keys())
+    
+    # Get all session numbers (should be same for all users)
+    all_session_nums = set()
+    for user_data in all_users_data.values():
+        for model_name, sessions in user_data.items():
+            all_session_nums.update(sessions.keys())
+    session_nums = sorted(all_session_nums)
+    
+    # Track all values for y-axis scaling
+    all_values = []
+    
+    # Plot each model
+    for i, model_name in enumerate(model_names):
+        # Get color for this model (cycle through colors if needed)
+        color = colors[i % len(colors)]
+        
+        # Calculate average values and standard deviations across users for each session
+        avg_total_memories = []
+        std_total_memories = []
+        avg_referenced_memories = []
+        std_referenced_memories = []
+        valid_sessions = []
+        
+        for session in session_nums:
+            total_values = []
+            referenced_values = []
+            
+            for user_data in all_users_data.values():
+                if model_name in user_data and session in user_data[model_name]:
+                    if 'total_memories' in user_data[model_name][session]:
+                        total_values.append(user_data[model_name][session]['total_memories'])
+                    if 'referenced_memories' in user_data[model_name][session]:
+                        referenced_values.append(user_data[model_name][session]['referenced_memories'])
+            
+            if total_values and referenced_values:
+                # Convert averages to integers
+                avg_total = int(round(sum(total_values) / len(total_values)))
+                std_total = np.std(total_values)
+                avg_total_memories.append(avg_total)
+                std_total_memories.append(std_total)
+                
+                avg_ref = int(round(sum(referenced_values) / len(referenced_values)))
+                std_ref = np.std(referenced_values)
+                avg_referenced_memories.append(avg_ref)
+                std_referenced_memories.append(std_ref)
+                
+                valid_sessions.append(session)
+        
+        if not avg_total_memories or not avg_referenced_memories:
+            continue
+        
+        all_values.extend(avg_total_memories + avg_referenced_memories)
+        
+        # Plot total memories with solid line
+        plt.plot(valid_sessions, avg_total_memories, marker='o', linestyle='-', color=color,
+                label=f'{model_name} - Total', linewidth=2, markersize=6)
+        
+        # Add standard deviation band for total memories
+        plt.fill_between(valid_sessions, 
+                       [max(0, avg - std) for avg, std in zip(avg_total_memories, std_total_memories)],
+                       [avg + std for avg, std in zip(avg_total_memories, std_total_memories)],
+                       color=color, alpha=0.1)
+        
+        # Plot referenced memories with dashed line
+        plt.plot(valid_sessions, avg_referenced_memories, marker='s', linestyle='--', color=color,
+                label=f'{model_name} - Referenced', linewidth=2, markersize=5)
+        
+        # Add standard deviation band for referenced memories
+        plt.fill_between(valid_sessions, 
+                       [max(0, avg - std) for avg, std in zip(avg_referenced_memories, std_referenced_memories)],
+                       [avg + std for avg, std in zip(avg_referenced_memories, std_referenced_memories)],
+                       color=color, alpha=0.1)
+        
+        # Annotate final values with integers instead of decimals
+        plt.annotate(f'{avg_total_memories[-1]}', 
+                    (valid_sessions[-1], avg_total_memories[-1]),
+                    textcoords="offset points",
+                    xytext=(5, 5),
+                    ha='left',
+                    fontsize=9,
+                    color=color)
+        plt.annotate(f'{avg_referenced_memories[-1]}', 
+                    (valid_sessions[-1], avg_referenced_memories[-1]),
+                    textcoords="offset points",
+                    xytext=(5, 5),
+                    ha='left',
+                    fontsize=9,
+                    color=color)
+    
+    # Customize the plot
+    plt.xlabel('Session Number', fontsize=12)
+    plt.ylabel('Number of Memories', fontsize=12)
+    plt.title(f'Average Memory Counts Progression Across Users - All Models', fontsize=14, pad=15)
+    
+    plt.grid(True, linestyle='--', alpha=0.7)
+    plt.legend(fontsize=10, loc='upper left', bbox_to_anchor=(1.01, 1), borderaxespad=0)
+    
+    # Set y-axis range
+    min_y = max(min(all_values) - 2, 0) if all_values else 0
+    max_y = max(all_values) + 2 if all_values else 10
+    plt.ylim(min_y, max_y)
+    
+    # Set x-axis to show all session numbers
+    if session_nums:
+        plt.xlim(min(session_nums) - 0.5, max(session_nums) + 0.5)
+        plt.xticks(session_nums)
+    
+    # Add padding and adjust layout
+    plt.margins(x=0.1)
+    plt.tight_layout()
+    
+    # Save the plot
+    plot_path = output_dir / f'aggregated_biography_memory_counts_all_models.png'
+    plt.savefig(plot_path, bbox_inches='tight', dpi=300)
+    print(f"Plot saved: {plot_path}")
+    
+    plt.close()
+
 def main():
     parser = argparse.ArgumentParser(
         description="Analyze and visualize biography metrics progression")
@@ -412,8 +569,9 @@ def main():
         plot_memory_counts_progression(all_users_data[user_id], user_id)
         print(f"Plots saved in: plots/{user_id}/")
     elif len(all_users_data) > 1:
-        # For multiple users, only plot aggregated progression
+        # For multiple users, plot aggregated progression
         plot_aggregated_metrics_progression(all_users_data, base_output_dir)
+        plot_aggregated_memory_counts_progression(all_users_data, base_output_dir)
         print(f"Aggregated plots saved in: plots/")
 
 if __name__ == '__main__':
