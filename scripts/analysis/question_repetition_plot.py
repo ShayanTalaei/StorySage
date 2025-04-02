@@ -119,24 +119,24 @@ def plot_progression(metrics_data: Dict[str, Dict[int, float]], user_id: str,
                        textcoords="offset points",
                        xytext=(5, 5),
                        ha='left',
-                       fontsize=9,
+                       fontsize=11,
                        color=color)
     
     # Customize the plot
-    plt.xlabel('Session Number', fontsize=12)
-    plt.ylabel('Question Repetition Rate (%)', fontsize=12)
+    plt.xlabel('Session Number', fontsize=16)
+    plt.ylabel('Question Repetition Rate (%)', fontsize=16)
     
     plt.grid(True, linestyle='--', alpha=0.7)
-    plt.legend(fontsize=10, loc='upper left')
+    plt.legend(fontsize=14, loc='upper left')
     
     # Set y-axis range from 0 to 100 with ticks every 10%
     plt.ylim(0, 100)
-    plt.yticks(range(0, 101, 10))
+    plt.yticks(range(0, 101, 10), fontsize=14)
     
     # Set x-axis to show all session numbers
     all_sessions = {num for rates in metrics_data.values() for num in rates.keys()}
     plt.xlim(min(all_sessions) - 0.5, max(all_sessions) + 0.5)
-    plt.xticks(sorted(all_sessions))
+    plt.xticks(sorted(all_sessions), fontsize=14)
     
     # Add some padding and adjust layout
     plt.margins(x=0.1)
@@ -186,24 +186,24 @@ def plot_accumulated_progression(metrics_data: Dict[str, Dict[int, float]], user
                        textcoords="offset points",
                        xytext=(5, 5),
                        ha='left',
-                       fontsize=9,
+                       fontsize=11,
                        color=color)
     
     # Customize the plot
-    plt.xlabel('Session Number', fontsize=12)
-    plt.ylabel('Accumulated Question Repetition Rate (%)', fontsize=12)
+    plt.xlabel('Session Number', fontsize=16)
+    plt.ylabel('Accumulated Question Repetition Rate (%)', fontsize=16)
     
     plt.grid(True, linestyle='--', alpha=0.7)
-    plt.legend(fontsize=10, loc='upper left')
+    plt.legend(fontsize=14, loc='upper left')
     
     # Set y-axis range from 0 to 100 with ticks every 10%
     plt.ylim(0, 100)
-    plt.yticks(range(0, 101, 10))
+    plt.yticks(range(0, 101, 10), fontsize=14)
     
     # Set x-axis to show all session numbers
     all_sessions = {num for rates in metrics_data.values() for num in rates.keys()}
     plt.xlim(min(all_sessions) - 0.5, max(all_sessions) + 0.5)
-    plt.xticks(sorted(all_sessions))
+    plt.xticks(sorted(all_sessions), fontsize=14)
     
     # Add some padding and adjust layout
     plt.margins(x=0.1)
@@ -297,24 +297,24 @@ def plot_aggregated_users_progression(all_users_data: Dict[str, Dict[str, Dict[i
                        textcoords="offset points",
                        xytext=(5, 5),
                        ha='left',
-                       fontsize=9,
+                       fontsize=11,
                        color=color)
     
     # Customize the plot
-    plt.xlabel('Session Number', fontsize=12)
-    plt.ylabel('Accumulated Question Repetition Rate (%)', fontsize=12)
+    plt.xlabel('Session Number', fontsize=16)
+    plt.ylabel('Accumulated Question Repetition Rate (%)', fontsize=16)
     
     plt.grid(True, linestyle='--', alpha=0.7)
-    plt.legend(fontsize=10, loc='upper left')
+    plt.legend(fontsize=14, loc='upper left')
     
     # Set y-axis range from 0 to 100 with ticks every 10%
     plt.ylim(0, 100)
-    plt.yticks(range(0, 101, 10))
+    plt.yticks(range(0, 101, 10), fontsize=14)
     
     # Set x-axis to show all session numbers
     if session_nums:
         plt.xlim(min(session_nums) - 0.5, max(session_nums) + 0.5)
-        plt.xticks(session_nums)
+        plt.xticks(sorted(session_nums), fontsize=14)
     
     # Add some padding and adjust layout
     plt.margins(x=0.1)
