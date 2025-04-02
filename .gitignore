@@ -33,3 +33,4 @@ package-lock.json
 *.pem
 *.key
 *.crt
+move_plots.sh

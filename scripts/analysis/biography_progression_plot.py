@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 import re
 from typing import Dict
 import numpy as np
-import json
 
 def get_session_metrics(eval_dir: Path) -> Dict[int, Dict[str, float]]:
     """Get biography metrics for each session in chronological order.
@@ -83,7 +82,7 @@ def plot_metrics_progression(metrics_data: Dict[str, Dict[int, Dict[str, float]]
     y_labels = ['Memory Coverage (%)', 'Groundedness Score (%)']
     
     for metric, title, y_label in zip(metrics_to_plot, titles, y_labels):
-        plt.figure(figsize=(12, 6))
+        plt.figure(figsize=(8, 6))
         
         # Plot each model's progression
         for (model_name, sessions), color in zip(metrics_data.items(), colors):
@@ -174,7 +173,7 @@ def plot_memory_counts_progression(metrics_data: Dict[str, Dict[int, Dict[str, f
     output_dir.mkdir(parents=True, exist_ok=True)
     
     # Create a single plot for all models
-    plt.figure(figsize=(12, 6))
+    plt.figure(figsize=(8, 6))
     
     # Define a color palette for different models
     colors = ['#2E86C1', '#E74C3C', '#27AE60', '#8E44AD', '#F39C12', '#16A085', '#D35400']
@@ -319,7 +318,7 @@ def plot_aggregated_metrics_progression(all_users_data: Dict[str, Dict[str, Dict
     y_labels = ['Memory Coverage (%)', 'Groundedness Score (%)']
     
     for metric, title, y_label in zip(metrics_to_plot, titles, y_labels):
-        plt.figure(figsize=(12, 6))
+        plt.figure(figsize=(8, 6))
         
         # Plot each model's progression
         for model_name, color in zip(model_names, colors):
@@ -419,7 +418,7 @@ def plot_aggregated_memory_counts_progression(all_users_data: Dict[str, Dict[str
         return
     
     # Create a single plot for all models
-    plt.figure(figsize=(12, 6))
+    plt.figure(figsize=(8, 6))
     
     # Define a color palette for different models
     colors = ['#2E86C1', '#E74C3C', '#27AE60', '#8E44AD', '#F39C12', '#16A085', '#D35400']
@@ -644,7 +643,7 @@ def plot_biography_word_counts(word_counts_data: Dict[str, Dict[int, int]], user
     output_dir = Path('plots') / user_id
     output_dir.mkdir(parents=True, exist_ok=True)
     
-    plt.figure(figsize=(12, 6))
+    plt.figure(figsize=(8, 6))
     
     # Define a color palette for different models
     colors = ['#2E86C1', '#E74C3C', '#27AE60', '#8E44AD', '#F39C12', '#16A085', '#D35400']
@@ -728,7 +727,7 @@ def plot_aggregated_biography_word_counts(all_users_data: Dict[str, Dict[str, Di
         return
     
     # Create a single plot for all models
-    plt.figure(figsize=(12, 6))
+    plt.figure(figsize=(8, 6))
     
     # Define a color palette for different models
     colors = ['#2E86C1', '#E74C3C', '#27AE60', '#8E44AD', '#F39C12', '#16A085', '#D35400']

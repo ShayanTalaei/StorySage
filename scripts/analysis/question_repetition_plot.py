@@ -97,7 +97,7 @@ def plot_progression(metrics_data: Dict[str, Dict[int, float]], user_id: str,
     # Colors for different models
     colors = ['#2E86C1', '#E74C3C', '#27AE60', '#8E44AD', '#F39C12', '#16A085']
     
-    plt.figure(figsize=(12, 6))
+    plt.figure(figsize=(8, 6))
     
     # Plot each model's progression
     for (model_name, rates), color in zip(metrics_data.items(), colors):
@@ -164,7 +164,7 @@ def plot_accumulated_progression(metrics_data: Dict[str, Dict[int, float]], user
     # Colors for different models
     colors = ['#2E86C1', '#E74C3C', '#27AE60', '#8E44AD', '#F39C12', '#16A085']
     
-    plt.figure(figsize=(12, 6))
+    plt.figure(figsize=(8, 6))
     
     # Plot each model's progression
     for (model_name, rates), color in zip(metrics_data.items(), colors):
@@ -231,7 +231,7 @@ def plot_aggregated_users_progression(all_users_data: Dict[str, Dict[str, Dict[i
     # Colors for different models
     colors = ['#2E86C1', '#E74C3C', '#27AE60', '#8E44AD', '#F39C12', '#16A085']
     
-    plt.figure(figsize=(12, 6))
+    plt.figure(figsize=(8, 6))
     
     # Get all model names from the first user's data
     first_user = next(iter(all_users_data.values()))
