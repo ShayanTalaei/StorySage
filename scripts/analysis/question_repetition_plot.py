@@ -111,21 +111,10 @@ def plot_progression(metrics_data: Dict[str, Dict[int, float]], user_id: str,
         # Plot progression
         plt.plot(session_nums, values, marker='o', linestyle='-', color=color,
                 label=f'{model_name}', linewidth=2, markersize=6)
-        
-        # Annotate all values
-        for x, y in zip(session_nums, values):
-            plt.annotate(f'{y:.1f}%', 
-                       (x, y),
-                       textcoords="offset points",
-                       xytext=(5, 5),
-                       ha='left',
-                       fontsize=9,
-                       color=color)
     
     # Customize the plot
     plt.xlabel('Session Number', fontsize=12)
     plt.ylabel('Question Repetition Rate (%)', fontsize=12)
-    plt.title('Question Repetition Rate Progression', fontsize=14, pad=15)
     
     plt.grid(True, linestyle='--', alpha=0.7)
     plt.legend(fontsize=10, loc='upper left')
@@ -179,21 +168,10 @@ def plot_accumulated_progression(metrics_data: Dict[str, Dict[int, float]], user
         # Plot progression
         plt.plot(session_nums, values, marker='o', linestyle='-', color=color,
                 label=f'{model_name}', linewidth=2, markersize=6)
-        
-        # Annotate all values
-        for x, y in zip(session_nums, values):
-            plt.annotate(f'{y:.1f}%', 
-                       (x, y),
-                       textcoords="offset points",
-                       xytext=(5, 5),
-                       ha='left',
-                       fontsize=9,
-                       color=color)
     
     # Customize the plot
     plt.xlabel('Session Number', fontsize=12)
     plt.ylabel('Accumulated Question Repetition Rate (%)', fontsize=12)
-    plt.title('Accumulated Question Repetition Rate Progression', fontsize=14, pad=15)
     
     plt.grid(True, linestyle='--', alpha=0.7)
     plt.legend(fontsize=10, loc='upper left')
@@ -293,21 +271,10 @@ def plot_aggregated_users_progression(all_users_data: Dict[str, Dict[str, Dict[i
                        [min(100, avg + std) for avg, std in 
                         zip(valid_avgs, valid_stds)],
                        color=color, alpha=0.2)
-        
-        # Annotate values
-        for x, y in zip(valid_sessions, valid_avgs):
-            plt.annotate(f'{y:.1f}%', 
-                       (x, y),
-                       textcoords="offset points",
-                       xytext=(5, 5),
-                       ha='left',
-                       fontsize=9,
-                       color=color)
     
     # Customize the plot
     plt.xlabel('Session Number', fontsize=12)
-    plt.ylabel('Average Accumulated Question Repetition Rate (%)', fontsize=12)
-    plt.title('Average Accumulated Question Repetition Rate Across Users', fontsize=14, pad=15)
+    plt.ylabel('Accumulated Question Repetition Rate (%)', fontsize=12)
     
     plt.grid(True, linestyle='--', alpha=0.7)
     plt.legend(fontsize=10, loc='upper left')

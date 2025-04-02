@@ -117,7 +117,6 @@ def plot_metrics_progression(metrics_data: Dict[str, Dict[int, Dict[str, float]]
         # Customize the plot
         plt.xlabel('Session Number', fontsize=12)
         plt.ylabel(y_label, fontsize=12)
-        plt.title(title, fontsize=14, pad=15)
         
         plt.grid(True, linestyle='--', alpha=0.7)
         plt.legend(fontsize=10, loc='lower left')
@@ -230,7 +229,6 @@ def plot_memory_counts_progression(metrics_data: Dict[str, Dict[int, Dict[str, f
     # Customize the plot
     plt.xlabel('Session Number', fontsize=12)
     plt.ylabel('Number of Memories', fontsize=12)
-    plt.title(f'Memory Counts Progression - All Models', fontsize=14, pad=15)
     
     plt.grid(True, linestyle='--', alpha=0.7)
     plt.legend(fontsize=10, loc='upper left')
@@ -362,7 +360,6 @@ def plot_aggregated_metrics_progression(all_users_data: Dict[str, Dict[str, Dict
         # Customize the plot
         plt.xlabel('Session Number', fontsize=12)
         plt.ylabel(y_label, fontsize=12)
-        plt.title(title, fontsize=14, pad=15)
         
         plt.grid(True, linestyle='--', alpha=0.7)
         plt.legend(fontsize=10, loc='lower left')
@@ -516,7 +513,6 @@ def plot_aggregated_memory_counts_progression(all_users_data: Dict[str, Dict[str
     # Customize the plot
     plt.xlabel('Session Number', fontsize=12)
     plt.ylabel('Number of Memories', fontsize=12)
-    plt.title(f'Average Memory Counts Progression Across Users - All Models', fontsize=14, pad=15)
     
     plt.grid(True, linestyle='--', alpha=0.7)
     plt.legend(fontsize=10, loc='upper left')
@@ -686,7 +682,6 @@ def plot_biography_word_counts(word_counts_data: Dict[str, Dict[int, int]], user
     # Customize the plot
     plt.xlabel('Session Number', fontsize=12)
     plt.ylabel('Word Count', fontsize=12)
-    plt.title(f'Biography Word Count Progression', fontsize=14, pad=15)
     
     plt.grid(True, linestyle='--', alpha=0.7)
     plt.legend(fontsize=10, loc='upper left')
@@ -801,8 +796,6 @@ def plot_aggregated_biography_word_counts(all_users_data: Dict[str, Dict[str, Di
     # Customize the plot
     plt.xlabel('Session Number', fontsize=12)
     plt.ylabel('Word Count', fontsize=12)
-    plt.title(f'Average Biography Word Count Progression Across Users', 
-              fontsize=14, pad=15)
     
     plt.grid(True, linestyle='--', alpha=0.7)
     plt.legend(fontsize=10, loc='upper left')
