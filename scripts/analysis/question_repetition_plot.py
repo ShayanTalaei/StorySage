@@ -111,6 +111,16 @@ def plot_progression(metrics_data: Dict[str, Dict[int, float]], user_id: str,
         # Plot progression
         plt.plot(session_nums, values, marker='o', linestyle='-', color=color,
                 label=f'{model_name}', linewidth=2, markersize=6)
+        
+        # Annotate final value only
+        if values:
+            plt.annotate(f'{values[-1]:.1f}%', 
+                       (session_nums[-1], values[-1]),
+                       textcoords="offset points",
+                       xytext=(5, 5),
+                       ha='left',
+                       fontsize=9,
+                       color=color)
     
     # Customize the plot
     plt.xlabel('Session Number', fontsize=12)
@@ -168,6 +178,16 @@ def plot_accumulated_progression(metrics_data: Dict[str, Dict[int, float]], user
         # Plot progression
         plt.plot(session_nums, values, marker='o', linestyle='-', color=color,
                 label=f'{model_name}', linewidth=2, markersize=6)
+        
+        # Annotate final value only
+        if values:
+            plt.annotate(f'{values[-1]:.1f}%', 
+                       (session_nums[-1], values[-1]),
+                       textcoords="offset points",
+                       xytext=(5, 5),
+                       ha='left',
+                       fontsize=9,
+                       color=color)
     
     # Customize the plot
     plt.xlabel('Session Number', fontsize=12)
@@ -266,11 +286,19 @@ def plot_aggregated_users_progression(all_users_data: Dict[str, Dict[str, Dict[i
         
         # Add standard deviation band
         plt.fill_between(valid_sessions, 
-                       [max(0, avg - std) for avg, std in 
-                        zip(valid_avgs, valid_stds)],
-                       [min(100, avg + std) for avg, std in 
-                        zip(valid_avgs, valid_stds)],
+                       [max(0, avg - std) for avg, std in zip(valid_avgs, valid_stds)],
+                       [min(100, avg + std) for avg, std in zip(valid_avgs, valid_stds)],
                        color=color, alpha=0.2)
+        
+        # Annotate final value only
+        if valid_avgs:
+            plt.annotate(f'{valid_avgs[-1]:.1f}%', 
+                       (valid_sessions[-1], valid_avgs[-1]),
+                       textcoords="offset points",
+                       xytext=(5, 5),
+                       ha='left',
+                       fontsize=9,
+                       color=color)
     
     # Customize the plot
     plt.xlabel('Session Number', fontsize=12)
