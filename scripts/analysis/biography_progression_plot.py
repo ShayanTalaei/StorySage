@@ -100,9 +100,12 @@ def plot_metrics_progression(metrics_data: Dict[str, Dict[int, Dict[str, float]]
             if not values:
                 continue
             
+            # Use "baseline" for any model that isn't "ours"
+            display_name = model_name if model_name == "ours" else "baseline"
+            
             # Plot progression
             plt.plot(valid_sessions, values, marker='o', linestyle='-', color=color,
-                    label=f'{model_name}', linewidth=2, markersize=6)
+                    label=f'{display_name}', linewidth=2, markersize=6)
             
             # Annotate final value
             if values:
@@ -171,7 +174,7 @@ def plot_memory_counts_progression(metrics_data: Dict[str, Dict[int, Dict[str, f
     output_dir.mkdir(parents=True, exist_ok=True)
     
     # Create a single plot for all models
-    plt.figure(figsize=(12, 7))
+    plt.figure(figsize=(12, 6))
     
     # Define a color palette for different models
     colors = ['#2E86C1', '#E74C3C', '#27AE60', '#8E44AD', '#F39C12', '#16A085', '#D35400']
@@ -202,13 +205,13 @@ def plot_memory_counts_progression(metrics_data: Dict[str, Dict[int, Dict[str, f
         
         all_values.extend(total_memories + referenced_memories)
         
-        # Plot total memories with dashed line (switched from solid)
+        # Plot total memories with dashed line
         plt.plot(session_nums, total_memories, marker='o', linestyle='--', color=color,
-                label=f'{model_name} - Total', linewidth=2, markersize=6)
+                label=f'{model_name if model_name == "ours" else "baseline"} - Total', linewidth=2, markersize=6)
         
-        # Plot referenced memories with solid line (switched from dashed)
+        # Plot referenced memories with solid line
         plt.plot(session_nums, referenced_memories, marker='s', linestyle='-', color=color,
-                label=f'{model_name} - Referenced', linewidth=2, markersize=5)
+                label=f'{model_name if model_name == "ours" else "baseline"} - Covered', linewidth=2, markersize=5)
         
         # Annotate final values
         plt.annotate(f'{total_memories[-1]}', 
@@ -337,10 +340,13 @@ def plot_aggregated_metrics_progression(all_users_data: Dict[str, Dict[str, Dict
             if not avg_values:
                 continue
             
+            # Use "baseline" for any model that isn't "ours"
+            display_name = model_name if model_name == "ours" else "baseline"
+            
             # Plot progression with mean line
             plt.plot(valid_sessions, avg_values, marker='o', 
                     linestyle='-', color=color,
-                    label=f'{model_name}', linewidth=2, markersize=6)
+                    label=f'{display_name}', linewidth=2, markersize=6)
             
             # Add standard deviation band
             plt.fill_between(valid_sessions, 
@@ -368,7 +374,7 @@ def plot_aggregated_metrics_progression(all_users_data: Dict[str, Dict[str, Dict
         all_values = []
         for model_name in model_names:
             for session in session_nums:
-                for user_id, user_data in all_users_data.items():
+                for user_data in all_users_data.values():
                     if model_name in user_data and session in user_data[model_name]:
                         if metric in user_data[model_name][session]:
                             all_values.append(user_data[model_name][session][metric])
@@ -413,7 +419,7 @@ def plot_aggregated_memory_counts_progression(all_users_data: Dict[str, Dict[str
         return
     
     # Create a single plot for all models
-    plt.figure(figsize=(12, 7))
+    plt.figure(figsize=(12, 6))
     
     # Define a color palette for different models
     colors = ['#2E86C1', '#E74C3C', '#27AE60', '#8E44AD', '#F39C12', '#16A085', '#D35400']
@@ -474,9 +480,9 @@ def plot_aggregated_memory_counts_progression(all_users_data: Dict[str, Dict[str
         
         all_values.extend(avg_total_memories + avg_referenced_memories)
         
-        # Plot total memories with dashed line (switched from solid)
+        # Plot total memories with dashed line
         plt.plot(valid_sessions, avg_total_memories, marker='o', linestyle='--', color=color,
-                label=f'{model_name} - Total', linewidth=2, markersize=6)
+                label=f'{model_name if model_name == "ours" else "baseline"} - Total', linewidth=2, markersize=6)
         
         # Add standard deviation band for total memories
         plt.fill_between(valid_sessions, 
@@ -484,9 +490,9 @@ def plot_aggregated_memory_counts_progression(all_users_data: Dict[str, Dict[str
                        [avg + std for avg, std in zip(avg_total_memories, std_total_memories)],
                        color=color, alpha=0.1)
         
-        # Plot referenced memories with solid line (switched from dashed)
+        # Plot referenced memories with solid line
         plt.plot(valid_sessions, avg_referenced_memories, marker='s', linestyle='-', color=color,
-                label=f'{model_name} - Referenced', linewidth=2, markersize=5)
+                label=f'{model_name if model_name == "ours" else "baseline"} - Covered', linewidth=2, markersize=5)
         
         # Add standard deviation band for referenced memories
         plt.fill_between(valid_sessions, 
@@ -638,7 +644,7 @@ def plot_biography_word_counts(word_counts_data: Dict[str, Dict[int, int]], user
     output_dir = Path('plots') / user_id
     output_dir.mkdir(parents=True, exist_ok=True)
     
-    plt.figure(figsize=(12, 7))
+    plt.figure(figsize=(12, 6))
     
     # Define a color palette for different models
     colors = ['#2E86C1', '#E74C3C', '#27AE60', '#8E44AD', '#F39C12', '#16A085', '#D35400']
@@ -668,7 +674,7 @@ def plot_biography_word_counts(word_counts_data: Dict[str, Dict[int, int]], user
         
         # Plot word counts
         plt.plot(session_nums, word_counts, marker='o', linestyle='-', color=color,
-                label=f'{model_name}', linewidth=2, markersize=6)
+                label=f'{model_name if model_name == "ours" else "baseline"}', linewidth=2, markersize=6)
         
         # Annotate final value
         plt.annotate(f'{word_counts[-1]}', 
@@ -722,7 +728,7 @@ def plot_aggregated_biography_word_counts(all_users_data: Dict[str, Dict[str, Di
         return
     
     # Create a single plot for all models
-    plt.figure(figsize=(12, 7))
+    plt.figure(figsize=(12, 6))
     
     # Define a color palette for different models
     colors = ['#2E86C1', '#E74C3C', '#27AE60', '#8E44AD', '#F39C12', '#16A085', '#D35400']
@@ -774,7 +780,7 @@ def plot_aggregated_biography_word_counts(all_users_data: Dict[str, Dict[str, Di
         # Plot word counts
         plt.plot(valid_sessions, avg_word_counts, marker='o', 
                  linestyle='-', color=color,
-                label=f'{model_name}', linewidth=2, markersize=6)
+                label=f'{model_name if model_name == "ours" else "baseline"}', linewidth=2, markersize=6)
         
         # Add standard deviation band
         plt.fill_between(valid_sessions, 

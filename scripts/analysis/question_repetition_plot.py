@@ -110,7 +110,7 @@ def plot_progression(metrics_data: Dict[str, Dict[int, float]], user_id: str,
         
         # Plot progression
         plt.plot(session_nums, values, marker='o', linestyle='-', color=color,
-                label=f'{model_name}', linewidth=2, markersize=6)
+                label=f'{model_name if model_name == "ours" else "baseline"}', linewidth=2, markersize=6)
         
         # Annotate final value only
         if values:
@@ -177,7 +177,7 @@ def plot_accumulated_progression(metrics_data: Dict[str, Dict[int, float]], user
         
         # Plot progression
         plt.plot(session_nums, values, marker='o', linestyle='-', color=color,
-                label=f'{model_name}', linewidth=2, markersize=6)
+                label=f'{model_name if model_name == "ours" else "baseline"}', linewidth=2, markersize=6)
         
         # Annotate final value only
         if values:
@@ -282,7 +282,7 @@ def plot_aggregated_users_progression(all_users_data: Dict[str, Dict[str, Dict[i
         
         # Plot progression with mean line
         plt.plot(valid_sessions, valid_avgs, marker='o', linestyle='-', color=color,
-                label=f'{model_name}', linewidth=2, markersize=6)
+                label=f'{model_name if model_name == "ours" else "baseline"}', linewidth=2, markersize=6)
         
         # Add standard deviation band
         plt.fill_between(valid_sessions, 
