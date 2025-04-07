@@ -14,9 +14,10 @@ SCOPES = [
 
 # List of supported Gemini models
 gemini_models = [
-    "gemini-1.0-pro",
-    "gemini-1.5-pro",
-    "gemini-1.5-flash"
+    "gemini-1.5-pro-001",
+    "gemini-1.5-pro-002",
+    "gemini-1.5-flash",
+    "gemini-2.0-flash"
 ]
 
 class GeminiVertexEngine:
@@ -27,7 +28,7 @@ class GeminiVertexEngine:
     def __init__(self, model_name: str, **kwargs):
         try:
             from vertexai import generative_models
-            from vertexai.generative_models import GenerativeModel
+            from vertexai.generative_models import GenerativeModel, GenerationConfig
             from vertexai import init
         except ImportError:
             raise ImportError(
@@ -36,6 +37,7 @@ class GeminiVertexEngine:
         
         self.model_name = model_name
         self.kwargs = kwargs
+        self.GenerationConfig = GenerationConfig
         
         # Get GCP configuration from environment variables
         project_id = os.getenv("GCP_PROJECT")
@@ -92,13 +94,37 @@ class GeminiVertexEngine:
         # Initialize the model
         model = self.GenerativeModel(model_name=self.model_name)
         
-        # Create generation config from kwargs
+        # Merge kwargs from init with kwargs from invoke
+        # with the invoke kwargs taking precedence
+        config_params = {**self.kwargs, **kwargs}
+        
+        # Extract generation config parameters
+        generation_params = {}
+        
+        # Map specific parameters that need special handling
+        if "max_output_tokens" in config_params:
+            generation_params["max_output_tokens"] = config_params.pop("max_output_tokens")
+            
+        # Add other supported generation parameters
+        for param in [
+            "temperature", "top_p", "top_k", "candidate_count", 
+            "presence_penalty", "frequency_penalty", "stop_sequences",
+            "seed"
+        ]:
+            # Convert snake_case to camelCase for some parameters
+            api_param = param
+            if param == "top_p":
+                api_param = "topP"
+            elif param == "top_k":
+                api_param = "topK"
+                
+            if api_param in config_params:
+                generation_params[api_param] = config_params.pop(api_param)
+        
+        # Create generation config
         generation_config = None
-        if kwargs:
-            from vertexai.generative_models import GenerationConfig
-            generation_config = GenerationConfig(
-                **kwargs
-            )
+        if generation_params:
+            generation_config = self.GenerationConfig(**generation_params)
         
         # Generate content
         response = model.generate_content(

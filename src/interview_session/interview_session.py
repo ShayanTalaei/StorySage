@@ -7,6 +7,7 @@ import signal
 import contextlib
 from dotenv import load_dotenv
 import time
+from tiktoken import get_encoding
 
 from agents.base_agent import BaseAgent
 from interview_session.session_models import Message, MessageType, Participant
@@ -52,7 +53,7 @@ class InterviewSession:
 
     def __init__(self, interaction_mode: str = 'terminal', user_config: UserConfig = {},
                  interview_config: InterviewConfig = {}, bank_config: BankConfig = {},
-                 use_baseline: Optional[bool] = None):
+                 use_baseline: Optional[bool] = None, max_turns: Optional[int] = None):
         """Initialize the interview session.
 
         Args:
@@ -69,6 +70,8 @@ class InterviewSession:
                 historical_question_bank_type: Type of question bank 
                     Options: "vector_db", etc.
             use_baseline: Whether to use baseline prompt (default: read from .env)
+            max_turns: Optional maximum number of turns before ending session
+                      If None, session continues until manually ended
         """
 
         # Set the baseline mode for all agents
@@ -78,7 +81,7 @@ class InterviewSession:
         else:
             BaseAgent.use_baseline = \
                 os.getenv("USE_BASELINE_PROMPT", "false").lower() == "true"
-
+        
         # User setup
         self.user_id = user_config.get("user_id", "default_user")
 
@@ -116,10 +119,11 @@ class InterviewSession:
         self.chat_history: list[Message] = []
 
         # Session states signals
-        self._interaction_mode = interaction_mode
+        self.interaction_mode = interaction_mode
         self.session_in_progress = True
         self.session_completed = False
         self._session_timeout = False
+        self.max_turns = max_turns
 
         # Biography auto-update states
         self.auto_biography_update_in_progress = False
@@ -131,15 +135,13 @@ class InterviewSession:
         
         # Counter for user messages to trigger auto-updates check
         self._user_message_count = 0
-        self._check_interval = max(1, self.memory_threshold // 4)
+        self._check_interval = max(1, self.memory_threshold // 5)
         self._accumulated_auto_update_time = 0
 
         # Last message timestamp tracking for session timeout
         self._last_message_time = datetime.now()
-        self.timeout_minutes = int(os.getenv("SESSION_TIMEOUT_MINUTES", 10))
-
-        # Response latency tracking for evaluation
         self._last_user_message = None
+        self.timeout_minutes = int(os.getenv("SESSION_TIMEOUT_MINUTES", 10))
 
         # User in the interview session
         if interaction_mode == 'agent':
@@ -210,6 +212,8 @@ class InterviewSession:
             "execution_log", f"[INIT] Session ID: {self.session_id}")
         SessionLogger.log_to_file(
             "execution_log", f"[INIT] Use baseline: {BaseAgent.use_baseline}")
+        
+        self.tokenizer = get_encoding("cl100k_base")
 
     async def _notify_participants(self, message: Message):
         """Notify subscribers asynchronously"""
@@ -232,17 +236,34 @@ class InterviewSession:
         
         # Allow tasks to run concurrently without waiting for each other
         await asyncio.sleep(0)  # Explicitly yield control
-        
-        # Check if we need to trigger a biography update
+
+        # Special handling for user messages after notifying participants
         if message.role == "User":
+            self._last_user_message = message
             self._user_message_count += 1
+
+            # Check if we need to trigger a biography update
             if (self._user_message_count % self._check_interval == 0 and 
                 not self.auto_biography_update_in_progress):
                 asyncio.create_task(self._check_and_trigger_biography_update())
+            
+            # Check if max turns reached
+            if self.max_turns is not None and \
+                    self._user_message_count >= self.max_turns:
+                SessionLogger.log_to_file(
+                    "execution_log",
+                    f"[TURNS] Maximum turns ({self.max_turns}) reached. "
+                    f"Ending session."
+                )
+                self.session_in_progress = False
 
     def add_message_to_chat_history(self, role: str, content: str = "", 
                                     message_type: str = MessageType.CONVERSATION):
         """Add a message to the chat history"""
+
+        # Reject messages if session is not in progress
+        if not self.session_in_progress:
+            return
 
         # Set fixed content for skip and like messages
         if message_type == MessageType.SKIP:
@@ -250,6 +271,7 @@ class InterviewSession:
         elif message_type == MessageType.LIKE:
             content = "Like the question"
 
+        # Create message object
         message = Message(
             id=str(uuid.uuid4()),
             type=message_type,
@@ -258,38 +280,36 @@ class InterviewSession:
             timestamp=datetime.now(),
         )
 
+        if role == "User":
+            self._last_message_time = message.timestamp
+        elif role == "Interviewer" and self._last_user_message is not None:
+            # Calculate and log latency when interviewer responds
+            self._log_response_latency(self._last_user_message, message)
+            self._last_user_message = None
+            
+            # Evaluate question duplicate
+            if os.getenv("EVAL_MODE", "FALSE").lower() == "true":
+                self.historical_question_bank.evaluate_question_duplicate(
+                    message.content
+                )
+        
         # Log feedback
         if message_type != MessageType.CONVERSATION:
             save_feedback_to_csv(
                 self.chat_history[-1], message, self.user_id, self.session_id)
 
-        # Log response latency
-        if message_type == MessageType.CONVERSATION:
-            if role == "User":
-                # Store user message for latency calculation
-                self._last_user_message = message
-            elif role == "Interviewer" and self._last_user_message is not None:
-                # First, calculate and log latency when interviewer responds
-                self._log_response_latency(self._last_user_message, message)
-                self._last_user_message = None
-                
-                # Then, evaluate question duplicate
-                if os.getenv("EVAL_MODE", "FALSE").lower() == "true":
-                    self.historical_question_bank.evaluate_question_duplicate(
-                        message.content
-                    )
-
         # Notify participants if message is a skip or conversation
         if message_type == MessageType.SKIP or \
               message_type == MessageType.CONVERSATION:
+            
+            # Add message to chat history
             self.chat_history.append(message)
             SessionLogger.log_to_file(
                 "chat_history", f"{message.role}: {message.content}")
+            
+            # Notify participants
             asyncio.create_task(self._notify_participants(message))
 
-        # Update last message time when we receive a message
-        if role == "User":
-            self._last_message_time = datetime.now()
 
         SessionLogger.log_to_file(
             "execution_log", 
@@ -312,7 +332,8 @@ class InterviewSession:
                 await self._interviewer.on_message(None)
 
             # Monitor the session for completion and timeout
-            while self.session_in_progress or self.session_scribe.processing_in_progress:
+            while self.session_in_progress or \
+                self.session_scribe.processing_in_progress:
                 await asyncio.sleep(0.1)
 
                 # Check for timeout
@@ -340,7 +361,7 @@ class InterviewSession:
                 self.session_in_progress = False
 
                 # Update biography (API mode handles this separately)
-                if self._interaction_mode != 'api' or self._session_timeout:
+                if self.interaction_mode != 'api' or self._session_timeout:
                     with contextlib.suppress(KeyboardInterrupt):
                         SessionLogger.log_to_file(
                             "execution_log", 
@@ -349,7 +370,8 @@ class InterviewSession:
                                 f"Waiting for session scribe to finish processing..."
                             )
                         )
-                        await self.final_update_biography_and_notes(selected_topics=[])
+                        await self.final_update_biography_and_notes(
+                            selected_topics=[])
 
                 # Wait for biography update to complete if it's in progress
                 start_time = time.time()
@@ -477,11 +499,30 @@ class InterviewSession:
     
     async def final_update_biography_and_notes(self, selected_topics: Optional[List[str]] = None):
         """Trigger final biography update"""
-        # Proceed with the final update
-        await self.biography_orchestrator.final_update_biography_and_notes(
-            selected_topics=selected_topics,
-            wait_time=self._accumulated_auto_update_time if BaseAgent.use_baseline else None
-        )
+        # Record start time
+        start_time = time.time()
+        
+        try:
+            # Proceed with the final update
+            await self.biography_orchestrator.final_update_biography_and_notes(
+                selected_topics=selected_topics,
+                wait_time=self._accumulated_auto_update_time if \
+                    (BaseAgent.use_baseline and 
+                    self.interaction_mode == "api") else None
+                # Simulate baseline mode without auto-updates for web user testing
+            )
+        finally:
+            # Calculate and log duration
+            duration = time.time() - start_time
+            eval_logger = EvaluationLogger.setup_logger(
+                self.user_id, self.session_id)
+            eval_logger.log_biography_update_time(
+                update_type="final",
+                duration=duration if not BaseAgent.use_baseline \
+                    else (duration + self._accumulated_auto_update_time),
+                accumulated_auto_time=self._accumulated_auto_update_time
+                # Simulate baseline mode without auto-updates
+            )
 
     def end_session(self):
         """End the session without triggering biography update"""
@@ -535,17 +576,17 @@ class InterviewSession:
         # Count turns
         total_turns = len(self.chat_history)
         
-        # Count characters instead of tokens
-        user_chars = 0
-        system_chars = 0
+        # Count tokens instead of characters
+        user_tokens = 0
+        system_tokens = 0
         
         for message in self.chat_history:
             if message.role == "User":
-                user_chars += len(message.content)
+                user_tokens += len(self.tokenizer.encode(message.content))
             else:
-                system_chars += len(message.content)
+                system_tokens += len(self.tokenizer.encode(message.content))
         
-        total_chars = user_chars + system_chars
+        total_tokens = user_tokens + system_tokens
         
         # Calculate conversation duration
         start_time = getattr(self, 'start_time', None)
@@ -564,9 +605,9 @@ class InterviewSession:
         eval_logger = EvaluationLogger.setup_logger(self.user_id, self.session_id)
         eval_logger.log_conversation_statistics(
             total_turns=total_turns,
-            total_chars=total_chars,
-            user_chars=user_chars,
-            system_chars=system_chars,
+            total_tokens=total_tokens,
+            user_tokens=user_tokens,
+            system_tokens=system_tokens,
             conversation_duration=conversation_duration,
             total_memories=len(await \
                                self.session_scribe.get_session_memories(

@@ -12,7 +12,7 @@ class SessionNote:
     
     def __init__(self, user_id, session_id, data: dict=None):
         self.user_id = user_id
-        self.session_id = session_id
+        self.session_id = int(session_id)
         self.user_portrait: dict = data.get("user_portrait", {})
         self.last_meeting_summary: str = data.get("last_meeting_summary", "")
         
@@ -112,18 +112,25 @@ class SessionNote:
     @classmethod
     def get_last_session_note(cls, user_id):
         """Retrieves the last session note for a user."""
-        base_path = os.path.join(LOGS_DIR, user_id, "session_notes")
+        base_path = os.path.join(LOGS_DIR, user_id, "execution_logs")
         if not os.path.exists(base_path):
             os.makedirs(base_path)
             
-        files = [f for f in os.listdir(base_path) \
-                  if f.startswith('session_') and f.endswith('.json')]
-        if not files:
+        # Look for session directories instead of files
+        session_dirs = [d for d in os.listdir(base_path) \
+                       if d.startswith('session_') and \
+                       os.path.isdir(os.path.join(base_path, d))]
+        if not session_dirs:
             return cls.initialize_session_note(user_id)
         
-        files.sort(key=lambda x: int(x.split('_')[1].split('.')[0]), reverse=True)
-        latest_file = os.path.join(base_path, files[0])
-        return cls.load_from_file(latest_file)
+        # Sort by session number
+        session_dirs.sort(key=lambda x: int(x.split('_')[1]), reverse=True)
+        latest_dir = os.path.join(base_path, session_dirs[0])
+        latest_file = os.path.join(latest_dir, "session_note.json")
+        
+        if os.path.exists(latest_file):
+            return cls.load_from_file(latest_file)
+        return cls.initialize_session_note(user_id)
     
     def add_interview_question(self, topic: str, question: str, question_id: str):
         """Adds a new interview question to the session notes.
@@ -208,7 +215,9 @@ class SessionNote:
                 question.notes = []
             else:
                 # No sub-questions, remove completely
-                self.topics[topic] = [q for q in self.topics[topic] if q.question_id != question_id]
+                self.topics[topic] = [
+                    q for q in self.topics[topic] if q.question_id != question_id
+                ]
             
         # If it's a sub-question
         else:
@@ -263,29 +272,48 @@ class SessionNote:
         for part in parts[1:]:
             if not current:
                 return None
-            current = next((q for q in current.sub_questions if q.question_id.endswith(part)), None)
+            current = next(
+                (q for q in current.sub_questions if q.question_id.endswith(part)),
+                None
+            )
             
         return current
         
-    def save(self, increment_session_id: bool = False):
+    def save(self, save_type: str="original"):
         """Saves the SessionNote to a JSON file.
         
         Args:
-            increment_session_id: If True, increments the session_id before saving
+            save_type: How to save the note:
+                - "original": Save as session_note.json in session_X directory
+                - "updated": Save as session_note_updated.json in same directory
+                - "next_version": Save as session_note.json in next session directory
         """
-        if increment_session_id:
-            self.session_id += 1
+        # Create path to session directory
+        base_path = os.path.join(LOGS_DIR, self.user_id, "execution_logs")
+        file_name = "session_note.json"
+        save_session_id = self.session_id
         
-        base_path = os.path.join(LOGS_DIR, self.user_id, "session_notes")
-        file_path = os.path.join(base_path, f"session_{self.session_id}.json")
+        if save_type == "original":
+            pass
+        elif save_type == "updated":
+            file_name = "session_note_updated.json"
+        elif save_type == "next_version":
+            save_session_id += 1
+        else:
+            raise ValueError("save_type must be 'updated', 'original', or 'next_version'")
         
-        if not os.path.exists(base_path):
-            os.makedirs(base_path)
+        session_dir = os.path.join(base_path, f"session_{save_session_id}")
+        
+        # Create directories if they don't exist
+        if not os.path.exists(session_dir):
+            os.makedirs(session_dir)
             
+        file_path = os.path.join(session_dir, file_name)
+        
         # Prepare data for serialization
         data = {
             "user_id": self.user_id,
-            "session_id": self.session_id,
+            "session_id": save_session_id,
             "user_portrait": self.user_portrait,
             "last_meeting_summary": self.last_meeting_summary,
             "additional_notes": self.additional_notes,
@@ -443,47 +471,33 @@ class SessionNote:
 
     @classmethod
     def get_historical_session_summaries(cls, user_id: str) -> str:
-        """Returns formatted string of all historical session summaries.
-        
-        Traverses all session note files for the user and compiles their
-        last_meeting_summary fields in chronological order.
-        
-        Args:
-            user_id: The user ID to get session summaries for
-            
-        Returns:
-            String containing all session summaries formatted as:
-            Session 1:
-            <summary>
-            
-            Session 2:
-            <summary>
-            ...
-        """
-        base_path = os.path.join(LOGS_DIR, user_id, "session_notes")
+        """Returns formatted string of all historical session summaries."""
+        base_path = os.path.join(LOGS_DIR, user_id, "execution_logs")
         if not os.path.exists(base_path):
             return ""
             
-        # Get all session note files
-        files = [f for f in os.listdir(base_path) \
-                  if f.startswith('session_') and f.endswith('.json')]
-        if not files:
+        # Get all session directories
+        session_dirs = [d for d in os.listdir(base_path) \
+                       if d.startswith('session_') and \
+                       os.path.isdir(os.path.join(base_path, d))]
+        if not session_dirs:
             return ""
             
-        # Sort files by session number
-        files.sort(key=lambda x: int(x.split('_')[1].split('.')[0]))
+        # Sort directories by session number
+        session_dirs.sort(key=lambda x: int(x.split('_')[1]))
         
         summaries = []
-        for file in files:
-            session_id = int(file.split('_')[1].split('.')[0])
-            file_path = os.path.join(base_path, file)
+        for dir_name in session_dirs:
+            session_id = int(dir_name.split('_')[1])
+            file_path = os.path.join(base_path, dir_name, "session_note.json")
             
-            # Load the session note
-            with open(file_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                summary = data.get('last_meeting_summary', '')
-                if summary:
-                    summaries.append(f"Session {session_id}:\n{summary}")
+            if os.path.exists(file_path):
+                # Load the session note
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    summary = data.get('last_meeting_summary', '')
+                    if summary:
+                        summaries.append(f"Session {session_id}:\n{summary}")
         
         return "\n\n".join(summaries)
 

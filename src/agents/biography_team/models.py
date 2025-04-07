@@ -3,7 +3,7 @@ from typing import Optional, List
 
 @dataclass
 class Plan:
-    update_plan: str
+    plan_content: str
     status: str = "pending"
     action_type: str = "update"             # "update", "create", "user_add", "user_update"
     memory_ids: Optional[List[str]] = None  # Memory IDs to be used for the update

@@ -1,10 +1,12 @@
 data/*
-data_*/*
-logs_*/*
+data*/*
+logs*/*
 test_logs/*
 !data/sample_user_profiles
 data/sample_user_profiles/meijin/*
 data/sample_user_profiles/*/topics.json
+data/sample_user_profiles/*/conversation.md
+plots/*
 experiment_summary*
 local_cache/*
 requirements-dspy.txt
@@ -31,3 +33,4 @@ package-lock.json
 *.pem
 *.key
 *.crt
+move_plots.sh

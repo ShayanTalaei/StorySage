@@ -24,18 +24,21 @@ EVALUATION_CRITERIA = {
     "smooth_score": {
         "description": "How smooth were the topic transitions in the conversation",
         "guidelines": [
-            "- Ensure transitions are smooth and natural.",
-            "- Avoid reverting to previous topics or introducing new ones during an ongoing story.",
-            "- Switch topics if the user shows disinterest in the current one like only sharing a few words and wanting to skip the question.",
-            "- Avoid repetitive questions on the same topic."
+            "- Focus on exploring 1-3 topics deeply in each session rather than switching many broad topics frequently.",
+            "- Ensure transitions are smooth and natural within the chosen topics.",
+            "- Avoid jumping between broad and general topics.",
+            "- Stay focused on the current topic until it's fully explored and the user remains engaged.",
+            "- Only switch topics if the user shows disinterest (e.g., giving brief responses or wanting to skip questions).",
+            "- Prefer concrete topics over overly open-ended and broad ones that are difficult to answer."
         ]
     },
     "flexibility_score": {
-        "description": "How flexible was the interview process in adapting to user responses",
+        "description": "How flexible was the interview process in adapting to user responses within the chosen topics",
         "guidelines": [
-            "- Adapt flexibly to user responses and ask deeper questions.",
-            "- Change topics if the user is uninterested in the current one.",
-            "- Allow the user to ask questions and express their thoughts."
+            "- Allow the user to guide the direction within the current topic.",
+            "- Ask relevant follow-up questions that deepen the conversation.",
+            "- Change topics only if the user shows clear disinterest in the current one.",
+            "- Balance between structure and flexibility while maintaining topic focus."
         ]
     },
     "comforting_score": {
@@ -58,6 +61,10 @@ For each criterion:
 1. Vote for either Interview A, Interview B, or "Tie" if they are equally good
 2. Provide a detailed explanation (2-3 sentences) justifying your choice with specific examples from both interviews
 
+Important notes:
+- If the interviews are difficult to compare or show similar quality for any criterion, don't hesitate to vote "Tie". A tie is a perfectly valid outcome when the differences are minimal or unclear.
+- Remember that these interviews represent just one session of potentially many. The interviewer doesn't need to cover everything in a single conversation - depth on a few topics is better than breadth across many.
+
 Your evaluation should be objective, fair, and based solely on the interviews provided. Do not try to guess which system generated which interview.
 """
 
@@ -75,23 +82,29 @@ Interview B:
 </B>
 
 ## Output Format
-Use the tool calls to output your evaluation.
+IMPORTANT: Use XML tags for your output. DO NOT use code blocks (```). The output should be pure XML.
 
-Reminder: Just specify A, B, or Tie for the voting, other formats like "Interviewer A", "Interviewer B", "model_A", "model_B", "version_Tie", are not allowed.
-Just specify A, B, or Tie!!!
+Reminder: 
+- Just specify A, B, or Tie for the voting, other formats like "Interviewer A", "Interviewer B", "model_A", "model_B", "version_Tie", are not allowed.
+- Just specify A, B, or Tie!!!
+- Use XML tags <tool_calls>...</tool_calls> directly, NOT inside code blocks
+- DO NOT use backticks (```) or any other code formatting
+- The output should look exactly like this:
 
 <tool_calls>
 <smooth_score>
-    <voting>A or B or Tie</voting>
     <explanation>Your explanation comparing both interviews</explanation>
+    <voting>A or B or Tie</voting>
 </smooth_score>
+
 <flexibility_score>
-    <voting>A or B or Tie</voting>
     <explanation>Your explanation comparing both interviews</explanation>
+    <voting>A or B or Tie</voting>
 </flexibility_score>
+
 <comforting_score>
-    <voting>A or B or Tie</voting>
     <explanation>Your explanation comparing both interviews</explanation>
+    <voting>A or B or Tie</voting>
 </comforting_score>
 </tool_calls>
 """
@@ -117,6 +130,15 @@ def format_evaluation_prompt(interview_a_content: str, interview_b_content: str)
 def parse_evaluation_response(response: str) -> Dict[str, Any]:
     """Parse the evaluation response to extract ratings and explanations."""
     result = {}
+    
+    # Remove code block formatting if present
+    if response.startswith("```") and response.endswith("```"):
+        response = response[3:-3]  # Remove leading/trailing ```
+    # Replace malformed tool_calls tag with proper XML tag
+    if response.startswith("```tool_calls>"):
+        response = "<tool_calls>" + response[len("```tool_calls>"):]
+    if response.endswith("```"):
+        response = response[:-3]
     
     # Define criteria to extract
     criteria = ["smooth_score", "flexibility_score", "comforting_score"]
@@ -161,7 +183,7 @@ async def get_interview_content(user_id: str, session_id: int, model_name: Optio
         model_name: Optional model name for loading from baseline directories
         
     Returns:
-        Interview content from chat history
+        Interview content from chat history with timestamps and log levels removed
     """
     # Determine the base path based on model name
     if model_name:
@@ -176,10 +198,19 @@ async def get_interview_content(user_id: str, session_id: int, model_name: Optio
     if not chat_history_path.exists():
         raise FileNotFoundError(f"Chat history not found at {chat_history_path}")
     
-    # Read first 100 lines of chat history
+    # Read first 200 lines of chat history and clean up the format
+    cleaned_lines = []
     with open(chat_history_path, "r", encoding="utf-8") as f:
-        lines = f.readlines()[:200]  # Limit to first 100 lines
-        return "".join(lines)
+        lines = f.readlines()[:200]
+        for line in lines:
+            # Remove timestamp and log level using split
+            parts = line.split(" - INFO - ", 1)
+            if len(parts) > 1:
+                cleaned_lines.append(parts[1])
+            else:
+                cleaned_lines.append(line)  # Keep original line if pattern not found
+    
+    return "".join(cleaned_lines)
 
 async def prepare_interview_pairs(user_id: str, session_id: int) -> List[Dict[str, Any]]:
     """Prepare pairs of interviews (ours vs baselines) for voting.
@@ -232,64 +263,71 @@ async def prepare_interview_pairs(user_id: str, session_id: int) -> List[Dict[st
     
     return pairs
 
-async def evaluate_interview_pair(user_id: str, session_id: int, pair: Dict[str, Any]) -> Dict[str, Any]:
+async def evaluate_interview_pair(user_id: str, session_id: int, pair: Dict[str, Any], max_retries: int = 3) -> Dict[str, Any]:
     """Evaluate a pair of interviews through comparative voting.
     
     Args:
         user_id: User ID
         session_id: Session ID
         pair: Dictionary containing interview pair data
+        max_retries: Maximum number of retry attempts (default: 3)
         
     Returns:
         Evaluation results
     """
-    try:
-        # Format prompt
-        prompt = format_evaluation_prompt(
-            interview_a_content=pair['interview_A'],
-            interview_b_content=pair['interview_B']
-        )
-        
-        # Get engine
-        engine = get_engine("gpt-4o")
-        
-        # Call engine
-        print(f"Evaluating interview pair for user {user_id},"
-              f" session {session_id}...")
-        response = invoke_engine(engine, prompt)
-        
-        # Parse response
-        evaluation = parse_evaluation_response(response)
-        
-        # Add metadata to evaluation results
-        evaluation['metadata'] = {
-            'model_A': pair['model_A'],
-            'model_B': pair['model_B']
-        }
-        
-        # Setup evaluation logger
-        eval_logger = EvaluationLogger.setup_logger(user_id, session_id)
-        
-        # Log evaluation
-        timestamp = datetime.now()
-        eval_logger.log_prompt_response(
-            evaluation_type="interview_content_comparison",
-            prompt=prompt,
-            response=response,
-            timestamp=timestamp
-        )
-        
-        # Log comparative evaluation results
-        eval_logger.log_interview_comparison_evaluation(
-            evaluation_data=evaluation,
-            timestamp=timestamp
-        )
-        
-        return evaluation
-    
-    except Exception as e:
-        print(f"Error evaluating interview pair: {str(e)}")
-        raise
+    retries = 0
+    while retries < max_retries:
+        try:
+            # Format prompt
+            prompt = format_evaluation_prompt(
+                interview_a_content=pair['interview_A'],
+                interview_b_content=pair['interview_B']
+            )
+            
+            # Get engine
+            engine = get_engine("gemini-2.0-flash", temperature=0.5)
+            
+            # Call engine
+            print(f"Evaluating interview pair for user {user_id}, "
+                  f"session {session_id} (attempt {retries + 1}/{max_retries})...")
+            response = invoke_engine(engine, prompt)
+            
+            # Parse response
+            evaluation = parse_evaluation_response(response)
+            
+            # Add metadata to evaluation results
+            evaluation['metadata'] = {
+                'model_A': pair['model_A'],
+                'model_B': pair['model_B']
+            }
+            
+            # Setup evaluation logger
+            eval_logger = EvaluationLogger.setup_logger(user_id, session_id)
+            
+            # Log evaluation
+            timestamp = datetime.now()
+            eval_logger.log_prompt_response(
+                evaluation_type="interview_content_comparison",
+                prompt=prompt,
+                response=response,
+                timestamp=timestamp
+            )
+            
+            # Log comparative evaluation results
+            eval_logger.log_interview_comparison_evaluation(
+                evaluation_data=evaluation,
+                timestamp=timestamp
+            )
+            
+            return evaluation
+            
+        except Exception as e:
+            retries += 1
+            if retries >= max_retries:
+                print(f"Failed after {max_retries} attempts. Final error: {str(e)}")
+                raise
+            print(f"Attempt {retries}/{max_retries} failed: {str(e)}. Retrying...")
+            await asyncio.sleep(1)  # Add a small delay between retries
 
 async def main_async():
     parser = argparse.ArgumentParser(

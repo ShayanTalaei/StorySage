@@ -24,38 +24,31 @@ load_dotenv()
 EVALUATION_CRITERIA = {
     "insightfulness_score": {
         "description": "Reveals profound perspectives on the subject's experiences and motivations, offering readers meaningful interpretations beyond surface facts",
-        "scale": "0-5",
         "guidelines": [
-            "0: Completely superficial, only lists basic facts with no interpretation",
-            "1: Mostly superficial with minimal interpretation of experiences",
-            "2: Some attempt at interpretation but lacks depth and meaningful insights",
-            "3: Good balance of facts and interpretation with some meaningful insights",
-            "4: Strong insights that reveal deeper motivations and perspectives",
-            "5: Exceptional insights that profoundly illuminate the subject's life and character"
+            "- Cover all important life events and experiences",
+            "- Provide meaningful interpretations of experiences",
+            "- Reveal deeper motivations and perspectives that shaped the subject's decisions",
+            "- Connect individual experiences to broader themes in the subject's life",
         ]
     },
     "narrativity_score": {
         "description": "Employs compelling storytelling techniques that engage readers through vivid description, appropriate pacing, and emotional resonance",
-        "scale": "0-5",
         "guidelines": [
-            "0: No narrative structure, just a list of disconnected facts",
-            "1: Basic chronology but lacks storytelling elements and engagement",
-            "2: Some storytelling elements but lacks vivid description or emotional resonance",
-            "3: Good narrative flow with some vivid descriptions and emotional elements",
-            "4: Strong storytelling with engaging descriptions and consistent emotional resonance",
-            "5: Masterful storytelling with captivating descriptions, perfect pacing, and powerful emotional impact"
+            "- Use vivid descriptions that bring scenes and experiences to life",
+            "- Maintain appropriate pacing that keeps readers engaged",
+            "- Create emotional resonance through effective storytelling",
+            "- Employ narrative techniques that make the biography engaging",
+            "- Balance description with action to maintain reader interest"
         ]
     },
     "coherence_score": {
         "description": "Presents a logical flow of events with clear chronology, establishing meaningful connections between life phases while maintaining narrative continuity",
-        "scale": "0-5",
         "guidelines": [
-            "0: Completely disjointed with no logical flow or connections",
-            "1: Mostly disconnected sections with unclear chronology",
-            "2: Basic chronology but weak connections between life phases",
-            "3: Clear chronology with some meaningful connections between events",
-            "4: Strong logical flow with well-established connections between life phases",
-            "5: Exceptional coherence with seamless transitions and profound connections across the entire life story"
+            "- Maintain a clear and logical chronological flow",
+            "- Create meaningful connections between different life phases",
+            "- Ensure smooth transitions between events and time periods",
+            "- Establish cause-and-effect relationships between life events",
+            "- Present a cohesive narrative that ties different aspects of life together"
         ]
     }
 }
@@ -70,6 +63,8 @@ Please carefully read through both biographies and then vote based on these crit
 For each criterion:
 1. Vote for either Biography A, Biography B, or "Tie" if they are equally good
 2. Provide a detailed explanation (2-3 sentences) justifying your choice with specific examples from both biographies
+
+Important: If the biographies are difficult to compare or show similar quality for any criterion, don't hesitate to vote "Tie". A tie is a perfectly valid outcome when the differences are minimal or unclear.
 
 Your evaluation should be objective, fair, and based solely on the biographies provided. Do not try to guess which system generated which biography.
 """
@@ -88,23 +83,29 @@ Biography B:
 </B>
 
 ## Output Format
-Use the tool calls to output your evaluation.
+IMPORTANT: Use XML tags for your output. DO NOT use code blocks (```). The output should be pure XML.
 
-Reminder: Just specify A, B, or Tie for the voting, other formats like "Biography A", "Biography B", "model_A" or "model_B", "version_A" or "model_Tie", are not allowed.
-Just specify A, B, or Tie!!!
+Reminder: 
+- Just specify A, B, or Tie for the voting, other formats like "Biography A", "Biography B", "model_A" or "model_B", "version_A" or "model_Tie", are not allowed.
+- Just specify A, B, or Tie!!!
+- Use XML tags <tool_calls>...</tool_calls> directly, NOT inside code blocks
+- DO NOT use backticks (```) or any other code formatting
+- The output should look exactly like this:
 
 <tool_calls>
 <insightfulness_score>
-    <voting>A or B or Tie</voting>
     <explanation>Your explanation comparing both biographies</explanation>
+    <voting>A or B or Tie</voting>
 </insightfulness_score>
+
 <narrativity_score>
-    <voting>A or B or Tie</voting>
     <explanation>Your explanation comparing both biographies</explanation>
+    <voting>A or B or Tie</voting>
 </narrativity_score>
+
 <coherence_score>
-    <voting>A or B or Tie</voting>
     <explanation>Your explanation comparing both biographies</explanation>
+    <voting>A or B or Tie</voting>
 </coherence_score>
 </tool_calls>
 """
@@ -139,6 +140,15 @@ def format_evaluation_prompt(biography_a_content: str, biography_b_content: str)
 def parse_evaluation_response(response: str) -> Dict[str, Any]:
     """Parse the evaluation response to extract ratings and explanations."""
     result = {}
+    
+    # Remove code block formatting if present
+    if response.startswith("```") and response.endswith("```"):
+        response = response[3:-3]  # Remove leading/trailing ```
+    # Replace malformed tool_calls tag with proper XML tag
+    if response.startswith("```tool_calls>"):
+        response = "<tool_calls>" + response[len("```tool_calls>"):]
+    if response.endswith("```"):
+        response = response[:-3]
     
     # Define criteria to extract
     criteria = ["insightfulness_score", "narrativity_score", "coherence_score"]
@@ -267,66 +277,72 @@ async def prepare_biography_pairs(user_id: str, biography_version: Optional[int]
     
     return pairs
 
-async def evaluate_biography_pair(user_id: str, pair: Dict[str, Any], our_version: int) -> Dict[str, Any]:
+async def evaluate_biography_pair(user_id: str, pair: Dict[str, Any], our_version: int, logger: EvaluationLogger, max_retries: int = 3) -> Dict[str, Any]:
     """Evaluate a pair of biographies through comparative voting.
     
     Args:
         user_id: User ID
         pair: Dictionary containing biography pair data
         our_version: Version number of our biography
+        logger: Shared evaluation logger instance
+        max_retries: Maximum number of retry attempts (default: 3)
         
     Returns:
         Evaluation results
     """
-    try:
-        # Format prompt
-        prompt = format_evaluation_prompt(
-            biography_a_content=pair['biography_A'],
-            biography_b_content=pair['biography_B']
-        )
-        
-        # Get engine
-        engine = get_engine("gpt-4o")
-        
-        # Call engine
-        print(f"Evaluating biography pair for user {user_id}...")
-        response = invoke_engine(engine, prompt)
-        
-        # Parse response
-        evaluation = parse_evaluation_response(response)
-        
-        # Add metadata to evaluation results
-        evaluation['metadata'] = {
-            'model_A': pair['model_A'],
-            'model_B': pair['model_B'],
-            'version_A': pair['version_A'],
-            'version_B': pair['version_B']
-        }
-        
-        # Setup evaluation logger
-        eval_logger = EvaluationLogger.setup_logger(user_id)
-        
-        # Log evaluation
-        timestamp = datetime.now()
-        eval_logger.log_prompt_response(
-            evaluation_type="biography_content_comparison",
-            prompt=prompt,
-            response=response,
-            timestamp=timestamp
-        )
-        
-        # Log comparative evaluation results
-        eval_logger.log_biography_comparison_evaluation(
-            evaluation_data=evaluation,
-            biography_version=our_version,  # Pass our version
-            timestamp=timestamp
-        )
-        
-        return evaluation
+    retries = 0
+    while retries < max_retries:
+        try:
+            # Format prompt
+            prompt = format_evaluation_prompt(
+                biography_a_content=pair['biography_A'],
+                biography_b_content=pair['biography_B']
+            )
+            
+            # Get engine
+            engine = get_engine("gemini-2.0-flash", temperature=0.5)
+            
+            # Call engine
+            print(f"Evaluating biography pair for user {user_id} "
+                  f"(attempt {retries + 1}/{max_retries})...")
+            response = invoke_engine(engine, prompt)
+            
+            # Parse response
+            evaluation = parse_evaluation_response(response)
+            
+            # Add metadata to evaluation results
+            evaluation['metadata'] = {
+                'model_A': pair['model_A'],
+                'model_B': pair['model_B'],
+                'version_A': pair['version_A'],
+                'version_B': pair['version_B']
+            }
+            
+            # Log evaluation
+            timestamp = datetime.now()
+            logger.log_prompt_response(
+                evaluation_type="biography_content_comparison",
+                prompt=prompt,
+                response=response,
+                timestamp=timestamp
+            )
     
-    except Exception as e:
-        print(f"Error evaluating biography pair: {str(e)}")
-        raise
+            # Log comparative evaluation results
+            logger.log_biography_comparison_evaluation(
+                evaluation_data=evaluation,
+                biography_version=our_version,  # Pass our version
+                timestamp=timestamp
+            )
+            
+            return evaluation
+        
+        except Exception as e:
+            retries += 1
+            if retries >= max_retries:
+                print(f"Failed after {max_retries} attempts. Final error: {str(e)}")
+                raise
+            print(f"Attempt {retries}/{max_retries} failed: {str(e)}. Retrying...")
+            await asyncio.sleep(1)  # Add a small delay between retries
 
 async def main_async():
     parser = argparse.ArgumentParser(
@@ -362,6 +378,9 @@ async def main_async():
             print("Could not determine our biography version")
             return
             
+        # Initialize shared logger
+        logger = EvaluationLogger.setup_logger(args.user_id, our_version)
+            
         # Evaluate each pair
         print(f"\nFound {len(pairs)} pairs for comparison")
         print(f"Using our biography version: {our_version}")
@@ -372,7 +391,7 @@ async def main_async():
             print(f"Model B: {pair['model_B']}")
             
             evaluation = \
-                await evaluate_biography_pair(args.user_id, pair, our_version)
+                await evaluate_biography_pair(args.user_id, pair, our_version, logger)
             
             print(f"\nComparison {i} completed")
             

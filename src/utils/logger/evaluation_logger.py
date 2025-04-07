@@ -4,6 +4,7 @@ import os
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 from dotenv import load_dotenv
+from tiktoken import get_encoding
 
 load_dotenv()
 
@@ -29,6 +30,8 @@ class EvaluationLogger:
         else:
             self.eval_dir = self.base_dir / "evaluations"
         self.eval_dir.mkdir(parents=True, exist_ok=True)
+        
+        self.tokenizer = get_encoding("cl100k_base")
     
     @classmethod
     def get_current_logger(cls) -> Optional['EvaluationLogger']:
@@ -87,6 +90,8 @@ class EvaluationLogger:
             f.write("\n\n=== RESPONSE ===\n\n")
             f.write(response)
             f.write("\n")
+        
+        print(f"Saved to {filename}")
     
     def log_question_similarity(
         self,
@@ -193,9 +198,9 @@ class EvaluationLogger:
     def log_conversation_statistics(
         self,
         total_turns: int,
-        total_chars: int,
-        user_chars: int,
-        system_chars: int,
+        total_tokens: int,
+        user_tokens: int,
+        system_tokens: int,
         conversation_duration: float,
         total_memories: int,
         timestamp: Optional[datetime] = None
@@ -204,9 +209,9 @@ class EvaluationLogger:
         
         Args:
             total_turns: Total number of conversation turns
-            total_chars: Total number of characters in the conversation
-            user_chars: Number of characters in user messages
-            system_chars: Number of characters in system messages
+            total_tokens: Total number of tokens in the conversation
+            user_tokens: Number of tokens in user messages
+            system_tokens: Number of tokens in system messages
             conversation_duration: Duration of the conversation in seconds
             total_memories: Total number of memories in the session
             timestamp: Optional timestamp (defaults to current time)
@@ -231,28 +236,28 @@ class EvaluationLogger:
                     'Timestamp',
                     'Session ID',
                     'Total Turns',
-                    'Total Characters',
-                    'User Characters',
-                    'System Characters',
+                    'Total Tokens',
+                    'User Tokens',
+                    'System Tokens',
                     'Conversation Duration (seconds)',
-                    'Average Characters Per Turn',
+                    'Average Tokens Per Turn',
                     'Total Memories'
                 ]
                 writer.writerow(headers)
             
-            # Calculate average characters per turn
-            avg_chars_per_turn = total_chars / total_turns if total_turns > 0 else 0
+            # Calculate average tokens per turn
+            avg_tokens_per_turn = total_tokens / total_turns if total_turns > 0 else 0
             
             # Write row
             writer.writerow([
                 timestamp.isoformat(),
                 self.session_id,
                 total_turns,
-                total_chars,
-                user_chars,
-                system_chars,
+                total_tokens,
+                user_tokens,
+                system_tokens,
                 f"{conversation_duration:.2f}",
-                f"{avg_chars_per_turn:.2f}",
+                f"{avg_tokens_per_turn:.2f}",
                 total_memories
             ]) 
     
@@ -438,6 +443,14 @@ class EvaluationLogger:
             narrativity_winner = narrativity.get('voting', 'unknown')
             coherence_winner = coherence.get('voting', 'unknown')
             
+            # Raise error if any voting value is unknown
+            if 'unknown' in \
+                  [insightfulness_winner, narrativity_winner, coherence_winner]:
+                raise ValueError(f"Got unknown voting value in biography comparison."
+                                 f" Insightfulness: {insightfulness_winner}, "
+                                 f"Narrativity: {narrativity_winner}, "
+                                 f"Coherence: {coherence_winner}")
+            
             # Write row
             row = [
                 timestamp.isoformat(),
@@ -483,6 +496,7 @@ class EvaluationLogger:
             if not file_exists:
                 headers = [
                     'Timestamp',
+                    'Session ID',
                     'Model A',
                     'Model B',
                     'Smooth Score Winner',
@@ -509,9 +523,18 @@ class EvaluationLogger:
             flexibility_winner = flexibility.get('voting', 'unknown')
             comforting_winner = comforting.get('voting', 'unknown')
             
+            # Raise error if any voting value is unknown
+            if 'unknown' in \
+                   [smooth_winner, flexibility_winner, comforting_winner]:
+                raise ValueError(f"Got unknown voting value in interview comparison."
+                                 f" Smooth: {smooth_winner}, "
+                                 f"Flexibility: {flexibility_winner}, "
+                                 f"Comforting: {comforting_winner}")
+            
             # Write row
             row = [
                 timestamp.isoformat(),
+                self.session_id,
                 model_a,
                 model_b,
                 smooth_winner,
@@ -521,4 +544,53 @@ class EvaluationLogger:
                 comforting_winner,
                 comforting.get('explanation', '')
             ]
-            writer.writerow(row) 
+            writer.writerow(row)
+
+    def log_biography_update_time(
+        self,
+        update_type: str,
+        duration: float,
+        accumulated_auto_time: float = 0.0,
+        timestamp: Optional[datetime] = None
+    ) -> None:
+        """Log the time taken for biography updates.
+        
+        Args:
+            update_type: Type of update ('auto' or 'final')
+            duration: Duration of the update in seconds
+            accumulated_auto_time: Total time spent on auto-updates (default 0)
+            timestamp: Optional timestamp (defaults to current time)
+        """
+        # Create logs directory
+        logs_dir = self.eval_dir
+        logs_dir.mkdir(parents=True, exist_ok=True)
+        
+        if timestamp is None:
+            timestamp = datetime.now()
+        
+        # Log to CSV file
+        filename = logs_dir / "biography_update_times.csv"
+        file_exists = filename.exists()
+        
+        with open(filename, 'a', newline='') as f:
+            writer = csv.writer(f)
+            
+            # Create headers if file doesn't exist
+            if not file_exists:
+                headers = [
+                    'Timestamp',
+                    'Session ID',
+                    'Update Type',
+                    'Duration (seconds)',
+                    'Accumulated Auto Time'
+                ]
+                writer.writerow(headers)
+            
+            # Write row
+            writer.writerow([
+                timestamp.isoformat(),
+                self.session_id,
+                update_type,
+                f"{duration:.2f}",
+                f"{accumulated_auto_time:.2f}"
+            ]) 

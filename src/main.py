@@ -33,7 +33,8 @@ async def run_terminal_mode(args):
         },
         interview_config={
             "enable_voice": args.voice_output
-        }
+        },
+        max_turns=args.max_turns
     )
     
     with contextlib.suppress(KeyboardInterrupt):
@@ -62,6 +63,8 @@ if __name__ == "__main__":
                         help='Enable voice input')
     parser.add_argument('--restart', action='store_true', default=False, 
                         help='Restart the session')
+    parser.add_argument('--max_turns', type=int, default=None,
+                        help='Maximum number of turns before ending the session')
     
     # Setup_db mode arguments
     parser.add_argument('--reset', action='store_true', help='Reset database (clear all data)')

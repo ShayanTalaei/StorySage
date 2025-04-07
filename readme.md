@@ -103,28 +103,3 @@ Run the interviewer in server mode with:
 python src/main.py --mode server --port 8000
 ```
 
-### Commands for Evaluations
-
-For offline evaluations, you can run the evaluation scripts directly.
-
-```bash
-# Evaluate biography completeness
-python evaluations/biography_completeness.py --user_id ellie
-
-# Evaluate biography groundedness
-python evaluations/biography_groundedness.py --user_id ellie
-```
-
-For online evaluations, set the `EVAL_MODE` environment variable to `true` in the `.env` file. Please check `.env.example` for more details.
-
-Reminder: it will make the program slower.
-
-```text
-EVAL_MODE="true"
-```
-
-### Commands for Testing
-
-```bash
-pytest tests/[folder_name]/[test_file_name].py
-```

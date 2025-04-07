@@ -82,6 +82,7 @@ class Biography:
 
         # Version information
         self.version = self._get_latest_version()
+        self.increment_version = False
 
         # Root section
         self.root = Section(f"Biography of {self.user_id}")
@@ -133,7 +134,9 @@ class Biography:
             await asyncio.sleep(0.1)  # Small delay to prevent CPU spinning
 
     def _get_file_name(self) -> str:
-        return f"{self.base_path}/biography_{self.version}"
+        save_version = self.version + 1 if self.increment_version \
+                      else self.version
+        return f"{self.base_path}/biography_{save_version}"
 
     def _get_latest_version(self) -> int:
         """Get the latest available version number for the biography file.
@@ -205,7 +208,7 @@ class Biography:
     async def save(self, save_markdown: bool = False, increment_version: bool = True) -> None:
         """Save the biography to a JSON file using user_id."""
         if increment_version:
-            self.version += 1
+            self.increment_version = True
                 
         try:
             # Wait for all pending writes with timeout
@@ -373,8 +376,10 @@ class Biography:
 
         if path is not None:
             if not self.is_valid_path_format(path):
-                raise ValueError(f"Invalid path format: {path}")
-            section = self._get_section_by_path(path)
+                potential_title = path.split('/')[-1]
+                section = self._get_section_by_title(potential_title)
+            else:
+                section = self._get_section_by_path(path)
         else:
             section = self._get_section_by_title(title)
 
@@ -397,7 +402,8 @@ class Biography:
         return _build_section_dict(self.root)
 
     async def add_section(self, path: str, content: str = "") -> Section:
-        """Add a new section at the specified path, creating parent sections if they don't exist."""
+        """Add a new section at the specified path, creating parent sections if they don't exist.
+        If section already exists, updates its content without modifying subsections."""
         await self._increment_pending_writes()
         try:
             async with self._write_lock:
@@ -423,8 +429,17 @@ class Biography:
                         current.subsections[part] = new_parent
                     current = current.subsections[part]
                 
+                # If section already exists, just update content
+                if path_parts[-1] in current.subsections:
+                    if content:  # Only update if new content provided
+                        current.subsections[path_parts[-1]].content = content
+                        current.subsections[path_parts[-1]].last_edit = \
+                            datetime.now().isoformat()
+                    return current.subsections[path_parts[-1]]
+                
                 # Create and add the new section
                 new_section = Section(title, content, current)
+                new_section.update_memory_ids()
                 current.subsections[path_parts[-1]] = new_section
                 
                 # Sort the subsections after adding the new one

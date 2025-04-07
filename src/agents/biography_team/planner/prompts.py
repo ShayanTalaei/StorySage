@@ -124,6 +124,10 @@ New memories collected from the user interview:
 - How to maintain narrative flow and coherence
 - For new sections, ensure sequential numbering (cannot create section 3 if 1 and 2 don't exist)
 
+### Reminders:
+- For basic information like the user's name, append it to an main section rather than creating a dedicated introduction section
+- Avoid creating new sections with fewer than 3 memories to maintain substantive content
+
 ## 2. Add Follow-Up Questions:
 - Aim to further explore the user's background
 - Be clear, direct, and concise
@@ -199,14 +203,14 @@ USER_EDIT_INSTRUCTIONS = """\
 Create a plan to implement the user's request. The plan must include:
 
 1. Context Summary:
-   Original Request: [User's exact request]
-   Selected Section: [Section title/path being modified]
-   Current Content: [Brief summary of relevant existing content]
+- Original Request: [User's exact request with original context e.g. user selected text if provided]
+- Selected Section: [Section title/path being modified]
+- Current Content: [Brief summary of relevant existing content]
 
 2. Action Plan:
-   - [First action step]
-   - [Second action step if needed]
-   - [Third action step if needed]
+- [First action step]
+- [Second action step if needed]
+- [Third action step if needed]
 
 ## Planning Guidelines:
 - Keep actions clear, specific, and concise (1-3 steps)
@@ -294,7 +298,7 @@ Important:
     <add_plan>
         <action_type>user_add</action_type>
         <section_path>{section_path}</section_path>
-        <update_plan>...</update_plan>
+        <plan_content>...</plan_content>
     </add_plan>
 </tool_calls>
 </output_format>
@@ -314,11 +318,11 @@ Provide your response using tool calls:
     <add_plan>
         <action_type>user_update</action_type>
         <section_title>{section_title}</section_title>
-        <update_plan>
+        <plan_content>
         Create a plan to to include:
         1. Context Summary: ...
         2. Action Plan: ...
-        </update_plan>
+        </plan_content>
     </add_plan>
 </tool_calls>
 """

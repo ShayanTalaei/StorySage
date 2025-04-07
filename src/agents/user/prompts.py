@@ -32,25 +32,11 @@ RESPOND_TO_QUESTION_PROMPT = """
 {OUTPUT_FORMAT}
 """
 
-DECIDE_TO_RESPOND_PROMPT = """
-{CONTEXT}
-
-{PROFILE_BACKGROUND}
-
-{CHAT_HISTORY}
-
-{INSTRUCTIONS}
-
-{OUTPUT_FORMAT}
-"""
-
 RESPOND_CONTEXT = """
 <context>
 You are playing the role of a real person being interviewed. You are currently in an interview session where an interviewer is asking you questions about your life, experiences, and perspectives. You have already evaluated the interviewer's last question and given it a numerical score (1-5) with detailed reasoning about how well it resonates with your character.
 
-Based on this evaluation, you now need to:
-1. Decide whether to respond or skip the question based on your character's conversational style and preferences.
-2. If you choose to respond, provide a natural response that aligns with your character's personality and background, as if you are having a genuine conversation with an interviewer who is writing your biography.
+Based on this evaluation, you now need to respond: provide a natural response that aligns with your character's personality and background, as if you are having a genuine conversation with an interviewer who is writing your biography.
 </context>
 """
 
@@ -79,7 +65,7 @@ Here are summaries from your previous interview sessions:
 """
 
 CHAT_HISTORY = """
-Here is the conversation history of your interview session so far, along with your evaluation of the interviewer's last question:
+Here is the conversation history of your interview session so far. You are the <UserAgent>  in the chat history and you need to respond to the interviewer's last question.
 <chat_history>
 {chat_history}
 </chat_history>
@@ -87,13 +73,12 @@ Here is the conversation history of your interview session so far, along with yo
 
 RESPOND_INSTRUCTIONS_PROMPT = """
 <instructions>
+- Always answer every question - no skipping allowed
+
 - Stay focused on the current topic:
-  - Keep responses relevant and avoid topic drift
+  - Keep responses relevant as possible
   - Explore new angles on the current topic not previously covered
   - Share fresh perspectives rather than repeating information
-  - Respond with "SKIP" if a topic has been thoroughly covered
-
-- Evaluate whether to respond based on your conversational style and context
 
 - Control your response length naturally:
   - For topics of high interest: 1-2 paragraphs maximum
@@ -107,33 +92,13 @@ RESPOND_INSTRUCTIONS_PROMPT = """
   - Add enriching details that remain consistent with your background
   - Balance topic focus with natural conversation flow
 
-- When choosing not to respond:
-  - Provide reasoning that references:
-    - Your question score and rationale
-    - Alignment with your conversational style
-    - Specific aspects influencing your decision
-  - This feedback improves future questions
 </instructions>
 """
 
 RESPONSE_OUTPUT_FORMAT_PROMPT = """
-<output_format>
-Important:
-- You must include both for <thinking>..</thinking> and <response_content>..</response_content> tags
-- Do not include anything outside of these tags
+Respond directly as the user without tags, reasoning, or preamble.
 
-<thinking>
-Your reasoning here, including:
-- Why you decide to respond or skip according to your conversational style and context
-- What you would share about the current topic
-- How you plan to respond naturally
-</thinking>
-
-<response_content>
-Your actual response here - either "SKIP" if choosing not to respond, or your conversational response if engaging.
-</response_content>
-
-</output_format>
+Begin your response now:
 """
 
 SCORE_QUESTION_PROMPT = """

@@ -8,7 +8,7 @@ from agents.session_scribe.prompts import get_prompt
 from agents.session_scribe.tools import UpdateSessionNote, UpdateMemoryBank, AddHistoricalQuestion
 from agents.shared.memory_tools import Recall
 from agents.shared.note_tools import AddInterviewQuestion
-from agents.shared.feedback_prompts import SIMILAR_QUESTIONS_WARNING, WARNING_OUTPUT_FORMAT
+from agents.shared.feedback_prompts import SIMILAR_QUESTIONS_WARNING, QUESTION_WARNING_OUTPUT_FORMAT
 from content.question_bank.question import QuestionSearchResult, SimilarQuestionsGroup
 from utils.llm.prompt_utils import format_prompt
 from utils.llm.xml_formatter import extract_tool_arguments, extract_tool_calls_xml
@@ -188,11 +188,19 @@ class SessionScribe(BaseAgent, Participant):
                 # Handle the tool calls to add questions
                 await self.handle_tool_calls_async(response)
                 break
-
-            # Extract proposed questions from add_interview_question tool calls
-            proposed_questions = extract_tool_arguments(
-                response, "add_interview_question", "question"
-            )
+            
+            try:
+                # Extract proposed questions from add_interview_question tool calls
+                proposed_questions = extract_tool_arguments(
+                    response, "add_interview_question", "question"
+                )
+            except Exception as e:
+                SessionLogger.log_to_file(
+                    "execution_log",
+                    f"[ERROR] Error extracting tool arguments: {e}"
+                    f"Set proposed questions to empty list"
+                )
+                proposed_questions = []
             
             if not proposed_questions:
                 if "recall" in response:
@@ -331,7 +339,7 @@ class SessionScribe(BaseAgent, Participant):
                         .get_questions_and_notes_str()
                 ),
                 "similar_questions_warning": warning,
-                "warning_output_format": WARNING_OUTPUT_FORMAT \
+                "warning_output_format": QUESTION_WARNING_OUTPUT_FORMAT \
                                          if similar_questions else "",
                 "tool_descriptions": self.get_tools_description(
                     selected_tools=["recall", "add_interview_question"]

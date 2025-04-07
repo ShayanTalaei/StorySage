@@ -4,6 +4,7 @@ from typing import Dict, List
 import asyncio
 from functools import partial
 import os
+import time
 
 # Third-party imports
 from dotenv import load_dotenv
@@ -37,7 +38,9 @@ class BaseAgent:
         self.config = config
         
         # Initialize the LLM engine
-        self.engine = get_engine()
+        self.engine = get_engine(model_name= \
+                                 config.get("model_name", 
+                                            os.getenv("MODEL_NAME", "gpt-4o")))
         self.tools = {}
 
         # Each agent has an event stream. 
@@ -59,12 +62,17 @@ class BaseAgent:
                 output = invoke_engine(self.engine, prompt)
                 return output
             except Exception as e:
+                # Calculate exponential backoff sleep time (1s, 2s, 4s, 8s, etc.)
+                sleep_time = 2 ** attempt
                 SessionLogger.log_to_file(
                     "execution_log", 
                     f"({self.name}) Failed to invoke the chain "
-                    f"{attempt + 1} times.\n{type(e)} <{e}>", 
+                    f"{attempt + 1} times.\n{type(e)} <{e}>\n"
+                    f"Sleeping for {sleep_time} seconds before retrying...", 
                     log_level="error"
                 )
+                time.sleep(sleep_time)
+                
         raise e
     
     async def call_engine_async(self, prompt: str) -> str:
@@ -84,6 +92,9 @@ class BaseAgent:
                 (interviewer_response, user_response, system_response, etc.)
             content: The content of the event.
         '''
+        # Convert None content to empty string to satisfy Pydantic validation
+        content = "" if content is None else str(content)
+        
         self.event_stream.append(BaseAgent.Event(sender=sender, 
                                                  tag=tag,
                                                  content=content, 

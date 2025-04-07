@@ -1,3 +1,4 @@
+import json
 from typing import Optional, TYPE_CHECKING, List
 from dataclasses import dataclass
 
@@ -117,15 +118,15 @@ class SectionWriter(BiographyTeamAgent):
                         )
                         return UpdateResult(success=True, 
                                          message="Section updated successfully")
+                    
+                    # Save tool calls for next iteration
+                    previous_tool_call = extract_tool_calls_xml(response)
 
                     # Extract memory IDs from section content in tool calls
                     current_memory_ids = set(
-                        Section.extract_memory_ids(response)
+                        Section.extract_memory_ids(previous_tool_call)
                     )
                     covered_memory_ids.update(current_memory_ids)
-                        
-                    # Save tool calls for next iteration if needed
-                    previous_tool_call = extract_tool_calls_xml(response)
 
                     # Check if all memories are covered
                     if covered_memory_ids >= all_memory_ids or len(all_memory_ids) == 0:
@@ -171,8 +172,11 @@ class SectionWriter(BiographyTeamAgent):
                     user_portrait=self._session_note \
                         .get_user_portrait_str(),
                     section_path=todo_item.section_path,
-                    update_plan=todo_item.update_plan,
+                    plan_content=todo_item.plan_content,
                     event_stream=events_str,
+                    biography_structure=json.dumps(
+                        self.get_biography_structure(), indent=2
+                    ),
                     style_instructions=
                         BIOGRAPHY_STYLE_WRITER_INSTRUCTIONS.get(
                             self.config.get("biography_style", 
@@ -188,7 +192,8 @@ class SectionWriter(BiographyTeamAgent):
                     filter=[{"sender": self.name, "tag": "recall_response"}]
                 )
                 curr_section = self.biography.get_section(
-                    title=todo_item.section_title
+                    title=todo_item.section_title,
+                    hide_memory_links=False
                 )
                 current_content = curr_section.content if curr_section else ""
                 return get_prompt("user_update").format(
@@ -196,8 +201,11 @@ class SectionWriter(BiographyTeamAgent):
                         .get_user_portrait_str(),
                     section_title=todo_item.section_title,
                     current_content=current_content,
-                    update_plan=todo_item.update_plan,
+                    plan_content=todo_item.plan_content,
                     event_stream=events_str,
+                    biography_structure=json.dumps(
+                        self.get_biography_structure(), indent=2
+                    ),
                     style_instructions=
                         BIOGRAPHY_STYLE_WRITER_INSTRUCTIONS.get(
                             self.config.get("biography_style", 
@@ -214,7 +222,8 @@ class SectionWriter(BiographyTeamAgent):
                     path=todo_item.section_path \
                         if todo_item.section_path else None,
                     title=todo_item.section_title \
-                        if todo_item.section_title else None
+                        if todo_item.section_title else None,
+                    hide_memory_links=False
                 )
                 current_content = curr_section.content if curr_section else ""
                 
@@ -232,6 +241,7 @@ class SectionWriter(BiographyTeamAgent):
                 # Add error warning if there was a tool call error
                 if tool_call_error:
                     warning += SECTION_WRITER_TOOL_CALL_ERROR.format(
+                        previous_tool_call=kwargs.get('previous_tool_call', ""),
                         tool_call_error=tool_call_error
                     )
                 
@@ -262,7 +272,10 @@ class SectionWriter(BiographyTeamAgent):
                     section_identifier_xml=section_identifier_xml,
                     current_content=current_content,
                     relevant_memories=relevant_memories,
-                    update_plan=todo_item.update_plan,
+                    plan_content=todo_item.plan_content,
+                    biography_structure=json.dumps(
+                        self.get_biography_structure(), indent=2
+                    ),
                     style_instructions=
                         BIOGRAPHY_STYLE_WRITER_INSTRUCTIONS.get(
                             self.config.get("biography_style", 
@@ -286,7 +299,7 @@ class SectionWriter(BiographyTeamAgent):
         """Save the current state of the biography to file."""
         try:
             await self.biography.save(save_markdown=not is_auto_update,
-                                       increment_version=not is_auto_update)
+                                       increment_version=True)
             self.add_event(sender=self.name, tag="save_biography",
                            content=f"Biography saved successfully"
                                     f" (version {self.biography.version})")
@@ -299,7 +312,8 @@ class SectionWriter(BiographyTeamAgent):
         try:
             iterations = 0
             tool_call_error = None
-            
+            previous_tool_call = None
+
             while iterations < self._max_consideration_iterations:
                 try:
                     # Format all new memories
@@ -321,6 +335,7 @@ class SectionWriter(BiographyTeamAgent):
                     error_warning = ""
                     if tool_call_error:
                         error_warning = SECTION_WRITER_TOOL_CALL_ERROR.format(
+                            previous_tool_call=previous_tool_call,
                             tool_call_error=tool_call_error
                         )
                     
@@ -329,6 +344,9 @@ class SectionWriter(BiographyTeamAgent):
                         user_portrait=user_portrait,
                         new_information=formatted_memories,
                         current_biography=current_biography,
+                        biography_structure=json.dumps(
+                            self.get_biography_structure(), indent=2
+                        ),
                         tool_descriptions=self.get_tools_description(
                             ["add_section", "update_section"]
                         ),
@@ -343,6 +361,7 @@ class SectionWriter(BiographyTeamAgent):
                     )
 
                     response = await self.call_engine_async(prompt)
+                    previous_tool_call = extract_tool_calls_xml(response)
                     
                     self.add_event(
                         sender=self.name,
@@ -354,8 +373,10 @@ class SectionWriter(BiographyTeamAgent):
                     try:
                         await self.handle_tool_calls_async(response, raise_error=True)
                         # If we get here, the tool call was successful
-                        return UpdateResult(success=True, 
-                                            message="Biography updated with baseline approach")
+                        return UpdateResult(
+                            success=True, 
+                            message="Biography updated with baseline approach"
+                        )
                     except Exception as e:
                         tool_call_error = str(e)
                         self.add_event(

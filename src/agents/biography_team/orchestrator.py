@@ -160,15 +160,17 @@ class BiographyOrchestrator:
             self.biography_update_in_progress = True
             self.session_note_update_in_progress = True
 
-            # Simulate disabling auto-updates in baseline mode
-            if wait_time and self._section_writer.use_baseline:
+            # Simulate baseline mode without auto-updates for web user testing
+            if wait_time:
                 start_time = time.time()
                 await asyncio.sleep(wait_time)
                 actual_wait = time.time() - start_time
-                SessionLogger.log_to_file("execution_log", 
-                                        f"[BIOGRAPHY] Baseline mode: Simulated wait time "
-                                        f"without auto-updates: {wait_time:.2f}s "
-                                        f"(actual: {actual_wait:.2f}s)")
+                SessionLogger.log_to_file(
+                    "execution_log", 
+                    f"[BIOGRAPHY] Baseline mode: Simulated wait time "
+                    f"without auto-updates: {wait_time:.2f}s "
+                    f"(actual: {actual_wait:.2f}s)"
+                )
 
             # Get new memories for update
             new_memories: List[Memory] = await (
@@ -181,15 +183,14 @@ class BiographyOrchestrator:
             await self.update_biography_with_memories(new_memories)
             
             # Save session note of the current session
-            self._interview_session.session_note.save()
+            self._interview_session.session_note.save(save_type="updated")
 
             # Skip session note update if baseline is used or no new memories
             if not new_memories or self._section_writer.use_baseline:
                 if new_memories:
-                    await self._session_coordinator.update_session_summary(new_memories)
-                self._interview_session.session_note.save(
-                    increment_session_id=True
-                )
+                    await self._session_coordinator.update_session_summary(
+                        new_memories)
+                self._interview_session.session_note.save(save_type="next_version")
                 return
 
             # Process session note update
@@ -205,7 +206,7 @@ class BiographyOrchestrator:
             await session_note_task
 
             # Save session note of the next session
-            self._interview_session.session_note.save(increment_session_id=True)
+            self._interview_session.session_note.save(save_type="next_version")
 
         finally:
             # Make sure both flags are cleared in case of errors

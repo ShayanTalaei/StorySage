@@ -236,7 +236,6 @@ Tools:
 - `update_last_meeting_summary`: Update the summary of the last interview
 - `update_user_portrait`: Update the user portrait
 - `add_interview_question`: Add a follow-up interview question to the session notes
-- `delete_interview_question`: Delete a follow-up interview question from the session notes
 - `recall`: Recall memories from memory bank to help decide whether to add or delete an interview question
 
 ### Memory & Content

@@ -105,55 +105,57 @@ def run_command_with_timeout(command: str, timeout_minutes: int) -> None:
     
     Args:
         command (str): Command to run
-        timeout_minutes (int): Timeout in minutes
+        timeout_minutes (int): Timeout in minutes (as backup)
     """
     print(f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] "
           f"Running command: {command}")
-    print(f"Session will run for {timeout_minutes} minutes...")
     
-    # Start the process
-    process = subprocess.Popen(command, shell=True)
+    # Start the process in its own process group
+    process = subprocess.Popen(command, shell=True, preexec_fn=os.setsid)
     
     try:
-        # Wait for the specified timeout
-        time.sleep(timeout_minutes * 60)
+        # Check process status every second
+        elapsed_time = 0
+        while elapsed_time < timeout_minutes * 60:  # Convert to seconds
+            # Check if process has completed naturally
+            if process.poll() is not None:
+                print(f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] "
+                      f"Process completed naturally")
+                return
+            
+            time.sleep(1)
+            elapsed_time += 1
         
-        # After timeout, send a keyboard interrupt (SIGINT) to properly end the session
+        # If we reach here, timeout occurred
         print(f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] "
-              f"Sending keyboard interrupt to end session...")
+              f"Timeout reached. Sending keyboard interrupt to end session...")
         
-        # On Unix/Linux/Mac, we can send SIGINT
         if os.name == 'posix':
-            os.kill(process.pid, signal.SIGINT)
+            os.killpg(os.getpgid(process.pid), signal.SIGINT)
         else:
-            # On Windows, we need a different approach
-            import ctypes
-            kernel32 = ctypes.windll.kernel32
-            kernel32.GenerateConsoleCtrlEvent(0, 0)  # CTRL_C_EVENT
+            raise NotImplementedError("SIGINT is not supported on Windows")
         
-        print("Waiting for session to finish gracefully...")
-        if not wait_for_completion(process, timeout_minutes=10):
-            print("Session is taking too long to finish. Attempting graceful termination...")
-            process.terminate()
-            if not wait_for_completion(process, timeout_minutes=5):
-                print("Process still not terminated. Force killing...")
+        # Wait up to 5 minutes for graceful shutdown
+        if not wait_for_completion(process, timeout_minutes=5):
+            print("Process not responding to SIGINT. Force killing...")
+            if os.name == 'posix':
+                os.killpg(os.getpgid(process.pid), signal.SIGKILL)
+            else:
                 process.kill()
-                process.wait()
+            process.wait()
     
     except KeyboardInterrupt:
-        # Allow manual termination
+        # Handle manual interruption the same way
         print(f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] "
               f"Process terminated by user")
-        if not wait_for_completion(process, timeout_minutes=10):
-            print("Session is taking too long to finish. Attempting graceful termination...")
-            process.terminate()
-            if not wait_for_completion(process, timeout_minutes=5):
-                print("Process still not terminated. Force killing...")
-                process.kill()
-                process.wait()
+        if os.name == 'posix':
+            os.killpg(os.getpgid(process.pid), signal.SIGKILL)
+        else:
+            process.kill()
+        process.wait()
     
-    # Give some time for final cleanup
-    time.sleep(5)
+    # Brief pause for cleanup
+    time.sleep(2)
 
 def run_evaluation(user_id: str, eval_type: str) -> bool:
     """Run evaluation script
@@ -183,14 +185,14 @@ def run_evaluation(user_id: str, eval_type: str) -> bool:
     
     return result.returncode == 0
 
-def run_experiment(user_id: str, model_name: str, use_baseline: bool, timeout_minutes: int, restart: bool = False) -> str:
+def run_experiment(user_id: str, model_name: str, use_baseline: bool, max_turns: int, restart) -> str:
     """Run a single experiment with the specified configuration
     
     Args:
         user_id (str): User ID for the experiment
         model_name (str): Name of the model to use
         use_baseline (bool): Whether to use baseline prompt
-        timeout_minutes (int): Timeout in minutes for the session
+        max_turns (int): Maximum number of turns for the session
         restart (bool): Whether to clear existing user data before running
                        (Note: This is typically handled by the calling script now)
     
@@ -206,22 +208,22 @@ def run_experiment(user_id: str, model_name: str, use_baseline: bool, timeout_mi
     
     # Set up environment variables and directories
     if use_baseline:
-        logs_dir = f"logs_{model_name.replace('-', '_')}"
-        data_dir = f"data_{model_name.replace('-', '_')}"
+        logs_dir = f"logs_{model_name.split('/')[-1].replace('-', '_')}"
+        data_dir = f"data_{model_name.split('/')[-1].replace('-', '_')}"
         update_env_file(model_name, use_baseline, logs_dir, data_dir)
     else:
         logs_dir = "logs"
         data_dir = "data"
-        update_env_file(model_name, use_baseline)
+        update_env_file(model_name, use_baseline, logs_dir, data_dir)
     
     # Create directories if they don't exist
     os.makedirs(logs_dir, exist_ok=True)
     os.makedirs(data_dir, exist_ok=True)
     
     # Run the interview session
-    command = f"python src/main.py --mode terminal --user_id {user_id} --user_agent" + \
-              f" --restart" if restart else ""
-    run_command_with_timeout(command, timeout_minutes)
+    command = f"python src/main.py --mode terminal --user_id {user_id} --user_agent --max_turns {max_turns}" + \
+              (f" --restart" if restart else "")
+    run_command_with_timeout(command, 30)
     
     # Run evaluations
     eval_results: Dict[str, str] = {}
@@ -235,6 +237,7 @@ def run_experiment(user_id: str, model_name: str, use_baseline: bool, timeout_mi
     print(f"Model: {model_name}")
     print(f"Baseline: {use_baseline}")
     print(f"User ID: {user_id}")
+    print(f"Max Turns: {max_turns}")
     print(f"Logs directory: {logs_dir}")
     print(f"Data directory: {data_dir}")
     print("Evaluation results:")

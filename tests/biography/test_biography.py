@@ -339,4 +339,56 @@ async def test_concurrent_section_updates():
         "7 Section 7", "8 Section 8", "9 Section 9"
     ]
     assert sections == expected
+
+@pytest.mark.asyncio
+async def test_add_section_preserves_existing_subsections():
+    bio = Biography(USER_ID)
+    
+    # First add a nested section
+    await bio.add_section("1 Early Life/1.1 Childhood", "Childhood content")
+    
+    # Then add the parent section
+    await bio.add_section("1 Early Life", "Life content")
+    
+    # Verify both sections exist and maintain their content
+    parent = bio._get_section_by_path("1 Early Life")
+    child = bio._get_section_by_path("1 Early Life/1.1 Childhood")
+    
+    assert parent is not None
+    assert parent.content == "Life content"
+    assert child is not None
+    assert child.content == "Childhood content"
+    
+    # Test adding existing section with empty content
+    await bio.add_section("1 Early Life", "")
+    assert parent.content == "Life content"  # Content should not be cleared
+    
+    # Test adding existing section with new content
+    await bio.add_section("1 Early Life", "Updated content")
+    assert parent.content == "Updated content"  # Content should be updated
+    assert child.content == "Childhood content"  # Child content preserved
+
+@pytest.mark.asyncio
+async def test_add_section_edge_cases():
+    bio = Biography(USER_ID)
+    
+    # Add nested section first
+    await bio.add_section("1 A/1.1 ABC", "ABC content")
+    
+    # Then add parent with different content
+    await bio.add_section("1 A", "Parent content")
+    
+    # Verify both sections maintain their structure and content
+    parent = bio._get_section_by_path("1 A")
+    child = bio._get_section_by_path("1 A/1.1 ABC")
+    
+    assert parent is not None
+    assert parent.content == "Parent content"
+    assert child is not None
+    assert child.content == "ABC content"
+    
+    # Update nested section
+    await bio.add_section("1 A/1.1 ABC", "Updated ABC")
+    assert child.content == "Updated ABC"
+    assert parent.content == "Parent content"  # Parent unchanged
     

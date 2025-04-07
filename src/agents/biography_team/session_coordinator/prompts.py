@@ -49,6 +49,7 @@ Make separate tool calls for each update/addition.
 
 <output_format>
 Use tool calls to update the session notes:
+Wrap your tool calls in <tool_calls> ... </tool_calls> tags.
 
 <tool_calls>
     <update_last_meeting_summary>
@@ -62,6 +63,7 @@ Use tool calls to update the session notes:
         <reasoning>Multiple memories reveal career transition...</reasoning>
     </update_user_portrait>
 </tool_calls>
+
 </output_format>
 """ 
 
