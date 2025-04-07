@@ -6,19 +6,19 @@ from typing import Dict, List, Tuple, Optional
 import pandas as pd
 import re
 
-def get_latest_biography_version(eval_dir: Path) -> Optional[int]:
-    """Get the latest biography version number from evaluation directory.
+def get_biography_versions(eval_dir: Path) -> List[int]:
+    """Get all available biography version numbers from evaluation directory.
     
     Args:
         eval_dir: Path to the evaluations directory
     
     Returns:
-        Latest biography version number or None if 
+        List of all biography version numbers or empty list if
         no biography directories found
     """
     bio_dirs = [d for d in eval_dir.glob("biography_*") if d.is_dir()]
     if not bio_dirs:
-        return None
+        return []
     
     version_numbers = []
     for d in bio_dirs:
@@ -26,7 +26,7 @@ def get_latest_biography_version(eval_dir: Path) -> Optional[int]:
         if match:
             version_numbers.append(int(match.group(1)))
     
-    return max(version_numbers) if version_numbers else None
+    return sorted(version_numbers)
 
 def load_biography_metrics(user_id: str, bio_version: Optional[int] = None, model_name: Optional[str] = None) -> Optional[Dict[str, float]]:
     """Load biography metrics for a specific user and model.
@@ -37,7 +37,7 @@ def load_biography_metrics(user_id: str, bio_version: Optional[int] = None, mode
         model_name: Optional model name for baseline experiments
         
     Returns:
-        Dictionary with completeness and groundedness scores or 
+        Dictionary with averaged completeness and groundedness scores or 
         None if not found
     """
     # Determine the base directory
@@ -50,36 +50,41 @@ def load_biography_metrics(user_id: str, bio_version: Optional[int] = None, mode
     if not eval_dir.exists():
         return None
     
-    # Get the biography version to analyze
-    version = bio_version if bio_version is not None else get_latest_biography_version(eval_dir)
-    if version is None:
+    # Get the biography versions to analyze
+    versions = [bio_version] if bio_version is not None else get_biography_versions(eval_dir)
+    if not versions:
         return None
     
-    bio_dir = eval_dir / f"biography_{version}"
-    if not bio_dir.exists():
-        print(f"Warning: Biography version {version} not found for {model_name if model_name else 'our'} model")
+    all_metrics = defaultdict(list)
+    
+    for version in versions:
+        bio_dir = eval_dir / f"biography_{version}"
+        if not bio_dir.exists():
+            print(f"Warning: Biography version {version} not found for {model_name if model_name else 'our'} model")
+            continue
+        
+        # Load completeness
+        completeness_file = bio_dir / "completeness_summary.csv"
+        if completeness_file.exists():
+            df = pd.read_csv(completeness_file, nrows=4)
+            coverage = df.loc[df['Metric'] == 'Memory Coverage', 'Value'].iloc[0]
+            all_metrics['completeness'].append(float(coverage.strip('%')))
+        
+        # Load groundedness
+        groundedness_file = bio_dir / "overall_groundedness.csv"
+        if groundedness_file.exists():
+            df = pd.read_csv(groundedness_file, nrows=1)
+            groundedness = df['Overall Groundedness Score'].iloc[0]
+            all_metrics['groundedness'].append(float(groundedness.strip('%')))
+    
+    # Average the metrics across versions
+    if not all_metrics:
         return None
-    
-    metrics = {}
-    
-    # Load completeness
-    completeness_file = bio_dir / "completeness_summary.csv"
-    if completeness_file.exists():
-        # Only read the first few lines containing the summary metrics
-        df = pd.read_csv(completeness_file, nrows=4)
-        coverage = df.loc[df['Metric'] == 'Memory Coverage',
-                           'Value'].iloc[0]
-        metrics['completeness'] = float(coverage.strip('%'))
-    
-    # Load groundedness
-    groundedness_file = bio_dir / "overall_groundedness.csv"
-    if groundedness_file.exists():
-        # Only read the header and first data row
-        df = pd.read_csv(groundedness_file, nrows=1)
-        groundedness = df['Overall Groundedness Score'].iloc[0]
-        metrics['groundedness'] = float(groundedness.strip('%'))
-    
-    return metrics if metrics else None
+        
+    return {
+        metric: sum(values)/len(values)
+        for metric, values in all_metrics.items()
+    }
 
 def analyze_user_metrics(user_id: str, bio_version: Optional[int] = None) -> Tuple[Dict[str, Dict[str, float]], Optional[Dict[str, float]]]:
     """Analyze biography metrics for a single user.
@@ -165,7 +170,7 @@ def display_results(baseline_metrics: Dict[str, Dict[str, float]],
         our_metrics: Our method's metrics
         bio_version: Biography version being analyzed
     """
-    version_str = f" (Version {bio_version})" if bio_version is not None else " (Latest Version)"
+    version_str = f" (Version {bio_version})" if bio_version is not None else " (Averaged Across All Versions)"
     print(f"\nBiography Quality Metrics{version_str}:")
     print("-" * 75)
     print(f"{'Model':<25} {'Memory Coverage':>20} {'Groundedness':>20}")
