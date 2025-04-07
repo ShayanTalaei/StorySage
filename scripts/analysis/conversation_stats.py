@@ -37,7 +37,7 @@ def aggregate_single_file(df: pd.DataFrame, latency_df: Optional[pd.DataFrame] =
     if bio_update_df is not None and not bio_update_df.empty:
         # Filter for final updates only
         final_updates = bio_update_df[bio_update_df['Update Type'] == 'final']
-        stats['Bio Update Time'] = final_updates['Duration (seconds)'].mean()
+        stats['Bio Update Time'] = final_updates['Correct Duration'].mean()
     else:
         stats['Bio Update Time'] = 0
     
