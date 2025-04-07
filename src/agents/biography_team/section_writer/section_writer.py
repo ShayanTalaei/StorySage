@@ -192,7 +192,8 @@ class SectionWriter(BiographyTeamAgent):
                     filter=[{"sender": self.name, "tag": "recall_response"}]
                 )
                 curr_section = self.biography.get_section(
-                    title=todo_item.section_title
+                    title=todo_item.section_title,
+                    hide_memory_links=False
                 )
                 current_content = curr_section.content if curr_section else ""
                 return get_prompt("user_update").format(
@@ -221,7 +222,8 @@ class SectionWriter(BiographyTeamAgent):
                     path=todo_item.section_path \
                         if todo_item.section_path else None,
                     title=todo_item.section_title \
-                        if todo_item.section_title else None
+                        if todo_item.section_title else None,
+                    hide_memory_links=False
                 )
                 current_content = curr_section.content if curr_section else ""
                 
