@@ -101,8 +101,8 @@ def plot_metrics_progression(metrics_data: Dict[str, Dict[int, Dict[str, float]]
             if not values:
                 continue
             
-            # Use "baseline" for any model that isn't "ours"
-            display_name = model_name if model_name == "ours" else "baseline"
+            # Use "Baseline" for any model that isn't "StorySage"
+            display_name = model_name if model_name == "ours" else "Baseline"
             
             # Plot progression
             plt.plot(valid_sessions, values, marker='o', 
@@ -120,11 +120,11 @@ def plot_metrics_progression(metrics_data: Dict[str, Dict[int, Dict[str, float]]
                            color=color)
         
         # Customize the plot
-        plt.xlabel('Session Number', fontsize=16)
-        plt.ylabel(y_label, fontsize=16)
+        plt.xlabel('Session Number', fontsize=18)
+        plt.ylabel(y_label, fontsize=18)
         
         plt.grid(True, linestyle='--', alpha=0.7)
-        plt.legend(fontsize=14, loc='lower left')
+        plt.legend(fontsize=16, loc='lower left')
         
         # Set y-axis range based on metric
         all_values = [val for model_data in metrics_data.values() 
@@ -140,14 +140,14 @@ def plot_metrics_progression(metrics_data: Dict[str, Dict[int, Dict[str, float]]
         
         # Set appropriate tick spacing based on the y-axis range
         tick_spacing = 5 if (100 - min_y) <= 50 else 10
-        plt.yticks(range(int(min_y), 101, tick_spacing), fontsize=14)
+        plt.yticks(range(int(min_y), 101, tick_spacing), fontsize=16)
         
         # Set x-axis to show all session numbers
         all_sessions = {num for model_data in metrics_data.values() 
                        for num in model_data.keys()}
         if all_sessions:  # Check if there are any sessions
             plt.xlim(min(all_sessions) - 0.5, max(all_sessions) + 0.5)
-            plt.xticks(sorted(all_sessions), fontsize=14)
+            plt.xticks(sorted(all_sessions), fontsize=16)
         
         # Add some padding and adjust layout
         plt.margins(x=0.1)
@@ -209,11 +209,11 @@ def plot_memory_counts_progression(metrics_data: Dict[str, Dict[int, Dict[str, f
         
         # Plot total memories with dashed line
         plt.plot(session_nums, total_memories, marker='o', linestyle='--', color=color,
-                label=f'{model_name if model_name == "ours" else "baseline"} - Total', linewidth=2, markersize=6)
+                label=f'{"StorySage" if model_name == "ours" else "Baseline"} - Mem. stored in M', linewidth=2, markersize=6)
         
         # Plot referenced memories with solid line
         plt.plot(session_nums, referenced_memories, marker='s', linestyle='-', color=color,
-                label=f'{model_name if model_name == "ours" else "baseline"} - Covered', linewidth=2, markersize=5)
+                label=f'{"StorySage" if model_name == "ours" else "Baseline"} - Mem. referenced in B', linewidth=2, markersize=5)
         
         # Annotate final values
         plt.annotate(f'{total_memories[-1]}', 
@@ -232,11 +232,11 @@ def plot_memory_counts_progression(metrics_data: Dict[str, Dict[int, Dict[str, f
                     color=color)
     
     # Customize the plot
-    plt.xlabel('Session Number', fontsize=16)
-    plt.ylabel('Number of Memories', fontsize=16)
+    plt.xlabel('Session Number', fontsize=18)
+    plt.ylabel('Number of Memories', fontsize=18)
     
     plt.grid(True, linestyle='--', alpha=0.7)
-    plt.legend(fontsize=14, loc='upper left')
+    plt.legend(fontsize=16, loc='upper left')
     
     # Set y-axis range
     min_y = max(min(all_values) - 2, 0) if all_values else 0
@@ -247,7 +247,7 @@ def plot_memory_counts_progression(metrics_data: Dict[str, Dict[int, Dict[str, f
     all_session_nums = sorted(all_session_nums)
     if all_session_nums:
         plt.xlim(min(all_session_nums) - 0.5, max(all_session_nums) + 0.5)
-        plt.xticks(all_session_nums, fontsize=14)
+        plt.xticks(all_session_nums, fontsize=16)
     
     # Add padding and adjust layout
     plt.margins(x=0.1)
@@ -342,8 +342,8 @@ def plot_aggregated_metrics_progression(all_users_data: Dict[str, Dict[str, Dict
             if not avg_values:
                 continue
             
-            # Use "baseline" for any model that isn't "ours"
-            display_name = model_name if model_name == "ours" else "baseline"
+            # Use "Baseline" for any model that isn't "StorySage"
+            display_name = "StorySage" if model_name == "ours" else "Baseline"
             
             # Plot progression with mean line
             plt.plot(valid_sessions, avg_values, marker='o', 
@@ -366,11 +366,11 @@ def plot_aggregated_metrics_progression(all_users_data: Dict[str, Dict[str, Dict
                        color=color)
         
         # Customize the plot
-        plt.xlabel('Session Number', fontsize=16)
-        plt.ylabel(y_label, fontsize=16)
+        plt.xlabel('Session Number', fontsize=18)
+        plt.ylabel(y_label, fontsize=18)
         
         plt.grid(True, linestyle='--', alpha=0.7)
-        plt.legend(fontsize=14, loc='lower left')
+        plt.legend(fontsize=16, loc='lower left')
         
         # Set y-axis range based on metric
         all_values = []
@@ -389,11 +389,11 @@ def plot_aggregated_metrics_progression(all_users_data: Dict[str, Dict[str, Dict
         
         # Set appropriate tick spacing based on the y-axis range
         tick_spacing = 5 if (100 - min_y) <= 50 else 10
-        plt.yticks(range(int(min_y), 101, tick_spacing), fontsize=14)
+        plt.yticks(range(int(min_y), 101, tick_spacing), fontsize=16)
         
         # Set x-axis to show all session numbers
         plt.xlim(min(session_nums) - 0.5, max(session_nums) + 0.5)
-        plt.xticks(session_nums, fontsize=14)
+        plt.xticks(session_nums, fontsize=16)
         
         # Add some padding and adjust layout
         plt.margins(x=0.1)
@@ -484,7 +484,7 @@ def plot_aggregated_memory_counts_progression(all_users_data: Dict[str, Dict[str
         
         # Plot total memories with dashed line
         plt.plot(valid_sessions, avg_total_memories, marker='o', linestyle='--', color=color,
-                label=f'{model_name if model_name == "ours" else "baseline"} - Total', linewidth=2, markersize=6)
+                label=f'{"StorySage" if model_name == "ours" else "Baseline"} - Mem. stored in M', linewidth=2, markersize=6)
         
         # Add standard deviation band for total memories
         plt.fill_between(valid_sessions, 
@@ -494,7 +494,7 @@ def plot_aggregated_memory_counts_progression(all_users_data: Dict[str, Dict[str
         
         # Plot referenced memories with solid line
         plt.plot(valid_sessions, avg_referenced_memories, marker='s', linestyle='-', color=color,
-                label=f'{model_name if model_name == "ours" else "baseline"} - Covered', linewidth=2, markersize=5)
+                label=f'{"StorySage" if model_name == "ours" else "Baseline"} - Mem. referenced in B', linewidth=2, markersize=5)
         
         # Add standard deviation band for referenced memories
         plt.fill_between(valid_sessions, 
@@ -519,11 +519,11 @@ def plot_aggregated_memory_counts_progression(all_users_data: Dict[str, Dict[str
                     color=color)
     
     # Customize the plot
-    plt.xlabel('Session Number', fontsize=16)
-    plt.ylabel('Number of Memories', fontsize=16)
+    plt.xlabel('Session Number', fontsize=18)
+    plt.ylabel('Number of Memories', fontsize=18)
     
     plt.grid(True, linestyle='--', alpha=0.7)
-    plt.legend(fontsize=14, loc='upper left')
+    plt.legend(fontsize=16, loc='upper left')
     
     # Set y-axis range
     min_y = max(min(all_values) - 2, 0) if all_values else 0
@@ -533,7 +533,7 @@ def plot_aggregated_memory_counts_progression(all_users_data: Dict[str, Dict[str
     # Set x-axis to show all session numbers
     if session_nums:
         plt.xlim(min(session_nums) - 0.5, max(session_nums) + 0.5)
-        plt.xticks(session_nums, fontsize=14)
+        plt.xticks(session_nums, fontsize=16)
     
     # Add padding and adjust layout
     plt.margins(x=0.1)
@@ -676,7 +676,7 @@ def plot_biography_word_counts(word_counts_data: Dict[str, Dict[int, int]], user
         
         # Plot word counts
         plt.plot(session_nums, word_counts, marker='o', linestyle='-', color=color,
-                label=f'{model_name if model_name == "ours" else "baseline"}', linewidth=2, markersize=6)
+                label=f'{"StorySage" if model_name == "ours" else "Baseline"}', linewidth=2, markersize=6)
         
         # Annotate final value
         plt.annotate(f'{word_counts[-1]}', 
@@ -688,11 +688,11 @@ def plot_biography_word_counts(word_counts_data: Dict[str, Dict[int, int]], user
                     color=color)
     
     # Customize the plot
-    plt.xlabel('Session Number', fontsize=16)
-    plt.ylabel('Word Count', fontsize=16)
+    plt.xlabel('Session Number', fontsize=18)
+    plt.ylabel('Word Count', fontsize=18)
     
     plt.grid(True, linestyle='--', alpha=0.7)
-    plt.legend(fontsize=14, loc='upper left')
+    plt.legend(fontsize=16, loc='upper left')
     
     # Set y-axis range
     min_y = max(min(all_values) - 50, 0) if all_values else 0
@@ -703,7 +703,7 @@ def plot_biography_word_counts(word_counts_data: Dict[str, Dict[int, int]], user
     all_session_nums = sorted(all_session_nums)
     if all_session_nums:
         plt.xlim(min(all_session_nums) - 0.5, max(all_session_nums) + 0.5)
-        plt.xticks(all_session_nums, fontsize=14)
+        plt.xticks(all_session_nums, fontsize=16)
     
     # Add padding and adjust layout
     plt.margins(x=0.1)
@@ -782,7 +782,7 @@ def plot_aggregated_biography_word_counts(all_users_data: Dict[str, Dict[str, Di
         # Plot word counts
         plt.plot(valid_sessions, avg_word_counts, marker='o', 
                  linestyle='-', color=color,
-                label=f'{model_name if model_name == "ours" else "baseline"}', linewidth=2, markersize=6)
+                label=f'{"StorySage" if model_name == "ours" else "Baseline"}', linewidth=2, markersize=6)
         
         # Add standard deviation band
         plt.fill_between(valid_sessions, 
@@ -802,11 +802,11 @@ def plot_aggregated_biography_word_counts(all_users_data: Dict[str, Dict[str, Di
                     color=color)
     
     # Customize the plot
-    plt.xlabel('Session Number', fontsize=16)
-    plt.ylabel('Word Count', fontsize=16)
+    plt.xlabel('Session Number', fontsize=18)
+    plt.ylabel('Word Count', fontsize=18)
     
     plt.grid(True, linestyle='--', alpha=0.7)
-    plt.legend(fontsize=14, loc='upper left')
+    plt.legend(fontsize=16, loc='upper left')
     
     # Set y-axis range
     min_y = max(min(all_values) - 50, 0) if all_values else 0
@@ -816,7 +816,7 @@ def plot_aggregated_biography_word_counts(all_users_data: Dict[str, Dict[str, Di
     # Set x-axis to show all session numbers
     if session_nums:
         plt.xlim(min(session_nums) - 0.5, max(session_nums) + 0.5)
-        plt.xticks(session_nums, fontsize=14)
+        plt.xticks(session_nums, fontsize=16)
     
     # Add padding and adjust layout
     plt.margins(x=0.1)
