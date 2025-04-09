@@ -116,7 +116,7 @@ def plot_metrics_progression(metrics_data: Dict[str, Dict[int, Dict[str, float]]
                            textcoords="offset points",
                            xytext=(5, 5),
                            ha='left',
-                           fontsize=11,
+                           fontsize=14,
                            color=color)
         
         # Customize the plot
@@ -132,14 +132,20 @@ def plot_metrics_progression(metrics_data: Dict[str, Dict[int, Dict[str, float]]
                      if metric in session
                      for val in [session[metric]]]
         
-        # Calculate dynamic min_y with 30% padding (but not below 0)
-        min_val = min(all_values) if all_values else 0
-        padding = 30  # 30% padding
-        min_y = max(min_val - padding, 0)
-        plt.ylim(min_y, 100)
+        # Set fixed y-axis range for memory coverage, dynamic for groundedness
+        if metric == 'completeness':
+            min_y = 30
+            plt.ylim(30, 100)
+            tick_spacing = 10
+        else:
+            # Calculate dynamic min_y with 30% padding (but not below 0)
+            min_val = min(all_values) if all_values else 0
+            padding = 30  # 30% padding
+            min_y = max(min_val - padding, 0)
+            plt.ylim(min_y, 100)
+            # Set appropriate tick spacing based on the y-axis range
+            tick_spacing = 5 if (100 - min_y) <= 50 else 10
         
-        # Set appropriate tick spacing based on the y-axis range
-        tick_spacing = 5 if (100 - min_y) <= 50 else 10
         plt.yticks(range(int(min_y), 101, tick_spacing), fontsize=16)
         
         # Set x-axis to show all session numbers
@@ -221,14 +227,14 @@ def plot_memory_counts_progression(metrics_data: Dict[str, Dict[int, Dict[str, f
                     textcoords="offset points",
                     xytext=(5, 5),
                     ha='left',
-                    fontsize=11,
+                    fontsize=14,
                     color=color)
         plt.annotate(f'{referenced_memories[-1]}', 
                     (session_nums[-1], referenced_memories[-1]),
                     textcoords="offset points",
                     xytext=(5, 5),
                     ha='left',
-                    fontsize=11,
+                    fontsize=14,
                     color=color)
     
     # Customize the plot
@@ -362,7 +368,7 @@ def plot_aggregated_metrics_progression(all_users_data: Dict[str, Dict[str, Dict
                        textcoords="offset points",
                        xytext=(5, 5),
                        ha='left',
-                       fontsize=11,
+                       fontsize=14,
                        color=color)
         
         # Customize the plot
@@ -381,14 +387,20 @@ def plot_aggregated_metrics_progression(all_users_data: Dict[str, Dict[str, Dict
                         if metric in user_data[model_name][session]:
                             all_values.append(user_data[model_name][session][metric])
         
-        # Calculate dynamic min_y with 30% padding (but not below 0)
-        min_val = min(all_values) if all_values else 0
-        padding = 30  # 30% padding
-        min_y = max(min_val - padding, 0)
-        plt.ylim(min_y, 100)
+        # Set fixed y-axis range for memory coverage, dynamic for groundedness
+        if metric == 'completeness':
+            min_y = 30
+            plt.ylim(30, 100)
+            tick_spacing = 10
+        else:
+            # Calculate dynamic min_y with 30% padding (but not below 0)
+            min_val = min(all_values) if all_values else 0
+            padding = 30  # 30% padding
+            min_y = max(min_val - padding, 0)
+            plt.ylim(min_y, 100)
+            # Set appropriate tick spacing based on the y-axis range
+            tick_spacing = 5 if (100 - min_y) <= 50 else 10
         
-        # Set appropriate tick spacing based on the y-axis range
-        tick_spacing = 5 if (100 - min_y) <= 50 else 10
         plt.yticks(range(int(min_y), 101, tick_spacing), fontsize=16)
         
         # Set x-axis to show all session numbers
@@ -508,14 +520,14 @@ def plot_aggregated_memory_counts_progression(all_users_data: Dict[str, Dict[str
                     textcoords="offset points",
                     xytext=(5, 5),
                     ha='left',
-                    fontsize=11,
+                    fontsize=14,
                     color=color)
         plt.annotate(f'{avg_referenced_memories[-1]}', 
                     (valid_sessions[-1], avg_referenced_memories[-1]),
                     textcoords="offset points",
                     xytext=(5, 5),
                     ha='left',
-                    fontsize=11,
+                    fontsize=14,
                     color=color)
     
     # Customize the plot
@@ -684,7 +696,7 @@ def plot_biography_word_counts(word_counts_data: Dict[str, Dict[int, int]], user
                     textcoords="offset points",
                     xytext=(5, 5),
                     ha='left',
-                    fontsize=11,
+                    fontsize=14,
                     color=color)
     
     # Customize the plot
@@ -798,7 +810,7 @@ def plot_aggregated_biography_word_counts(all_users_data: Dict[str, Dict[str, Di
                     textcoords="offset points",
                     xytext=(5, 5),
                     ha='left',
-                    fontsize=11,
+                    fontsize=14,
                     color=color)
     
     # Customize the plot
