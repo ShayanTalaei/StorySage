@@ -108,23 +108,13 @@ def plot_metrics_progression(metrics_data: Dict[str, Dict[int, Dict[str, float]]
             plt.plot(valid_sessions, values, marker='o', 
                      linestyle='-', color=color,
                     label=f'{display_name}', linewidth=2, markersize=6)
-            
-            # Annotate final value
-            if values:
-                plt.annotate(f'{values[-1]:.1f}%', 
-                           (valid_sessions[-1], values[-1]),
-                           textcoords="offset points",
-                           xytext=(5, 5),
-                           ha='left',
-                           fontsize=14,
-                           color=color)
         
         # Customize the plot
-        plt.xlabel('Session Number', fontsize=18)
-        plt.ylabel(y_label, fontsize=18)
+        plt.xlabel('Session Number', fontsize=22)
+        plt.ylabel(y_label, fontsize=22)
         
         plt.grid(True, linestyle='--', alpha=0.7)
-        plt.legend(fontsize=16, loc='lower left')
+        plt.legend(fontsize=20, loc='lower left')
         
         # Set y-axis range based on metric
         all_values = [val for model_data in metrics_data.values() 
@@ -146,14 +136,14 @@ def plot_metrics_progression(metrics_data: Dict[str, Dict[int, Dict[str, float]]
             # Set appropriate tick spacing based on the y-axis range
             tick_spacing = 5 if (100 - min_y) <= 50 else 10
         
-        plt.yticks(range(int(min_y), 101, tick_spacing), fontsize=16)
+        plt.yticks(range(int(min_y), 101, tick_spacing), fontsize=20)
         
         # Set x-axis to show all session numbers
         all_sessions = {num for model_data in metrics_data.values() 
                        for num in model_data.keys()}
         if all_sessions:  # Check if there are any sessions
             plt.xlim(min(all_sessions) - 0.5, max(all_sessions) + 0.5)
-            plt.xticks(sorted(all_sessions), fontsize=16)
+            plt.xticks(sorted(all_sessions), fontsize=20)
         
         # Add some padding and adjust layout
         plt.margins(x=0.1)
@@ -220,29 +210,13 @@ def plot_memory_counts_progression(metrics_data: Dict[str, Dict[int, Dict[str, f
         # Plot referenced memories with solid line
         plt.plot(session_nums, referenced_memories, marker='s', linestyle='-', color=color,
                 label=f'{"StorySage" if model_name == "ours" else "Baseline"} - Mem. referenced in B', linewidth=2, markersize=5)
-        
-        # Annotate final values
-        plt.annotate(f'{total_memories[-1]}', 
-                    (session_nums[-1], total_memories[-1]),
-                    textcoords="offset points",
-                    xytext=(5, 5),
-                    ha='left',
-                    fontsize=14,
-                    color=color)
-        plt.annotate(f'{referenced_memories[-1]}', 
-                    (session_nums[-1], referenced_memories[-1]),
-                    textcoords="offset points",
-                    xytext=(5, 5),
-                    ha='left',
-                    fontsize=14,
-                    color=color)
     
     # Customize the plot
-    plt.xlabel('Session Number', fontsize=18)
-    plt.ylabel('Number of Memories', fontsize=18)
+    plt.xlabel('Session Number', fontsize=22)
+    plt.ylabel('Number of Memories', fontsize=22)
     
     plt.grid(True, linestyle='--', alpha=0.7)
-    plt.legend(fontsize=16, loc='upper left')
+    plt.legend(fontsize=20, loc='upper left')
     
     # Set y-axis range
     min_y = max(min(all_values) - 2, 0) if all_values else 0
@@ -253,7 +227,7 @@ def plot_memory_counts_progression(metrics_data: Dict[str, Dict[int, Dict[str, f
     all_session_nums = sorted(all_session_nums)
     if all_session_nums:
         plt.xlim(min(all_session_nums) - 0.5, max(all_session_nums) + 0.5)
-        plt.xticks(all_session_nums, fontsize=16)
+        plt.xticks(all_session_nums, fontsize=20)
     
     # Add padding and adjust layout
     plt.margins(x=0.1)
@@ -361,22 +335,13 @@ def plot_aggregated_metrics_progression(all_users_data: Dict[str, Dict[str, Dict
                            [max(0, avg - std) for avg, std in zip(avg_values, std_values)],
                            [min(100, avg + std) for avg, std in zip(avg_values, std_values)],
                            color=color, alpha=0.2)
-            
-            # Annotate final value
-            plt.annotate(f'{avg_values[-1]:.1f}%', 
-                       (valid_sessions[-1], avg_values[-1]),
-                       textcoords="offset points",
-                       xytext=(5, 5),
-                       ha='left',
-                       fontsize=14,
-                       color=color)
         
         # Customize the plot
-        plt.xlabel('Session Number', fontsize=18)
-        plt.ylabel(y_label, fontsize=18)
+        plt.xlabel('Session Number', fontsize=22)
+        plt.ylabel(y_label, fontsize=22)
         
         plt.grid(True, linestyle='--', alpha=0.7)
-        plt.legend(fontsize=16, loc='lower left')
+        plt.legend(fontsize=20, loc='lower left')
         
         # Set y-axis range based on metric
         all_values = []
@@ -401,11 +366,11 @@ def plot_aggregated_metrics_progression(all_users_data: Dict[str, Dict[str, Dict
             # Set appropriate tick spacing based on the y-axis range
             tick_spacing = 5 if (100 - min_y) <= 50 else 10
         
-        plt.yticks(range(int(min_y), 101, tick_spacing), fontsize=16)
+        plt.yticks(range(int(min_y), 101, tick_spacing), fontsize=20)
         
         # Set x-axis to show all session numbers
         plt.xlim(min(session_nums) - 0.5, max(session_nums) + 0.5)
-        plt.xticks(session_nums, fontsize=16)
+        plt.xticks(session_nums, fontsize=20)
         
         # Add some padding and adjust layout
         plt.margins(x=0.1)
@@ -513,29 +478,13 @@ def plot_aggregated_memory_counts_progression(all_users_data: Dict[str, Dict[str
                        [max(0, avg - std) for avg, std in zip(avg_referenced_memories, std_referenced_memories)],
                        [avg + std for avg, std in zip(avg_referenced_memories, std_referenced_memories)],
                        color=color, alpha=0.1)
-        
-        # Annotate final values with integers instead of decimals
-        plt.annotate(f'{avg_total_memories[-1]}', 
-                    (valid_sessions[-1], avg_total_memories[-1]),
-                    textcoords="offset points",
-                    xytext=(5, 5),
-                    ha='left',
-                    fontsize=14,
-                    color=color)
-        plt.annotate(f'{avg_referenced_memories[-1]}', 
-                    (valid_sessions[-1], avg_referenced_memories[-1]),
-                    textcoords="offset points",
-                    xytext=(5, 5),
-                    ha='left',
-                    fontsize=14,
-                    color=color)
     
     # Customize the plot
-    plt.xlabel('Session Number', fontsize=18)
-    plt.ylabel('Number of Memories', fontsize=18)
+    plt.xlabel('Session Number', fontsize=22)
+    plt.ylabel('Number of Memories', fontsize=22)
     
     plt.grid(True, linestyle='--', alpha=0.7)
-    plt.legend(fontsize=16, loc='upper left')
+    plt.legend(fontsize=20, loc='upper left')
     
     # Set y-axis range
     min_y = max(min(all_values) - 2, 0) if all_values else 0
@@ -545,7 +494,7 @@ def plot_aggregated_memory_counts_progression(all_users_data: Dict[str, Dict[str
     # Set x-axis to show all session numbers
     if session_nums:
         plt.xlim(min(session_nums) - 0.5, max(session_nums) + 0.5)
-        plt.xticks(session_nums, fontsize=16)
+        plt.xticks(session_nums, fontsize=20)
     
     # Add padding and adjust layout
     plt.margins(x=0.1)
@@ -689,22 +638,13 @@ def plot_biography_word_counts(word_counts_data: Dict[str, Dict[int, int]], user
         # Plot word counts
         plt.plot(session_nums, word_counts, marker='o', linestyle='-', color=color,
                 label=f'{"StorySage" if model_name == "ours" else "Baseline"}', linewidth=2, markersize=6)
-        
-        # Annotate final value
-        plt.annotate(f'{word_counts[-1]}', 
-                    (session_nums[-1], word_counts[-1]),
-                    textcoords="offset points",
-                    xytext=(5, 5),
-                    ha='left',
-                    fontsize=14,
-                    color=color)
     
     # Customize the plot
-    plt.xlabel('Session Number', fontsize=18)
-    plt.ylabel('Word Count', fontsize=18)
+    plt.xlabel('Session Number', fontsize=22)
+    plt.ylabel('Word Count', fontsize=22)
     
     plt.grid(True, linestyle='--', alpha=0.7)
-    plt.legend(fontsize=16, loc='upper left')
+    plt.legend(fontsize=20, loc='upper left')
     
     # Set y-axis range
     min_y = max(min(all_values) - 50, 0) if all_values else 0
@@ -715,7 +655,7 @@ def plot_biography_word_counts(word_counts_data: Dict[str, Dict[int, int]], user
     all_session_nums = sorted(all_session_nums)
     if all_session_nums:
         plt.xlim(min(all_session_nums) - 0.5, max(all_session_nums) + 0.5)
-        plt.xticks(all_session_nums, fontsize=16)
+        plt.xticks(all_session_nums, fontsize=20)
     
     # Add padding and adjust layout
     plt.margins(x=0.1)
@@ -803,22 +743,13 @@ def plot_aggregated_biography_word_counts(all_users_data: Dict[str, Dict[str, Di
                        [avg + std for avg, std in 
                         zip(avg_word_counts, std_word_counts)],
                        color=color, alpha=0.1)
-        
-        # Annotate final value
-        plt.annotate(f'{avg_word_counts[-1]}', 
-                    (valid_sessions[-1], avg_word_counts[-1]),
-                    textcoords="offset points",
-                    xytext=(5, 5),
-                    ha='left',
-                    fontsize=14,
-                    color=color)
     
     # Customize the plot
-    plt.xlabel('Session Number', fontsize=18)
-    plt.ylabel('Word Count', fontsize=18)
+    plt.xlabel('Session Number', fontsize=22)
+    plt.ylabel('Word Count', fontsize=22)
     
     plt.grid(True, linestyle='--', alpha=0.7)
-    plt.legend(fontsize=16, loc='upper left')
+    plt.legend(fontsize=20, loc='upper left')
     
     # Set y-axis range
     min_y = max(min(all_values) - 50, 0) if all_values else 0
@@ -828,7 +759,7 @@ def plot_aggregated_biography_word_counts(all_users_data: Dict[str, Dict[str, Di
     # Set x-axis to show all session numbers
     if session_nums:
         plt.xlim(min(session_nums) - 0.5, max(session_nums) + 0.5)
-        plt.xticks(session_nums, fontsize=16)
+        plt.xticks(session_nums, fontsize=20)
     
     # Add padding and adjust layout
     plt.margins(x=0.1)
