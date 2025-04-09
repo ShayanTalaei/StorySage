@@ -303,6 +303,14 @@ def plot_aggregated_metrics_progression(all_users_data: Dict[str, Dict[str, Dict
     for metric, title, y_label in zip(metrics_to_plot, titles, y_labels):
         plt.figure(figsize=(8, 6))
         
+        # Create a dictionary to store data for CSV
+        csv_data = {
+            'Session': [],
+            'Model': [],
+            'Mean': [],
+            'Std': []
+        }
+        
         # Plot each model's progression
         for model_name, color in zip(model_names, colors):
             # Calculate average values and standard deviations across users for each session
@@ -318,6 +326,12 @@ def plot_aggregated_metrics_progression(all_users_data: Dict[str, Dict[str, Dict
                     avg_values.append(sum(values) / len(values))
                     std_values.append(np.std(values))
                     valid_sessions.append(session)
+                    
+                    # Store data for CSV
+                    csv_data['Session'].append(session)
+                    csv_data['Model'].append("StorySage" if model_name == "ours" else "Baseline")
+                    csv_data['Mean'].append(avg_values[-1])
+                    csv_data['Std'].append(std_values[-1])
             
             if not avg_values:
                 continue
@@ -335,6 +349,12 @@ def plot_aggregated_metrics_progression(all_users_data: Dict[str, Dict[str, Dict
                            [max(0, avg - std) for avg, std in zip(avg_values, std_values)],
                            [min(100, avg + std) for avg, std in zip(avg_values, std_values)],
                            color=color, alpha=0.2)
+        
+        # Save data to CSV
+        df = pd.DataFrame(csv_data)
+        csv_path = output_dir / f'aggregated_biography_{metric.lower()}_data.csv'
+        df.to_csv(csv_path, index=False)
+        print(f"Data saved: {csv_path}")
         
         # Customize the plot
         plt.xlabel('Session Number', fontsize=22)
@@ -407,6 +427,15 @@ def plot_aggregated_memory_counts_progression(all_users_data: Dict[str, Dict[str
     first_user = next(iter(all_users_data.values()))
     model_names = list(first_user.keys())
     
+    # Create a dictionary to store data for CSV
+    csv_data = {
+        'Session': [],
+        'Model': [],
+        'Memory_Type': [],
+        'Mean': [],
+        'Std': []
+    }
+    
     # Get all session numbers (should be same for all users)
     all_session_nums = set()
     for user_data in all_users_data.values():
@@ -453,6 +482,21 @@ def plot_aggregated_memory_counts_progression(all_users_data: Dict[str, Dict[str
                 std_referenced_memories.append(std_ref)
                 
                 valid_sessions.append(session)
+                
+                # Store data for CSV
+                model_display = "StorySage" if model_name == "ours" else "Baseline"
+                # Store total memories data
+                csv_data['Session'].append(session)
+                csv_data['Model'].append(model_display)
+                csv_data['Memory_Type'].append('Total')
+                csv_data['Mean'].append(avg_total)
+                csv_data['Std'].append(std_total)
+                # Store referenced memories data
+                csv_data['Session'].append(session)
+                csv_data['Model'].append(model_display)
+                csv_data['Memory_Type'].append('Referenced')
+                csv_data['Mean'].append(avg_ref)
+                csv_data['Std'].append(std_ref)
         
         if not avg_total_memories or not avg_referenced_memories:
             continue
@@ -478,6 +522,12 @@ def plot_aggregated_memory_counts_progression(all_users_data: Dict[str, Dict[str
                        [max(0, avg - std) for avg, std in zip(avg_referenced_memories, std_referenced_memories)],
                        [avg + std for avg, std in zip(avg_referenced_memories, std_referenced_memories)],
                        color=color, alpha=0.1)
+    
+    # Save data to CSV
+    df = pd.DataFrame(csv_data)
+    csv_path = output_dir / 'aggregated_biography_memory_counts_data.csv'
+    df.to_csv(csv_path, index=False)
+    print(f"Data saved: {csv_path}")
     
     # Customize the plot
     plt.xlabel('Session Number', fontsize=22)
