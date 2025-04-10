@@ -588,3 +588,150 @@ class Biography:
         finally:
             # Release read lock
             await self._release_read_lock()
+
+    async def generate_stats_report(self, save_to_file: bool = True) -> Dict:
+        """Generate statistics report about the biography and optionally save to CSV.
+        
+        Collects statistics such as word count, section count, and other metrics.
+        
+        Args:
+            save_to_file: Whether to save the stats to a CSV file in logs_bio directory
+            
+        Returns:
+            Dictionary containing the statistics
+        """
+        # Acquire read lock
+        await self._acquire_read_lock()
+        try:
+            # Get biography content in markdown format (for word count)
+            markdown_content = self._covert_to_markdown_content(hide_memory_links=True)
+            
+            # Calculate statistics
+            stats = {}
+            
+            # User ID and version
+            stats["user_id"] = self.user_id
+            stats["biography_version"] = self.version
+            
+            # Word count
+            stats["word_count"] = len(markdown_content.split())
+            
+            # Character count
+            stats["character_count"] = len(markdown_content)
+            
+            # Count sections by level
+            section_counts = self._count_sections_by_level()
+            stats.update(section_counts)
+            
+            # Total sections
+            stats["total_sections"] = sum(count for _, count in section_counts.items())
+            
+            # Count sections with memory references
+            stats["sections_with_memory_refs"] = self._count_sections_with_memory_refs()
+            
+            # Count total memory references
+            stats["total_memory_references"] = self._count_total_memory_references()
+            
+            # Date information
+            stats["date_generated"] = datetime.now().isoformat()
+            
+            # Average content length per section
+            if stats["total_sections"] > 0:
+                stats["avg_words_per_section"] = \
+                    round(stats["word_count"] / stats["total_sections"], 2)
+            else:
+                stats["avg_words_per_section"] = 0
+                
+            # Save the stats to CSV if requested
+            if save_to_file:
+                # For file operations, we need to ensure no writes are happening
+                await self._all_writes_complete.wait()
+                
+                # Create logs_bio directory if it doesn't exist
+                logs_dir = "logs_bio"
+                os.makedirs(logs_dir, exist_ok=True)
+                
+                output_path = f"{logs_dir}/bio_stats.csv"
+                file_exists = os.path.exists(output_path)
+                
+                # Append to CSV file
+                with open(output_path, 'a', encoding='utf-8') as f:
+                    # Write header only if file is new
+                    if not file_exists:
+                        # Ensure user_id is the first column
+                        columns = ["user_id", "biography_version", "date_generated"]
+                        # Add the rest of the keys, excluding those already in columns
+                        columns.extend([k for k in stats.keys() if k not in columns])
+                        f.write(",".join(columns) + "\n")
+                    
+                    # Write values in the same order as headers
+                    if file_exists:
+                        # Read existing header to ensure column order matches
+                        with open(output_path, 'r', encoding='utf-8') as rf:
+                            header_line = rf.readline().strip()
+                            columns = header_line.split(',')
+                    
+                    # Write the values in the same order as the header
+                    values = []
+                    for col in columns:
+                        value = stats.get(col, "")
+                        # Handle commas in values by quoting
+                        if isinstance(value, str) and (',' in value or '"' in value):
+                            value = f'"{value.replace('"', '""')}"'
+                        values.append(str(value))
+                    f.write(",".join(values) + "\n")
+                
+                print(f"Biography statistics for user {self.user_id} appended "
+                      f"to {output_path}")
+            
+            return stats
+        finally:
+            # Release read lock
+            await self._release_read_lock()
+    
+    def _count_sections_by_level(self) -> Dict[str, int]:
+        """Count the number of sections at each level in the biography."""
+        counts = {"level_1_sections": 0, "level_2_sections": 0, "level_3_sections": 0}
+        
+        def _count_recursive(section: Section, level: int = 1):
+            if level <= 3:  # Only count up to level 3
+                counts[f"level_{level}_sections"] += 1
+            
+            for subsection in section.subsections.values():
+                _count_recursive(subsection, level + 1)
+        
+        # Start counting from root's subsections (level 1)
+        for subsection in self.root.subsections.values():
+            _count_recursive(subsection, 1)
+            
+        return counts
+    
+    def _count_sections_with_memory_refs(self) -> int:
+        """Count the number of sections that contain memory references."""
+        count = 0
+        
+        def _count_recursive(section: Section):
+            nonlocal count
+            if section.memory_ids:
+                count += 1
+            
+            for subsection in section.subsections.values():
+                _count_recursive(subsection)
+        
+        _count_recursive(self.root)
+        return count
+    
+    def _count_total_memory_references(self) -> int:
+        """Count the total number of memory references in all sections."""
+        total = 0
+        
+        def _count_recursive(section: Section):
+            nonlocal total
+            # Count unique memory IDs in this section
+            total += len(section.memory_ids)
+            
+            for subsection in section.subsections.values():
+                _count_recursive(subsection)
+        
+        _count_recursive(self.root)
+        return total
