@@ -1,6 +1,6 @@
-# AI Autobiography
+# StorySage
 
-**AI Autobiographer** is a framework that uses AI agents to conduct interviews and write biographies for users 📝
+**StorySage** is a framework that uses AI agents to conduct interviews and write biographies for users 📝
 
 **Key Features**:
 
@@ -8,12 +8,6 @@
 - 🧠 Intelligent memory management
 - 📚 Structured biography creation
 - 🔄 Continuous learning from interactions
-- 🔌 Optional backend service mode
-
-**Documentation**:
-
-- [Design](docs/design.md)
-- [InterviewSession](docs/interview_session.md)
 
 ## Setup
 
@@ -31,39 +25,7 @@ Install Python dependencies by running:
 pip install -r requirements.txt
 ```
 
-### PyAudio (optional, for voice features)
-
-To use voice input, you need to install PyAudio. For macOS, you can install PortAudio using Homebrew. Here's how to fix it:
-
-First, install PortAudio using Homebrew:
-
-```bash
-brew install portaudio
-```
-
-Then, install PyAudio with pip, but we need to specify the path to PortAudio:
-
-```bash
-pip install --global-option='build_ext' --global-option='-I/opt/homebrew/include' --global-option='-L/opt/homebrew/lib' pyaudio
-```
-
-### Database (optional, for server mode)
-
-Run the database setup script to create the database and tables:
-
-```bash
-# Create database and tables (preserves existing data)
-python src/main.py --mode setup_db
-
-# Reset database (WARNING: deletes all existing data)
-python src/main.py --mode setup_db --reset
-```
-
-Note: This will create the database and tables, but **terminal mode doesn't use the database**.
-
 ## Usage
-
-### Terminal Mode
 
 Run the interviewer in terminal mode with:
 
@@ -94,12 +56,3 @@ python src/main.py --user_id john_doe --voice_input --voice_output
 # Restart a session with user agent
 python src/main.py --user_id john_doe --restart --user_agent
 ```
-
-### Server Mode
-
-Run the interviewer in server mode with:
-
-```bash
-python src/main.py --mode server --port 8000
-```
-
