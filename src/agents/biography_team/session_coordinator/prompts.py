@@ -11,7 +11,7 @@ New information to process:
 {new_memories}
 </new_memories>
 
-Current session notes:
+Current session agenda:
 <user_portrait>
 {user_portrait}
 </user_portrait>
@@ -48,7 +48,7 @@ Make separate tool calls for each update/addition.
 </instructions>
 
 <output_format>
-Use tool calls to update the session notes:
+Use tool calls to update the session agenda:
 Wrap your tool calls in <tool_calls> ... </tool_calls> tags.
 
 <tool_calls>

@@ -57,7 +57,7 @@ async def send_message(
             if current_user not in removed_users:
                 raise HTTPException(
                     status_code=409,  # Conflict
-                    detail="Generating the session notes for the subsequent session. "
+                    detail="Generating the session agenda for the subsequent session. "
                             "Please try again in a moment. Thanks!"
                 )
         
@@ -395,7 +395,7 @@ async def list_user_messages(
             if current_user not in removed_users:
                 raise HTTPException(
                     status_code=409,  # Conflict
-                    detail="Generating the session notes for the subsequent session. "
+                    detail="Generating the session agenda for the subsequent session. "
                             "Please try again in a moment. Thanks!"
                 )
         

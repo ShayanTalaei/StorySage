@@ -39,7 +39,7 @@ src/
     ├── biography/        # Biography creation & management
     ├── memory_bank/      # Memory storage
     ├── question_bank/    # Question bank for asked questions
-    └── session_note/     # Interview notes & summaries
+    └── session_agenda/     # Interview notes & summaries
 
 # 3. Core Utils
 └── utils/            # Helper functions and shared utilities
@@ -63,7 +63,7 @@ Responsible for storing and organizing memories and content:
 
 - `biography`: Manages the creation and organization of the final autobiography
 - `memory_bank`: Storage system for user memories and experiences
-- `session_note`: Maintains detailed records of each interview session
+- `session_agenda`: Maintains detailed records of each interview session
 
 ### 3. Core Utils
 
@@ -108,11 +108,11 @@ class Participant:
 1. **Main Conversation**:
    - Direct dialogue between interviewer and user
 2. **Background Processing**:
-   - Session scribe updates memory bank and session notes
+   - Session scribe updates memory bank and session agenda
    - Session scribe suggests follow-up questions
 3. **Post-Interview**:
    - Biography team writes/updates biography
-   - Session notes prepared for next interview
+   - Session agenda prepared for next interview
 
 #### Publisher-Subscriber Pattern
 
@@ -149,20 +149,20 @@ Tools:
 
 #### Session Scribe
 
-The session scribe process user information and updated it into the memory bank and session notes.
+The session scribe process user information and updated it into the memory bank and session agenda.
 
 Responsible for:
 
-- Updating the session notes
+- Updating the session agenda
 - Updating the memory and question bank
 - Proposing follow up questions
 
 Tools:
 
 - `update_memory_bank`: Update the memory bank with the new information
-- `update_session_note`: Update the session notes with the new information
+- `update_session_agenda`: Update the session agenda with the new information
 - `add_historical_question`: Add a historical question to the question bank
-- `add_interview_question`: Add a follow-up interview question to the session notes
+- `add_interview_question`: Add a follow-up interview question to the session agenda
 - `recall`: Recall memories from memory bank to help decide whether to ask a follow-up question and what to ask
 
 #### Biography Writing Team
@@ -171,7 +171,7 @@ The biography writing team operates under the `BiographyOrchestrator` to collabo
 
 - **Planner**: Develops writing plans and proposes follow-up questions to the user for additional input.
 - **Section Writer**: Writes the biography for a specific section based on the planner's guidance and suggests follow-up questions to gather further details.
-- **Session Coordinator**: Prepares session notes for upcoming interviews, incorporating collected memories and follow-up questions from both the planner and writer agents.
+- **Session Coordinator**: Prepares session agenda for upcoming interviews, incorporating collected memories and follow-up questions from both the planner and writer agents.
 
 ![Biography Writing Team](./images/biography_writing_team.png)
 
@@ -217,15 +217,15 @@ Tools:
 
 ##### 3. Session Coordinator
 
-The session coordinator prepare the session notes for the next interview session
+The session coordinator prepare the session agenda for the next interview session
 
 Input:
 
-- Existing session notes
+- Existing session agenda
 - Follow-up questions from the planner and section writer agents
 - New memories collected during the session
 
-Output – updated session notes content
+Output – updated session agenda content
 
 - Summary of the last interview
 - User portrait
@@ -235,7 +235,7 @@ Tools:
 
 - `update_last_meeting_summary`: Update the summary of the last interview
 - `update_user_portrait`: Update the user portrait
-- `add_interview_question`: Add a follow-up interview question to the session notes
+- `add_interview_question`: Add a follow-up interview question to the session agenda
 - `recall`: Recall memories from memory bank to help decide whether to add or delete an interview question
 
 ### Memory & Content
@@ -301,11 +301,11 @@ The database is used to store the user's information.
 The `tests` directory contains unit tests, particularly for the `Memory & Content` components. These components are crucial to the system and can be easily tested without involving LLM calls. It is recommended to run these tests before committing any changes.
 
 - `biography`: Tests for the `Biography` class
-- `session_note`: Tests for the `SessionNote` class
+- `session_agenda`: Tests for the `SessionAgenda` class
 
 Running the tests:
 
 ```bash
 pytest tests/biography/test_biography.py
-pytest tests/session_note/test_session_note.py
+pytest tests/session_agenda/test_session_agenda.py
 ```
