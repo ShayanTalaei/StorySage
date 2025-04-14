@@ -376,8 +376,10 @@ class Biography:
 
         if path is not None:
             if not self.is_valid_path_format(path):
-                raise ValueError(f"Invalid path format: {path}")
-            section = self._get_section_by_path(path)
+                potential_title = path.split('/')[-1]
+                section = self._get_section_by_title(potential_title)
+            else:
+                section = self._get_section_by_path(path)
         else:
             section = self._get_section_by_title(title)
 
@@ -400,7 +402,8 @@ class Biography:
         return _build_section_dict(self.root)
 
     async def add_section(self, path: str, content: str = "") -> Section:
-        """Add a new section at the specified path, creating parent sections if they don't exist."""
+        """Add a new section at the specified path, creating parent sections if they don't exist.
+        If section already exists, updates its content without modifying subsections."""
         await self._increment_pending_writes()
         try:
             async with self._write_lock:
@@ -426,8 +429,17 @@ class Biography:
                         current.subsections[part] = new_parent
                     current = current.subsections[part]
                 
+                # If section already exists, just update content
+                if path_parts[-1] in current.subsections:
+                    if content:  # Only update if new content provided
+                        current.subsections[path_parts[-1]].content = content
+                        current.subsections[path_parts[-1]].last_edit = \
+                            datetime.now().isoformat()
+                    return current.subsections[path_parts[-1]]
+                
                 # Create and add the new section
                 new_section = Section(title, content, current)
+                new_section.update_memory_ids()
                 current.subsections[path_parts[-1]] = new_section
                 
                 # Sort the subsections after adding the new one

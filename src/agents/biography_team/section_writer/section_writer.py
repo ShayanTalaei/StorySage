@@ -118,15 +118,15 @@ class SectionWriter(BiographyTeamAgent):
                         )
                         return UpdateResult(success=True, 
                                          message="Section updated successfully")
+                    
+                    # Save tool calls for next iteration
+                    previous_tool_call = extract_tool_calls_xml(response)
 
                     # Extract memory IDs from section content in tool calls
                     current_memory_ids = set(
-                        Section.extract_memory_ids(response)
+                        Section.extract_memory_ids(previous_tool_call)
                     )
                     covered_memory_ids.update(current_memory_ids)
-                        
-                    # Save tool calls for next iteration
-                    previous_tool_call = extract_tool_calls_xml(response)
 
                     # Check if all memories are covered
                     if covered_memory_ids >= all_memory_ids or len(all_memory_ids) == 0:
@@ -169,10 +169,10 @@ class SectionWriter(BiographyTeamAgent):
                     filter=[{"sender": self.name, "tag": "recall_response"}]
                 )
                 return get_prompt("user_add").format(
-                    user_portrait=self._session_note \
+                    user_portrait=self._session_agenda \
                         .get_user_portrait_str(),
                     section_path=todo_item.section_path,
-                    update_plan=todo_item.update_plan,
+                    plan_content=todo_item.plan_content,
                     event_stream=events_str,
                     biography_structure=json.dumps(
                         self.get_biography_structure(), indent=2
@@ -192,15 +192,16 @@ class SectionWriter(BiographyTeamAgent):
                     filter=[{"sender": self.name, "tag": "recall_response"}]
                 )
                 curr_section = self.biography.get_section(
-                    title=todo_item.section_title
+                    title=todo_item.section_title,
+                    hide_memory_links=False
                 )
                 current_content = curr_section.content if curr_section else ""
                 return get_prompt("user_update").format(
-                    user_portrait=self._session_note \
+                    user_portrait=self._session_agenda \
                         .get_user_portrait_str(),
                     section_title=todo_item.section_title,
                     current_content=current_content,
-                    update_plan=todo_item.update_plan,
+                    plan_content=todo_item.plan_content,
                     event_stream=events_str,
                     biography_structure=json.dumps(
                         self.get_biography_structure(), indent=2
@@ -221,7 +222,8 @@ class SectionWriter(BiographyTeamAgent):
                     path=todo_item.section_path \
                         if todo_item.section_path else None,
                     title=todo_item.section_title \
-                        if todo_item.section_title else None
+                        if todo_item.section_title else None,
+                    hide_memory_links=False
                 )
                 current_content = curr_section.content if curr_section else ""
                 
@@ -265,12 +267,12 @@ class SectionWriter(BiographyTeamAgent):
                     )
                 
                 return get_prompt("normal").format(
-                    user_portrait=self._session_note \
+                    user_portrait=self._session_agenda \
                         .get_user_portrait_str(),
                     section_identifier_xml=section_identifier_xml,
                     current_content=current_content,
                     relevant_memories=relevant_memories,
-                    update_plan=todo_item.update_plan,
+                    plan_content=todo_item.plan_content,
                     biography_structure=json.dumps(
                         self.get_biography_structure(), indent=2
                     ),
@@ -326,7 +328,7 @@ class SectionWriter(BiographyTeamAgent):
                     current_biography = await self.biography.export_to_markdown()
                     
                     # Get user portrait
-                    user_portrait = self._session_note \
+                    user_portrait = self._session_agenda \
                         .get_user_portrait_str()
                     
                     # Create error warning if needed

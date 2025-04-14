@@ -34,8 +34,8 @@ def main():
         # Configuration for experiments
         experiments = [
             {"model_name": "gpt-4o", "use_baseline": False},
-            {"model_name": "gpt-4o", "use_baseline": True},
-            {"model_name": "gemini-1.5-pro", "use_baseline": True},
+            # {"model_name": "gpt-4o", "use_baseline": True},
+            # {"model_name": "gemini-1.5-pro-002", "use_baseline": True},
         ]
         
         # Create a summary file
@@ -68,7 +68,8 @@ def main():
                 f.write(f"\nExperiment: {experiment_name}\n")
                 f.write(f"Model: {exp['model_name']}\n")
                 f.write(f"Baseline: {exp['use_baseline']}\n")
-                f.write(f"Completed: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write(f"Completed: {
+                    datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
                 f.write("-"*40 + "\n")
         
         print(f"\nAll experiments completed! Summary saved to {summary_file}")

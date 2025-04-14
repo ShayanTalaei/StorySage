@@ -46,7 +46,7 @@ class BiographyOrchestrator:
 
         # Flags to track different types of updates in progress
         self.biography_update_in_progress = False
-        self.session_note_update_in_progress = False
+        self.session_agenda_update_in_progress = False
         
         # Lock for biography updates to ensure only one runs at a time
         self._biography_update_lock = asyncio.Lock()
@@ -135,21 +135,21 @@ class BiographyOrchestrator:
             finally:
                 self.biography_update_in_progress = False
 
-    async def update_session_note_with_memories(self):
+    async def update_session_agenda_with_memories(self):
         """Update just the session note."""
         try:
-            self.session_note_update_in_progress = True
+            self.session_agenda_update_in_progress = True
             
             # 1. Collect all follow-ups proposed in the session
             follow_up_questions = self._collect_follow_up_questions()
             
             # 2. Regenerate session note with new memories and follow-ups
-            await self._session_coordinator.regenerate_session_note(
+            await self._session_coordinator.regenerate_session_agenda(
                 follow_up_questions=follow_up_questions
             )
             
         finally:
-            self.session_note_update_in_progress = False
+            self.session_agenda_update_in_progress = False
     
     async def final_update_biography_and_notes(
             self, selected_topics: Optional[List[str]] = None,
@@ -158,18 +158,19 @@ class BiographyOrchestrator:
         try:
             # Set both flags to indicate updates are in progress
             self.biography_update_in_progress = True
-            self.session_note_update_in_progress = True
+            self.session_agenda_update_in_progress = True
 
             # Simulate baseline mode without auto-updates for web user testing
-            if wait_time and self._section_writer.use_baseline and \
-                    self._interview_session.interaction_mode == "api":
+            if wait_time:
                 start_time = time.time()
                 await asyncio.sleep(wait_time)
                 actual_wait = time.time() - start_time
-                SessionLogger.log_to_file("execution_log", 
-                                        f"[BIOGRAPHY] Baseline mode: Simulated wait time "
-                                        f"without auto-updates: {wait_time:.2f}s "
-                                        f"(actual: {actual_wait:.2f}s)")
+                SessionLogger.log_to_file(
+                    "execution_log", 
+                    f"[BIOGRAPHY] Baseline mode: Simulated wait time "
+                    f"without auto-updates: {wait_time:.2f}s "
+                    f"(actual: {actual_wait:.2f}s)"
+                )
 
             # Get new memories for update
             new_memories: List[Memory] = await (
@@ -182,20 +183,19 @@ class BiographyOrchestrator:
             await self.update_biography_with_memories(new_memories)
             
             # Save session note of the current session
-            self._interview_session.session_note.save()
+            self._interview_session.session_agenda.save(save_type="updated")
 
             # Skip session note update if baseline is used or no new memories
             if not new_memories or self._section_writer.use_baseline:
                 if new_memories:
-                    await self._session_coordinator.update_session_summary(new_memories)
-                self._interview_session.session_note.save(
-                    increment_session_id=True
-                )
+                    await self._session_coordinator.update_session_summary(
+                        new_memories)
+                self._interview_session.session_agenda.save(save_type="next_version")
                 return
 
             # Process session note update
-            session_note_task = asyncio.create_task(
-                self.update_session_note_with_memories()
+            session_agenda_task = asyncio.create_task(
+                self.update_session_agenda_with_memories()
             )
 
             # If topics are provided now, set them immediately
@@ -203,15 +203,15 @@ class BiographyOrchestrator:
                 self._session_coordinator.set_selected_topics(selected_topics)
 
             # Wait for session note task to complete
-            await session_note_task
+            await session_agenda_task
 
             # Save session note of the next session
-            self._interview_session.session_note.save(increment_session_id=True)
+            self._interview_session.session_agenda.save(save_type="next_version")
 
         finally:
             # Make sure both flags are cleared in case of errors
             self.biography_update_in_progress = False
-            self.session_note_update_in_progress = False
+            self.session_agenda_update_in_progress = False
 
     async def process_user_edits(self, edits: List[Dict]):
         """Process user-requested edits to the biography.

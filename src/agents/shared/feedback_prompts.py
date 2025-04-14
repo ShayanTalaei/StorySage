@@ -98,10 +98,14 @@ Action Required:
 </missing_memories_warning>
 """
 
-WARNING_OUTPUT_FORMAT = """
-About the warning:
-If you choose to proceed without addressing the warning, append the XML tag: <proceed>true</proceed>.
-Omit this tag if you are addressing the warning.
+QUESTION_WARNING_OUTPUT_FORMAT = """
+## Addressing the Warning
+
+If you've addressed the warning and want to proceed:
+1. Add the tag <proceed>true</proceed> inside your <thinking></thinking> section
+2. This confirms you've resolved the issues identified in the warning
+
+Important: This is not a tool call - it must be placed within your thinking tags.
 """
 
 SECTION_WRITER_TOOL_CALL_ERROR = """\
@@ -119,7 +123,11 @@ This is your previous tool call:
    • Path: Full hierarchy with '/' separators (Example: '1 Early Life/1.1 Childhood')
    • Title: Only the section heading (Example: '1.1 Childhood')
 
-2. Always Include Section Numbers:
+2. Update vs Create - Important Distinction:
+   • Update: Use the `update_section` tool to modify an existing section.
+   • Create: Use the `add_section` tool to add a new section.
+
+3. Always Include Section Numbers:
    • Incorrect: 'Early Childhood Experiences'
    • Correct: '1.1 Early Childhood Experiences'
 

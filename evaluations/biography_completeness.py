@@ -1,7 +1,8 @@
 from pathlib import Path
-from typing import List, Set
+from typing import List, Set, Optional
 import argparse
 import sys
+import os
 
 # Add the src directory to Python path
 src_dir = str(Path(__file__).parent.parent / "src")
@@ -33,11 +34,19 @@ def extract_memory_ids_from_biography(biography: Biography) -> Set[str]:
     process_section(biography.root)
     return memory_ids
 
-def calculate_biography_completeness(user_id: str, logger: EvaluationLogger, biography_version: int) -> dict:
+def calculate_biography_completeness(user_id: str, logger: EvaluationLogger, biography_version: int = -1) -> dict:
     """Calculate biography completeness metrics based on memory coverage."""
-    # Load latest biography and memory bank
-    biography = Biography.load_from_file(user_id)
-    memory_bank = VectorMemoryBank.load_from_file(user_id)
+    # Load biography and memory bank
+    biography = Biography.load_from_file(user_id, biography_version)
+    
+    # Determine memory bank path based on version
+    if biography_version > 0:
+        # For specific version, load from session directory
+        base_path = os.path.join(os.getenv("LOGS_DIR"), user_id, "execution_logs", f"session_{biography_version}")
+        memory_bank = VectorMemoryBank.load_from_file(user_id, base_path=base_path)
+    else:
+        # For latest version, load from default path
+        memory_bank = VectorMemoryBank.load_from_file(user_id)
     
     # Get all memory IDs from biography
     biography_memory_ids = extract_memory_ids_from_biography(biography)
@@ -63,24 +72,33 @@ def calculate_biography_completeness(user_id: str, logger: EvaluationLogger, bio
     }
     
     # Get details for unreferenced memories
-    unreferenced_details = get_unreferenced_memory_details(user_id)
+    unreferenced_details = get_unreferenced_memory_details(user_id, biography_version, logger)
     
     # Log evaluation results
     if logger:  # Allow None logger for testing/reuse
         logger.log_biography_completeness(
             metrics=metrics,
             unreferenced_details=unreferenced_details,
-            biography_version=biography_version
+            biography_version=biography.version
         )
     
     return metrics
 
-def get_unreferenced_memory_details(user_id: str) -> List[dict]:
+def get_unreferenced_memory_details(user_id: str, version: int = -1, logger: Optional[EvaluationLogger] = None) -> List[dict]:
     """Get details of memories not referenced in the biography."""
     # Get unreferenced memory IDs
-    biography = Biography.load_from_file(user_id)
+    biography = Biography.load_from_file(user_id, version)
     biography_memory_ids = extract_memory_ids_from_biography(biography)
-    memory_bank = VectorMemoryBank.load_from_file(user_id)
+    
+    # Determine memory bank path based on version
+    if version > 0:
+        # For specific version, load from session directory
+        base_path = os.path.join(os.getenv("LOGS_DIR"), user_id, "execution_logs", f"session_{version}")
+        memory_bank = VectorMemoryBank.load_from_file(user_id, base_path=base_path)
+    else:
+        # For latest version, load from default path
+        memory_bank = VectorMemoryBank.load_from_file(user_id)
+        
     all_memory_ids = {memory.id for memory in memory_bank.memories}
     unreferenced_ids = all_memory_ids - biography_memory_ids
     
@@ -113,18 +131,28 @@ def main():
         help='ID of the user whose biography to evaluate',
         required=True
     )
+    parser.add_argument(
+        '--version',
+        type=int,
+        help='Version of the biography to evaluate',
+        required=False,
+        default=-1
+    )
     
     args = parser.parse_args()
-    
-    # Load biography to get version
-    biography = Biography.load_from_file(args.user_id)
-    
-    # Initialize logger
-    logger = EvaluationLogger(user_id=args.user_id)
+
+    # Get the latest version of the biography
+    bio_version = args.version
+    if bio_version == -1:
+        biography = Biography.load_from_file(args.user_id)
+        bio_version = biography.version
+
+    # Initialize shared logger
+    logger = EvaluationLogger.setup_logger(args.user_id, bio_version)
     
     # Run evaluation
     print(f"Evaluating biography completeness for user: {args.user_id}")
-    calculate_biography_completeness(args.user_id, logger, biography.version)
+    calculate_biography_completeness(args.user_id, logger, bio_version)
     print("Evaluation complete. Results saved to logs directory.")
 
 if __name__ == "__main__":

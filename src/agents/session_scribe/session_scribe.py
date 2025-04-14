@@ -8,7 +8,7 @@ from agents.session_scribe.prompts import get_prompt
 from agents.session_scribe.tools import UpdateSessionNote, UpdateMemoryBank, AddHistoricalQuestion
 from agents.shared.memory_tools import Recall
 from agents.shared.note_tools import AddInterviewQuestion
-from agents.shared.feedback_prompts import SIMILAR_QUESTIONS_WARNING, WARNING_OUTPUT_FORMAT
+from agents.shared.feedback_prompts import SIMILAR_QUESTIONS_WARNING, QUESTION_WARNING_OUTPUT_FORMAT
 from content.question_bank.question import QuestionSearchResult, SimilarQuestionsGroup
 from utils.llm.prompt_utils import format_prompt
 from utils.llm.xml_formatter import extract_tool_arguments, extract_tool_calls_xml
@@ -67,11 +67,11 @@ class SessionScribe(BaseAgent, Participant):
                 memory_bank=self.interview_session.memory_bank,
                 get_real_memory_ids=self._get_real_memory_ids
             ),
-            "update_session_note": UpdateSessionNote(
-                session_note=self.interview_session.session_note
+            "update_session_agenda": UpdateSessionNote(
+                session_agenda=self.interview_session.session_agenda
             ),
             "add_interview_question": AddInterviewQuestion(
-                session_note=self.interview_session.session_note,
+                session_agenda=self.interview_session.session_agenda,
                 historical_question_bank= \
                     self.interview_session.historical_question_bank,
                 proposed_question_bank=self.interview_session.proposed_question_bank,
@@ -137,14 +137,14 @@ class SessionScribe(BaseAgent, Participant):
 
     async def _write_notes_and_questions(self) -> None:
         """
-        Process user's response by updating session notes 
+        Process user's response by updating session agenda 
         and considering follow-up questions.
         """
         if self.use_baseline:
             return
         
-        # First update the direct response in session notes
-        await self._update_session_note()
+        # First update the direct response in session agenda
+        await self._update_session_agenda()
 
         # Then consider and propose follow-up questions if appropriate
         await self._propose_followups()
@@ -188,11 +188,19 @@ class SessionScribe(BaseAgent, Participant):
                 # Handle the tool calls to add questions
                 await self.handle_tool_calls_async(response)
                 break
-
-            # Extract proposed questions from add_interview_question tool calls
-            proposed_questions = extract_tool_arguments(
-                response, "add_interview_question", "question"
-            )
+            
+            try:
+                # Extract proposed questions from add_interview_question tool calls
+                proposed_questions = extract_tool_arguments(
+                    response, "add_interview_question", "question"
+                )
+            except Exception as e:
+                SessionLogger.log_to_file(
+                    "execution_log",
+                    f"[ERROR] Error extracting tool arguments: {e}"
+                    f"Set proposed questions to empty list"
+                )
+                proposed_questions = []
             
             if not proposed_questions:
                 if "recall" in response:
@@ -279,18 +287,18 @@ class SessionScribe(BaseAgent, Participant):
         )
         self.handle_tool_calls(response)
 
-    async def _update_session_note(self) -> None:
+    async def _update_session_agenda(self) -> None:
         """Update session note with user's response"""
-        prompt = self._get_formatted_prompt("update_session_note")
+        prompt = self._get_formatted_prompt("update_session_agenda")
         self.add_event(
             sender=self.name,
-            tag="update_session_note_prompt",
+            tag="update_session_agenda_prompt",
             content=prompt
         )
         response = await self.call_engine_async(prompt)
         self.add_event(
             sender=self.name,
-            tag="update_session_note_response",
+            tag="update_session_agenda_response",
             content=response
         )
         self.handle_tool_calls(response)
@@ -323,15 +331,15 @@ class SessionScribe(BaseAgent, Participant):
             )
 
             return format_prompt(prompt, {
-                "user_portrait": self.interview_session.session_note \
+                "user_portrait": self.interview_session.session_agenda \
                     .get_user_portrait_str(),
                 "event_stream": "\n".join(recent_events),
                 "questions_and_notes": (
-                    self.interview_session.session_note \
+                    self.interview_session.session_agenda \
                         .get_questions_and_notes_str()
                 ),
                 "similar_questions_warning": warning,
-                "warning_output_format": WARNING_OUTPUT_FORMAT \
+                "warning_output_format": QUESTION_WARNING_OUTPUT_FORMAT \
                                          if similar_questions else "",
                 "tool_descriptions": self.get_tools_description(
                     selected_tools=["recall", "add_interview_question"]
@@ -348,7 +356,7 @@ class SessionScribe(BaseAgent, Participant):
                 previous_events = previous_events[-self._max_events_len:]
 
             return format_prompt(prompt, {
-                "user_portrait": self.interview_session.session_note.user_portrait,
+                "user_portrait": self.interview_session.session_agenda.user_portrait,
                 "previous_events": "\n".join(previous_events),
                 "current_qa": "\n".join(current_qa),
                 "tool_descriptions": self.get_tools_description(
@@ -356,7 +364,7 @@ class SessionScribe(BaseAgent, Participant):
                                     "add_historical_question"]
                 )
             })
-        elif prompt_type == "update_session_note":
+        elif prompt_type == "update_session_agenda":
             events = self.get_event_stream_str(
                 filter=[{"tag": "notes_lock_message"}], as_list=True)
             current_qa = events[-2:] if len(events) >= 2 else []
@@ -366,17 +374,17 @@ class SessionScribe(BaseAgent, Participant):
                 previous_events = previous_events[-self._max_events_len:]
 
             return format_prompt(prompt, {
-                "user_portrait": self.interview_session.session_note.user_portrait,
+                "user_portrait": self.interview_session.session_agenda.user_portrait,
                 "previous_events": "\n".join(previous_events),
                 "current_qa": "\n".join(current_qa),
                 "questions_and_notes": (
-                    self.interview_session.session_note \
+                    self.interview_session.session_agenda \
                         .get_questions_and_notes_str(
                             hide_answered="qa"
                         )
                 ),
                 "tool_descriptions": self.get_tools_description(
-                    selected_tools=["update_session_note"]
+                    selected_tools=["update_session_agenda"]
                 )
             })
 

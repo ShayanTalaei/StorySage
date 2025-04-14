@@ -131,26 +131,73 @@ def extract_tool_calls_xml(response: str) -> str:
         return ""
     return response[tool_calls_start:tool_calls_end + len("</tool_calls>")]
 
-def extract_tool_arguments(response: str, tool_name: str, arg_name: str) -> List[Any]:
-    """Extract specific argument values from tool calls in a response.
+def clean_malformed_xml(xml_string: str) -> str:
+    """Clean malformed XML by removing unmatched tags.
     
     Args:
-        response: The full response containing tool calls
-        tool_name: Name of the tool to extract arguments from
-        arg_name: Name of the argument to extract
+        xml_string: Input XML string that might have unmatched tags
         
     Returns:
-        List[Any]: List of argument values from matching tool calls
-    
+        Cleaned XML string with unmatched tags removed
+        
     Example:
-        >>> response = '''<tool_calls>
-        ...     <add_plan>
-        ...         <memory_ids>["MEM_123", "MEM_456"]</memory_ids>
-        ...     </add_plan>
-        ... </tool_calls>'''
-        >>> extract_tool_arguments(response, "add_plan", "memory_ids")
-        >>> ["MEM_123", "MEM_456"]
+        >>> xml = "<a><b>text</c></b></a>"
+        >>> clean_malformed_xml(xml)
+        "<a><b>text</b></a>"
     """
+    # Split the XML into tokens while preserving whitespace
+    tokens = []
+    current_token = ""
+    in_tag = False
+    
+    for char in xml_string:
+        if char == '<':
+            if current_token:
+                tokens.append(current_token)
+            current_token = '<'
+            in_tag = True
+        elif char == '>':
+            current_token += '>'
+            tokens.append(current_token)
+            current_token = ""
+            in_tag = False
+        else:
+            current_token += char
+            
+    if current_token:
+        tokens.append(current_token)
+    
+    # Process tags using a stack
+    tag_stack = []
+    result_tokens = []
+    
+    for token in tokens:
+        if not token.startswith('<'):
+            # Not a tag, just add to result
+            result_tokens.append(token)
+            continue
+            
+        if token.startswith('</'):
+            # Closing tag
+            tag_name = token[2:-1].strip()
+            
+            # Only keep closing tag if it matches the last opening tag
+            if tag_stack and tag_stack[-1] == tag_name:
+                tag_stack.pop()
+                result_tokens.append(token)
+            # else skip this unmatched closing tag
+            
+        elif token.startswith('<'):
+            # Opening tag
+            tag_name = token[1:-1].strip()
+            if not tag_name.startswith('?') and not tag_name.startswith('!'):
+                tag_stack.append(tag_name)
+            result_tokens.append(token)
+    
+    return ''.join(result_tokens)
+
+def extract_tool_arguments(response: str, tool_name: str, arg_name: str) -> List[Any]:
+    """Extract specific argument values from tool calls in a response."""
     if "<tool_calls>" not in response:
         return []
         
@@ -159,12 +206,14 @@ def extract_tool_arguments(response: str, tool_name: str, arg_name: str) -> List
     if tool_calls_start == -1 or tool_calls_end == -1:
         return []
         
+    # Extract and clean the tool_calls section
     tool_calls_xml = response[
         tool_calls_start:tool_calls_end + len("</tool_calls>")
     ]
+    cleaned_xml = clean_malformed_xml(tool_calls_xml)
     
     values = []
-    for call in parse_tool_calls(tool_calls_xml):
+    for call in parse_tool_calls(cleaned_xml):
         if call["tool_name"] == tool_name:
             value = call["arguments"].get(arg_name)
             if value:

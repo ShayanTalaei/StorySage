@@ -5,11 +5,12 @@ from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 from collections import defaultdict
 
-def load_interview_comparisons(user_id: str) -> Dict[str, Dict[str, Tuple[int, int, int]]]:
+def load_interview_comparisons(user_id: str, session_id: Optional[int] = None) -> Dict[str, Dict[str, Tuple[int, int, int]]]:
     """Load interview comparison results for a user.
     
     Args:
         user_id: The user ID to analyze
+        session_id: Optional specific session ID to analyze
         
     Returns:
         Dictionary mapping baseline models to their metrics (wins, ties, total)
@@ -23,6 +24,10 @@ def load_interview_comparisons(user_id: str) -> Dict[str, Dict[str, Tuple[int, i
     
     if comparison_file.exists():
         df = pd.read_csv(comparison_file)
+        
+        # Filter by session ID if specified
+        if session_id is not None:
+            df = df[df['Session ID'] == session_id]
         
         for _, row in df.iterrows():
             # Determine which model is baseline and get voting results
@@ -138,18 +143,13 @@ def format_table_cell(wins: int, ties: int, total: int) -> str:
 
 def display_results(interview_results: Dict[str, Dict[str, List[int]]], 
                    biography_results: Dict[str, Dict[str, List[int]]]) -> None:
-    """Display comparison results in a formatted table.
-    
-    Args:
-        interview_results: Dictionary of interview comparison results
-        biography_results: Dictionary of biography comparison results
-    """
+    """Display comparison results in a formatted table."""
     # Define column widths
-    col_width = 12
+    col_width = 14  # Increased to accommodate longer names
     first_col_width = 20
     
-    # Define metrics to display
-    interview_metrics = ["Smooth", "Flexibility", "Comfort"]
+    # Define metrics to display with new names
+    interview_metrics = ["Naturalness", "Human Agency", "Comfort"]  # Updated names
     biography_metrics = ["Insight", "Narrative", "Coherence"]
     all_metrics = interview_metrics + biography_metrics
     
@@ -160,7 +160,7 @@ def display_results(interview_results: Dict[str, Dict[str, List[int]]],
     print("COMPARISON RESULTS")
     print("=" * total_width)
     
-    # Print category headers
+    # Print category headers with adjusted spacing
     category_header = f"{'':{first_col_width}} |"
     category_header += f" {'INTERVIEW METRICS':^{len(interview_metrics)*(col_width+3)-3}} |"
     category_header += f" {'BIOGRAPHY METRICS':^{len(biography_metrics)*(col_width+3)-3}} |"
@@ -175,17 +175,17 @@ def display_results(interview_results: Dict[str, Dict[str, List[int]]],
     # Print subheader with W/L indicators
     subheader = f"{'Ours vs Baselines':{first_col_width}} |"
     for _ in range(len(all_metrics)):
-        subheader += f" {'W':^6}{'L':^6} |"
+        subheader += f" {'W':^7}{'L':^7} |"
     print(subheader)
     
     # Print separator
     print("-" * total_width)
     
-    # Combine all baseline models
+    # Rest of the display logic remains the same, just using wider columns
     all_models = set(interview_results.keys()) | set(biography_results.keys())
     
     for model in sorted(all_models):
-        # Get interview metrics
+        # Get interview metrics (using original keys from the data)
         smooth_stats = interview_results[model].get('Smooth Score', [0, 0, 0])
         flex_stats = interview_results[model].get('Flexibility Score', [0, 0, 0])
         comfort_stats = interview_results[model].get('Comforting Score', [0, 0, 0])
@@ -195,7 +195,7 @@ def display_results(interview_results: Dict[str, Dict[str, List[int]]],
         narrative_stats = biography_results[model].get('Narrativity', [0, 0, 0])
         coherence_stats = biography_results[model].get('Coherence', [0, 0, 0])
         
-        # Format the row
+        # Format the row with wider columns
         row = f"{model:{first_col_width}} |"
         for stats in [smooth_stats, flex_stats, comfort_stats, 
                      insight_stats, narrative_stats, coherence_stats]:
@@ -213,6 +213,8 @@ def main():
                       help='One or more user IDs to analyze')
     parser.add_argument('--biography_version', type=int,
                       help='Specific biography version to analyze')
+    parser.add_argument('--session_id', type=int,
+                      help='Specific session ID to analyze for interviews')
     args = parser.parse_args()
     
     # Aggregate results across all users
@@ -221,7 +223,7 @@ def main():
     
     for user_id in args.user_ids:
         # Load interview comparisons
-        interview_results = load_interview_comparisons(user_id)
+        interview_results = load_interview_comparisons(user_id, args.session_id)
         
         # Load biography comparisons
         biography_results = load_biography_comparisons(user_id, 

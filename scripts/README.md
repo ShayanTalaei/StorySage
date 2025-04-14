@@ -2,133 +2,134 @@
 
 This directory contains scripts for running experiments with different configurations for the AI Autobiography project.
 
-## Usage
+## Running Experiments
 
-### Running Multiple Experiments
+### Single Session Experiment
+
+```bash
+# Basic usage with user ID
+./scripts/run_single_experiment.sh --user_id coates
+
+# Run with a specific parameters
+./scripts/run_single_experiment.sh --user_id coates --model gemini-1.5-pro --max_turns 20 --baseline --restart
+```
+
+Parameters:
+
+- `--user_id`: (Required) User ID for the experiment
+- `--model`: (Optional) Model to use
+- `--baseline`: (Optional) Use baseline prompt
+- `--max_turns`: (Optional) Maximum turns (default: 20)
+- `--restart`: (Optional) Clear existing data before running
+
+### Single Session with All Models
 
 ```bash
 # Basic usage with user ID
 ./scripts/run_experiments.sh --user_id coates
 
 # Specify a custom number of turns
-./scripts/run_experiments.sh --user_id coates --max_turns 30
+./scripts/run_experiments.sh --user_id coates --max_turns 20
 
-# Skip baseline experiments (only run our work)
-./scripts/run_experiments.sh --user_id coates --skip_baseline
-
-# Alternatively, you can run the Python script directly
-python scripts/run_experiments.py --user_id coates --max_turns 30
+# Start fresh by clearing previous data
+./scripts/run_experiments.sh --user_id coates --restart
 ```
 
-### Running a Single Experiment
+Parameters:
+
+- `--user_id`: (Required) User ID for the experiment
+- `--max_turns`: (Optional) Maximum turns per session (default: 20)
+- `--restart`: (Optional) Clear existing data before running
+
+### Multiple Sessions with All Models
 
 ```bash
-# Basic usage with user ID (defaults to gpt-4o without baseline)
-./scripts/run_single_experiment.sh --user_id coates
+# Basic usage with user ID (default 10 sessions)
+./scripts/run_multiple_sessions.sh --user_id coates
 
-# Run with a specific model
-./scripts/run_single_experiment.sh --user_id coates --model gemini-1.5-pro
-
-# Run with baseline prompt
-./scripts/run_single_experiment.sh --user_id coates --baseline
-
-# Specify a custom number of turns
-./scripts/run_single_experiment.sh --user_id coates --max_turns 30
-
-# Alternatively, you can run the Python script directly
-python scripts/run_single_experiment.py --user_id coates --model gpt-4o --baseline --max_turns 30
+# Run 5 sessions with 20 turns each with restart
+./scripts/run_multiple_sessions.sh --user_id coates --num_sessions 10 --max_turns 20 --restart
 ```
 
-## Running Comparisons Evaluations
+Parameters:
+
+- `--user_id`: (Required) User ID for the experiment
+- `--num_sessions`: (Optional) Number of sessions to run (default: 10)
+- `--max_turns`: (Optional) Maximum turns per session (default: 20)
+- `--restart`: (Optional) Clear existing data before running
+
+## Running Comparisons
+
+### Comparison for a Single Session
 
 ```bash
-# Run all comparisons (both biography and interview)
-./scripts/run_comparisons.sh coates
+# Run both biography and interview comparisons for a session
+./scripts/run_single_comparison.sh --session_id 1 coates
 
 # Run only biography comparisons
-./scripts/run_comparisons.sh coates --type bio
+./scripts/run_single_comparison.sh --type bio --session_id 1 coates --run_times 5
 
 # Run only interview comparisons
-./scripts/run_comparisons.sh coates --type interview
-
-# Run with specific number of comparisons
-./scripts/run_comparisons.sh coates --run_times 20
-
-# Run with specific biography version
-./scripts/run_comparisons.sh coates --bio_version 2
+./scripts/run_single_comparison.sh --type interview --session_id 1 coates --run_times 5
 ```
 
-### Analyzing Results
+Parameters:
+
+- `--run_times`: (Optional) Number of comparison runs (default: 5)
+- `--session_id`: (Optional) Specific session to evaluate
+- `--type`: (Optional) Type of comparison: "bio" or "interview"
+
+### Comparison Across All Sessions
 
 ```bash
-# Analyze results for a single user
-./scripts/analyze_results.sh coates
+# Run interview comparisons for all sessions and biography for latest session
+./scripts/run_all_comparisons.sh coates
 
-# Analyze results for multiple users
-./scripts/analyze_results.sh coates ellie alex
+# Run with specific number of comparison runs per session
+./scripts/run_all_comparisons.sh --run_times 5 coates
+
+# Run for multiple users
+./scripts/run_all_comparisons.sh coates ellie alex
 ```
 
-## Parameters
+Parameters:
 
-### Multiple Experiments
+- `--run_times`: (Optional) Number of comparison runs per session (default: 5)
 
-- `--user_id`: (Required) User ID for the experiment
-- `--max_turns`: (Optional) Maximum number of turns for each session (default: 30)
-- `--skip_baseline`: (Optional) Skip baseline experiments
-- `--restart`: (Optional) Clear existing user data before running
+## Python Scripts
 
-### Single Experiment
+You can also run the python scripts directly.
 
-- `--user_id`: (Required) User ID for the experiment
-- `--model`: (Optional) Model to use (default: gpt-4o)
-- `--baseline`: (Optional) Use baseline prompt
-- `--max_turns`: (Optional) Maximum number of turns for the session (default: 30)
-- `--restart`: (Optional) Clear existing user data before running
+### Biography Evaluations
 
-## Experiment Configurations
-
-The multiple experiments script runs the following experiments:
-
-1. Our work: `MODEL_NAME=gpt-4o`, `USE_BASELINE_PROMPT=false`
-2. Baseline with GPT-4o: `MODEL_NAME=gpt-4o`, `USE_BASELINE_PROMPT=true`
-3. Baseline with Gemini: `MODEL_NAME=gemini-1.5-pro`, `USE_BASELINE_PROMPT=true`
-
-For baseline experiments, the script sets:
-
-- `LOGS_DIR=logs_{model_name}`
-- `DATA_DIR=data_{model_name}`
-
-## Output Structure
-
-The scripts create:
-
-- A backup of the original `.env` file
-- Logs and data for each experiment in their respective directories:
-  - Our work: `logs/` and `data/`
-  - Baseline experiments: `logs_{model_name}/` and `data_{model_name}/`
-
-## Evaluations
-
-After each experiment, the scripts run the following evaluations:
-
-- Biography completeness
-- Biography groundedness
-
-## Example Workflow
+For offline evaluations, you can run the evaluation scripts directly.
 
 ```bash
-# Run experiments for a user
-./scripts/run_experiments.sh --user_id coates --max_turns 30
+# Evaluate biography completeness
+python evaluations/biography_completeness.py --user_id ellie --version 1
 
-# Analyze the results
-./scripts/analyze_results.sh coates
+# Evaluate biography groundedness
+python evaluations/biography_groundedness.py --user_id ellie --version 1
 ```
 
-## Important Notes
+### Content Comparisons
 
-1. The scripts end each session after the specified number of turns is reached, allowing for consistent and comparable experiments.
+```bash
+# Evaluate interview content
+python evaluations/interview_content.py --user_id ellie --session_id 1
 
-2. When analyzing results:
-   - Baseline experiments are identified by logs in `logs_*` directories
-   - Our work is identified by logs in the main `logs` directory
-   - Statistics are averaged across sessions and experiments 
+# Evaluate biography content
+python evaluations/biography_content.py --user_id ellie --version 1
+```
+
+### Results Analysis
+
+```bash
+python scripts/analysis/comparison_results_aggregated.py --user_ids ellie
+```
+
+### Commands for Testing
+
+```bash
+pytest tests/[folder_name]/[test_file_name].py
+```

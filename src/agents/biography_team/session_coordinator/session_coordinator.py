@@ -8,7 +8,7 @@ from agents.biography_team.session_coordinator.prompts import (
     TOPIC_EXTRACTION_PROMPT
 )
 from agents.biography_team.session_coordinator.tools import UpdateLastMeetingSummary, UpdateUserPortrait, DeleteInterviewQuestion
-from agents.shared.feedback_prompts import SIMILAR_QUESTIONS_WARNING, WARNING_OUTPUT_FORMAT
+from agents.shared.feedback_prompts import SIMILAR_QUESTIONS_WARNING, QUESTION_WARNING_OUTPUT_FORMAT
 from content.memory_bank.memory import Memory
 from agents.biography_team.models import FollowUpQuestion
 from agents.shared.memory_tools import Recall
@@ -30,7 +30,7 @@ class SessionCoordinator(BiographyTeamAgent):
             config=config,
             interview_session=interview_session
         )
-        self._session_note = self.interview_session.session_note
+        self._session_agenda = self.interview_session.session_agenda
         self._max_consideration_iterations = 3
 
         # Event for selected topics (used to wait for topics to be set)
@@ -41,19 +41,19 @@ class SessionCoordinator(BiographyTeamAgent):
         self.tools = {
             # Summary tools
             "update_last_meeting_summary": UpdateLastMeetingSummary(
-                session_note=self._session_note
+                session_agenda=self._session_agenda
             ),
             "update_user_portrait": UpdateUserPortrait(
-                session_note=self._session_note
+                session_agenda=self._session_agenda
             ),
             # Question tools
             "add_interview_question": AddInterviewQuestion(
-                session_note=self._session_note,
+                session_agenda=self._session_agenda,
                 historical_question_bank=self.interview_session.historical_question_bank,
                 proposer="SessionCoordinator"
             ),
             "delete_interview_question": DeleteInterviewQuestion(
-                session_note=self._session_note
+                session_agenda=self._session_agenda
             ),
             "recall": Recall(
                 memory_bank=self.interview_session.memory_bank
@@ -97,8 +97,8 @@ class SessionCoordinator(BiographyTeamAgent):
 
         return topics
 
-    async def regenerate_session_note(self, follow_up_questions: List[Dict]):
-        """Update session notes with new memories and follow-up questions."""
+    async def regenerate_session_agenda(self, follow_up_questions: List[Dict]):
+        """Update session agenda with new memories and follow-up questions."""
         new_memories: List[Memory] = await self.interview_session \
             .get_session_memories(include_processed=True)
 
@@ -124,8 +124,6 @@ class SessionCoordinator(BiographyTeamAgent):
                        tag="summary_response", content=response)
 
         self.handle_tool_calls(response)
-        self.add_event(sender=self.name,
-                       tag="summary_response_handled", content=response)
 
     async def _rebuild_interview_questions(
             self, 
@@ -134,8 +132,8 @@ class SessionCoordinator(BiographyTeamAgent):
         ):
         """Rebuild interview questions list with only essential questions."""
         # Store old questions and notes and clear them
-        old_questions_and_notes = self._session_note.get_questions_and_notes_str()
-        self._session_note.clear_questions()
+        old_questions_and_notes = self._session_agenda.get_questions_and_notes_str()
+        self._session_agenda.clear_questions()
 
         iterations = 0
         previous_tool_call = None
@@ -228,7 +226,7 @@ class SessionCoordinator(BiographyTeamAgent):
             "update_last_meeting_summary", "update_user_portrait"]
         return SESSION_SUMMARY_PROMPT.format(
             new_memories="\n\n".join(m.to_xml() for m in new_memories),
-            user_portrait=self._session_note.get_user_portrait_str(),
+            user_portrait=self._session_agenda.get_user_portrait_str(),
             tool_descriptions=self.get_tools_description(summary_tool_names)
         )
 
@@ -267,6 +265,7 @@ class SessionCoordinator(BiographyTeamAgent):
             ]),
             event_stream="\n".join(events[-10:]),
             similar_questions_warning=warning,
-            warning_output_format=WARNING_OUTPUT_FORMAT if similar_questions else "",
+            warning_output_format=QUESTION_WARNING_OUTPUT_FORMAT if \
+                     similar_questions else "",
             tool_descriptions=self.get_tools_description(question_tool_names)
         )

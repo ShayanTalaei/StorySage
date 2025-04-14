@@ -36,8 +36,6 @@ class Interviewer(BaseAgent, Participant):
     '''Inherits from BaseAgent and Participant. Participant is a class that all agents in the interview session inherit from.'''
 
     def __init__(self, config: InterviewerConfig, interview_session: 'InterviewSession'):
-        if not BaseAgent.use_baseline: 
-            config["model_name"] = "gemini-1.5-pro"
         BaseAgent.__init__(
             self, name="Interviewer",
             description="The agent that holds the interview and asks questions.",
@@ -82,6 +80,8 @@ class Interviewer(BaseAgent, Participant):
             role=self.title,
             content=response
         )
+        self.add_event(sender=self.name, tag="message",
+                       content=response)
 
     async def on_message(self, message: Message):
 
@@ -101,10 +101,7 @@ class Interviewer(BaseAgent, Participant):
             self.add_event(sender=self.name, tag="llm_prompt", content=prompt)
             response = await self.call_engine_async(prompt)
             print(f"{GREEN}Interviewer:\n{response}{RESET}")
-
-            self.add_event(sender=self.name, tag="llm_response",
-                           content=response)
-            
+   
             try:
                 await self.handle_tool_calls_async(response)
             except Exception as e:
@@ -128,10 +125,10 @@ class Interviewer(BaseAgent, Participant):
         main_prompt = get_prompt(prompt_type)
 
         # Get user portrait and last meeting summary from session note
-        user_portrait_str = self.interview_session.session_note \
+        user_portrait_str = self.interview_session.session_agenda \
             .get_user_portrait_str()
         last_meeting_summary_str = (
-            self.interview_session.session_note
+            self.interview_session.session_agenda
             .get_last_meeting_summary_str()
         )
 
@@ -185,7 +182,7 @@ class Interviewer(BaseAgent, Participant):
         
         # Only add questions_and_notes for normal mode
         if not self.use_baseline:
-            questions_and_notes_str = self.interview_session.session_note \
+            questions_and_notes_str = self.interview_session.session_agenda \
                 .get_questions_and_notes_str(
                     hide_answered="qa"
                 )

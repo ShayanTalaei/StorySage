@@ -6,7 +6,7 @@ from langchain_core.tools import BaseTool, ToolException
 from pydantic import BaseModel, Field, SkipValidation
 
 from content.memory_bank.memory_bank_base import MemoryBankBase, Memory
-from content.session_note.session_note import SessionNote
+from content.session_agenda.session_agenda import SessionAgenda
 from content.question_bank.question_bank_base import QuestionBankBase
 
 
@@ -24,10 +24,10 @@ class UpdateSessionNoteInput(BaseModel):
 
 class UpdateSessionNote(BaseTool):
     """Tool for updating the session note."""
-    name: str = "update_session_note"
+    name: str = "update_session_agenda"
     description: str = "A tool for updating the session note."
     args_schema: Type[BaseModel] = UpdateSessionNoteInput
-    session_note: SessionNote = Field(...)
+    session_agenda: SessionAgenda = Field(...)
 
     def _run(
         self,
@@ -35,7 +35,7 @@ class UpdateSessionNote(BaseTool):
         note: str,
         run_manager: Optional[CallbackManagerForToolRun] = None,
     ) -> str:
-        self.session_note.add_note(question_id=str(question_id), note=note)
+        self.session_agenda.add_note(question_id=str(question_id), note=note)
         target_question = question_id if question_id else "additional note"
         return f"Successfully added the note for `{target_question}`."
 

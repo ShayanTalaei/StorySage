@@ -127,19 +127,24 @@ class MemoryBankBase(ABC):
         pass
     
     @classmethod
-    def load_from_file(cls, user_id: str) -> 'MemoryBankBase':
+    def load_from_file(cls, user_id: str, base_path: Optional[str] = None) -> 'MemoryBankBase':
         """Load a memory bank from file.
         
         Args:
             user_id: ID of the user whose memories to load
+            base_path: Optional base path to load from (e.g. session directory)
             
         Returns:
             MemoryBankBase: Loaded memory bank instance
         """
         memory_bank = cls()
         
-        content_filepath = os.getenv("LOGS_DIR") + \
-            f"/{user_id}/memory_bank_content.json"
+        # Determine content filepath based on base_path
+        if base_path:
+            content_filepath = os.path.join(base_path, "memory_bank_content.json")
+        else:
+            content_filepath = os.getenv("LOGS_DIR") + \
+                f"/{user_id}/memory_bank_content.json"
         
         try:
             # Load content
@@ -152,7 +157,7 @@ class MemoryBankBase(ABC):
                 memory_bank.memories.append(memory)
                 
             # Load implementation-specific data
-            memory_bank._load_implementation_specific(user_id)
+            memory_bank._load_implementation_specific(user_id, base_path)
                 
         except FileNotFoundError:
             # Create new empty memory bank if files don't exist
@@ -161,11 +166,12 @@ class MemoryBankBase(ABC):
         return memory_bank
     
     @abstractmethod
-    def _load_implementation_specific(self, user_id: str) -> None:
+    def _load_implementation_specific(self, user_id: str, base_path: Optional[str] = None) -> None:
         """Load implementation-specific data (e.g., embeddings, graph structure).
         
         Args:
             user_id: ID of the user whose data to load
+            base_path: Optional base path to load from (e.g. session directory)
         """
         pass
     

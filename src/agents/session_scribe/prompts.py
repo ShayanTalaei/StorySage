@@ -9,7 +9,7 @@ def get_prompt(prompt_type: str):
             "INSTRUCTIONS": UPDATE_MEMORY_QUESTION_BANK_INSTRUCTIONS,
             "OUTPUT_FORMAT": UPDATE_MEMORY_QUESTION_BANK_OUTPUT_FORMAT
         })
-    elif prompt_type == "update_session_note":
+    elif prompt_type == "update_session_agenda":
         return format_prompt(UPDATE_SESSION_NOTE_PROMPT, {
             "CONTEXT": UPDATE_SESSION_NOTE_CONTEXT,
             "EVENT_STREAM": UPDATE_SESSION_NOTE_EVENT,
@@ -231,7 +231,7 @@ UPDATE_SESSION_NOTE_PROMPT = """
 UPDATE_SESSION_NOTE_CONTEXT = """
 <session_scribe_persona>
 You are a session scribe who works as the assistant of the interviewer. You observe conversations between the interviewer and the user.
-Your job is to update the session notes with relevant information from the user's most recent message.
+Your job is to update the session agenda with relevant information from the user's most recent message.
 You should add concise notes to the appropriate questions in the session topics.
 If you observe any important information that doesn't fit the existing questions, add it as an additional note.
 Be thorough but concise in capturing key information while avoiding redundant details.
@@ -239,8 +239,8 @@ Be thorough but concise in capturing key information while avoiding redundant de
 
 <context>
 Right now, you are in an interview session with the interviewer and the user.
-Your task is to process ONLY the most recent user message and update session notes with any new, relevant information.
-You have access to the session notes containing topics and questions to be discussed.
+Your task is to process ONLY the most recent user message and update session agenda with any new, relevant information.
+You have access to the session agenda containing topics and questions to be discussed.
 </context>
 
 <user_portrait>
@@ -269,14 +269,14 @@ Reminder:
 """
 
 QUESTIONS_AND_NOTES_UPDATE_SESSION_NOTES = """
-Here are the questions and notes in the session notes:
+Here are the questions and notes in the session agenda:
 <questions_and_notes>
 {questions_and_notes}
 </questions_and_notes>
 """
 
 SESSION_NOTE_TOOL = """
-Here are the tools that you can use to manage session notes:
+Here are the tools that you can use to manage session agenda:
 <tool_descriptions>
 {tool_descriptions}
 </tool_descriptions>
@@ -287,7 +287,7 @@ UPDATE_SESSION_NOTE_INSTRUCTIONS = """
 # Session Note Update
 ## Process:
 1. Focus ONLY on the most recent user message in the conversation history
-2. Review existing session notes, paying attention to:
+2. Review existing session agenda, paying attention to:
    - Which questions are marked as "Answered"
    - What information is already captured in existing notes
 
@@ -301,14 +301,14 @@ UPDATE_SESSION_NOTE_INSTRUCTIONS = """
 
 ## Adding Notes:
 For each piece of new information worth storing:
-1. Use the update_session_note tool
+1. Use the update_session_agenda tool
 2. Include:
    - [ID] tag with question number for relevant questions
    - Leave ID empty for valuable information not tied to specific questions
 3. Write concise, fact-focused notes
 
 ## Tool Usage:
-- Make separate update_session_note calls for each distinct piece of new information
+- Make separate update_session_agenda calls for each distinct piece of new information
 - Skip if:
   - The question is marked as "Answered"
   - The information is already captured in existing notes
@@ -321,10 +321,10 @@ UPDATE_SESSION_NOTE_OUTPUT_FORMAT = """
 
 If you identify information worth storing, use the following format:
 <tool_calls>
-    <update_session_note>
+    <update_session_agenda>
         <question_id>...</question_id>
         <note>...</note>
-    </update_session_note>
+    </update_session_agenda>
     ...
 </tool_calls>
 
@@ -342,11 +342,11 @@ CONSIDER_AND_PROPOSE_FOLLOWUPS_PROMPT = """
 
 {QUESTIONS_AND_NOTES}
 
-{similar_questions_warning}
-
 {TOOL_DESCRIPTIONS}
 
 {INSTRUCTIONS}
+
+{similar_questions_warning}
 
 {OUTPUT_FORMAT}
 """
@@ -418,7 +418,7 @@ A) If you need more context:
 B) If you have sufficient context, analyze:
    - Recent conversation and user's answers
    - Memory recall results
-   - Existing questions in session notes
+   - Existing questions in session agenda
    - Previous questions asked in conversation
    - Questions already marked as answered
 
@@ -489,7 +489,7 @@ Examples of Good Tangential Questions:
 - Explores genuinely new information
 - Follow parent-child ID structure
 - Avoid:
-  * Questions similar to ones already in session notes
+  * Questions similar to ones already in session agenda
   * Questions already asked in conversation
   * Questions marked as answered
   * Unrelated topics
@@ -503,7 +503,7 @@ Examples of Good Tangential Questions:
 
 **Do Not Propose Questions That Are:**
 1. Similar to Existing Questions
-   - Check current session notes in `<questions_and_notes>`
+   - Check current session agenda in `<questions_and_notes>`
    - Review for similar content or intent
 
 2. Already Asked in Conversation
@@ -546,7 +546,7 @@ Your reasoning process on reflecting on the available information and deciding o
         <topic>Topic name</topic>
         <parent_id>ID of the parent question</parent_id>
         <parent_text>Full text of the parent question</parent_text>
-        <question_id>ID in proper parent-child format</question_id>
+        <question_id>ID in proper parent-child format. NEVER include a level 5 question id like '1.1.1.1.1'</question_id>
         <question>[FACT-GATHERING] or [DEEPER] or [TANGENTIAL] Your question here</question>
     </add_interview_question>
     ...

@@ -124,6 +124,10 @@ New memories collected from the user interview:
 - How to maintain narrative flow and coherence
 - For new sections, ensure sequential numbering (cannot create section 3 if 1 and 2 don't exist)
 
+### Reminders:
+- For basic information like the user's name, append it to an main section rather than creating a dedicated introduction section
+- Avoid creating new sections with fewer than 3 memories to maintain substantive content
+
 ## 2. Add Follow-Up Questions:
 - Aim to further explore the user's background
 - Be clear, direct, and concise
@@ -294,7 +298,7 @@ Important:
     <add_plan>
         <action_type>user_add</action_type>
         <section_path>{section_path}</section_path>
-        <update_plan>...</update_plan>
+        <plan_content>...</plan_content>
     </add_plan>
 </tool_calls>
 </output_format>
@@ -314,11 +318,11 @@ Provide your response using tool calls:
     <add_plan>
         <action_type>user_update</action_type>
         <section_title>{section_title}</section_title>
-        <update_plan>
+        <plan_content>
         Create a plan to to include:
         1. Context Summary: ...
         2. Action Plan: ...
-        </update_plan>
+        </plan_content>
     </add_plan>
 </tool_calls>
 """

@@ -11,14 +11,14 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from content.question_bank.question_bank_base import QuestionBankBase
-from content.session_note.session_note import SessionNote
+from content.session_agenda.session_agenda import SessionAgenda
 from agents.biography_team.models import FollowUpQuestion
 
 # Create a global thread pool executor for background evaluation tasks
 # _thread_pool = ThreadPoolExecutor(max_workers=4)
 
 """
-Shared tools for updating the session notes:
+Shared tools for updating the session agenda:
 - Session scribe
 - Session coordinator
 """
@@ -26,7 +26,7 @@ Shared tools for updating the session notes:
 class AddInterviewQuestionInput(BaseModel):
     topic: str = Field(description="The topic category for the question (e.g., 'Career', 'Education')")
     question: str = Field(description="The actual question text")
-    question_id: str = Field(description="The ID for the question (e.g., '1', '1.1', '2.3')")
+    question_id: str = Field(description="The ID for the question (e.g., '1', '1.1', '2.3'). Max level is 4. NEVER include a level 5 question id like '1.1.1.1.1'.")
     parent_id: Optional[str] = Field(default=None, description="The ID of the parent question (e.g., '1', '2', etc.). No need to include if it is a top-level question.")
     parent_text: Optional[str] = Field(default=None, description="The text of the parent question. No need to include if it is a top-level question.")
 
@@ -34,10 +34,10 @@ class AddInterviewQuestion(BaseTool):
     """Tool for adding new interview questions."""
     name: str = "add_interview_question"
     description: str = (
-        "Adds a new interview question to the session notes. "
+        "Adds a new interview question to the session agenda. "
     )
     args_schema: Type[BaseModel] = AddInterviewQuestionInput
-    session_note: SessionNote = Field(...)
+    session_agenda: SessionAgenda = Field(...)
     historical_question_bank: QuestionBankBase = Field(...)
     proposed_question_bank: Optional[QuestionBankBase] = Field(default=None)
     proposer: str = Field(...)
@@ -60,7 +60,7 @@ class AddInterviewQuestion(BaseTool):
             if self.proposed_question_bank:
                 self.proposed_question_bank.add_question(question)
 
-            self.session_note.add_interview_question(
+            self.session_agenda.add_interview_question(
                 topic=str(topic),
                 question=str(question).strip(),
                 question_id=str(question_id)
@@ -90,7 +90,7 @@ Shared tools for proposing follow-up questions by:
 - Planner
 - Section writer
 
-* Note: This tool only proposes follow-up questions, it does not really add them to the session notes, which is different from the add_interview_question tool.
+* Note: This tool only proposes follow-up questions, it does not really add them to the session agenda, which is different from the add_interview_question tool.
 """
 
 class ProposeFollowUpInput(BaseModel):

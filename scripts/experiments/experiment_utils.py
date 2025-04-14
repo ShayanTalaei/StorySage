@@ -208,13 +208,13 @@ def run_experiment(user_id: str, model_name: str, use_baseline: bool, max_turns:
     
     # Set up environment variables and directories
     if use_baseline:
-        logs_dir = f"logs_{model_name.replace('-', '_')}"
-        data_dir = f"data_{model_name.replace('-', '_')}"
+        logs_dir = f"logs_{model_name.split('/')[-1].replace('-', '_')}"
+        data_dir = f"data_{model_name.split('/')[-1].replace('-', '_')}"
         update_env_file(model_name, use_baseline, logs_dir, data_dir)
     else:
         logs_dir = "logs"
         data_dir = "data"
-        update_env_file(model_name, use_baseline)
+        update_env_file(model_name, use_baseline, logs_dir, data_dir)
     
     # Create directories if they don't exist
     os.makedirs(logs_dir, exist_ok=True)

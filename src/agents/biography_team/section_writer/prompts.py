@@ -113,9 +113,9 @@ The structure of the existing biography:
 {relevant_memories}
 </relevant_memories>
 
-<update_plan>
-{update_plan}
-</update_plan>
+<plan_content>
+{plan_content}
+</plan_content>
 </input_context>
 """
 
@@ -255,7 +255,7 @@ For Existing Sections:
 - Use update_section tool
 - Integrate new memories with existing content
 - Maintain narrative coherence
-- Preserve existing memory citations
+- Preserve existing memory citations. Don't change the existing citations. Keep it exactly as it is.
 - Add new citations for new content
 - Keep only the content - section structure is handled separately
 
@@ -278,8 +278,8 @@ For Existing Sections:
 2. Citation Format
 ✓ Do:
 - If you are provided new memories to include, place memory citations at the end of sentences using [memory_id] format
-- Multiple citations can be used if a statement draws from multiple memories: [memory_1][memory_2]
-- Place citations before punctuation: "This happened [memory_1]."
+- Multiple citations can be used if a statement draws from multiple memories: [MEM_04010037_2B6][MEM_04010037_2B6]
+- Place citations before punctuation: "This happened [MEM_04010037_2B6]."
 - Group related information from the same memory to avoid repetitive citations
 
 ✗ Don't:
@@ -407,9 +407,9 @@ The structure of the existing biography:
 {section_path}
 </section_path>
 
-<update_plan>
-{update_plan}
-</update_plan>
+<plan_content>
+{plan_content}
+</plan_content>
 
 Memory search results from the previous recalls:
 <event_stream>
@@ -510,9 +510,9 @@ The structure of the existing biography:
 {current_content}
 </current_content>
 
-<update_plan>
-{update_plan}
-</update_plan>
+<plan_content>
+{plan_content}
+</plan_content>
 
 Memory search results from the previous recalls:
 <event_stream>

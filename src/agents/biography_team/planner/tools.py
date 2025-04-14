@@ -37,7 +37,7 @@ class AddPlanInput(BaseModel):
             "Empty list [] is also acceptable."
         )
     )
-    update_plan: str = Field(description="Detailed plan for updating/creating the section")
+    plan_content: str = Field(description="Detailed plan for updating/creating the section")
 
 class AddPlan(BaseTool):
     """Tool for adding a biography update plan."""
@@ -70,20 +70,26 @@ class AddPlan(BaseTool):
     def _run(
         self,
         action_type: str,
-        update_plan: str,
+        plan_content: str,
         section_path: Optional[str] = "",
         section_title: Optional[str] = "",
         memory_ids: Optional[Union[List[str], str]] = [],
         run_manager: Optional[CallbackManagerForToolRun] = None,
     ) -> str:
         try:
-            # processed_memory_ids = self._process_memory_ids(memory_ids or [])
+            # Validate that at least one of section_path or section_title is provided
+            if not section_path and not section_title:
+                raise ToolException(
+                    "Failed to add plan: No section specified. This may be due to:\n"
+                    "1. Missing section_path and section_title in the tool call\n"
+                    "2. XML parsing error from mismatched tags causing loss of section data"
+                )
             
             plan = {
                 "section_path": section_path,
                 "section_title": section_title,
                 "memory_ids": memory_ids,
-                "update_plan": update_plan
+                "plan_content": plan_content
             }
             self.on_plan_added(Plan(**plan))
             return f"Successfully added plan for {section_title or section_path}"

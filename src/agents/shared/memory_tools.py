@@ -39,7 +39,7 @@ class Recall(BaseTool):
                 raise ToolException("No memory bank available")
 
             memories: List[MemorySearchResult] = self.memory_bank.search_memories(query)
-            memories_str = "\n".join([f"<memory>{memory.text}</memory>" for memory in memories])
+            memories_str = "\n".join([memory.to_xml(include_source=True) for memory in memories])
             return f"""\
 <memory_search>
 <query>{query}</query>

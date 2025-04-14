@@ -27,7 +27,7 @@ class QuestionBankBase(ABC):
     
     def __init__(self):
         self.questions: List[Question] = []
-        self.engine = get_engine("gpt-4o")
+        self.eval_engine = get_engine("gpt-4o")
         self.session_id: Optional[str] = None
     
     def set_session_id(self, session_id: str) -> None:
@@ -183,9 +183,6 @@ class QuestionBankBase(ABC):
 
         # Get similar questions
         similar_results = self.search_questions(target_question)
-        
-        if not similar_results:
-            return (False, "", "No similar questions found")
             
         # Format similar questions for prompt
         similar_questions = "\n".join([
@@ -196,11 +193,12 @@ class QuestionBankBase(ABC):
         # Prepare prompt
         prompt = QUESTION_SIMILARITY_PROMPT.format(
             target_question=target_question,
-            similar_questions=similar_questions
+            similar_questions=similar_questions if similar_questions \
+                else "No similar questions found"
         )
         
         # Get evaluation from LLM and parse response
-        output = invoke_engine(self.engine, prompt)
+        output = invoke_engine(self.eval_engine, prompt)
 
         if logger:
             logger.log_prompt_response(
@@ -211,7 +209,7 @@ class QuestionBankBase(ABC):
         
         # Parse XML response
         root = ET.fromstring(output)
-        is_duplicate = root.find('is_duplicate').text.lower() == 'true'
+        is_duplicate = "true" in root.find('is_duplicate').text.lower()
         matched_question = root.find('matched_question').text
         explanation = root.find('explanation').text
         

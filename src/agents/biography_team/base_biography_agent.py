@@ -1,7 +1,7 @@
 from typing import Dict, TYPE_CHECKING, Optional, TypedDict, ClassVar
 from agents.base_agent import BaseAgent
 from content.memory_bank.memory_bank_vector_db import VectorMemoryBank
-from content.session_note.session_note import SessionNote
+from content.session_agenda.session_agenda import SessionAgenda
 from interview_session.session_models import Participant
 from content.biography.biography import Biography
 
@@ -31,10 +31,10 @@ class BiographyTeamAgent(BaseAgent, Participant):
         if interview_session:
             Participant.__init__(self, title=name,
                                  interview_session=interview_session)        
-            self._session_note = interview_session.session_note
+            self._session_agenda = interview_session.session_agenda
             self._memory_bank = interview_session.memory_bank
         else:
-            self._session_note = SessionNote.get_last_session_note(
+            self._session_agenda = SessionAgenda.get_last_session_agenda(
                 self.config.get("user_id")
             )
             self._memory_bank = VectorMemoryBank.load_from_file(
