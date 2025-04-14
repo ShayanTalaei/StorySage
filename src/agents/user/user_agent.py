@@ -7,7 +7,7 @@ from agents.base_agent import BaseAgent
 from interview_session.user.user import User
 from interview_session.session_models import Message
 from interview_session.session_models import MessageType
-from content.session_note.session_note import SessionNote
+from content.session_agenda.session_agenda import SessionAgenda
 from utils.logger.session_logger import SessionLogger
 dotenv.load_dotenv(override=True)
 
@@ -50,13 +50,17 @@ class UserAgent(BaseAgent, User):
             )
         
         # Get historical session summaries
-        self.session_history = SessionNote.get_historical_session_summaries(user_id)
+        self.session_history = \
+            SessionAgenda.get_historical_session_summaries(user_id)
 
         # Load conversational style
         conv_style_path = os.path.join(
             os.getenv("USER_AGENT_PROFILES_DIR"), f"{user_id}/conversation.md")
-        with open(conv_style_path, 'r') as f:
-            self.conversational_style = f.read()
+        if os.path.exists(conv_style_path):
+            with open(conv_style_path, 'r') as f:
+                self.conversational_style = f.read()
+        else:
+            self.conversational_style = ""
 
     async def on_message(self, message: Message):
         """Handle incoming messages by generating a response and notifying 

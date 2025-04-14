@@ -12,7 +12,7 @@ sys.path.append(src_dir)
 load_dotenv()
 
 # Now import modules and use environment variables
-from content.session_note.session_note import SessionNote
+from content.session_agenda.session_agenda import SessionAgenda
 
 def get_session_ids(user_id: str) -> list[int]:
     """
@@ -24,7 +24,7 @@ def get_session_ids(user_id: str) -> list[int]:
     Returns:
         list[int]: List of available session IDs
     """
-    session_dir = Path(os.getenv("LOGS_DIR", "logs")) / user_id / "session_notes"
+    session_dir = Path(os.getenv("LOGS_DIR", "logs")) / user_id / "session_agenda"
     if not session_dir.exists():
         return []
     
@@ -42,7 +42,7 @@ def get_session_ids(user_id: str) -> list[int]:
     
     return sorted(session_ids)
 
-def visualize_session_note(user_id: str, session_id: int) -> None:
+def visualize_session_agenda(user_id: str, session_id: int) -> None:
     """
     Load and visualize topics from a session note file.
     
@@ -50,18 +50,18 @@ def visualize_session_note(user_id: str, session_id: int) -> None:
         user_id (str): The user ID (e.g., 'maggie')
         session_id (int): The session number
     """
-    file_path = Path(os.getenv("LOGS_DIR", "logs")) / user_id / "session_notes" / f"session_{session_id}.json"
+    file_path = Path(os.getenv("LOGS_DIR", "logs")) / user_id / "session_agenda" / f"session_{session_id}.json"
     
     try:
         # Load the session note
-        session_note = SessionNote.load_from_file(str(file_path))
+        session_agenda = SessionAgenda.load_from_file(str(file_path))
         
         # Print basic session info
-        print(f"\nSession {session_note.session_id} - {session_note.user_id}")
+        print(f"\nSession {session_agenda.session_id} - {session_agenda.user_id}")
         print("=" * 50)
         
         # Visualize the topics
-        print(session_note.visualize_topics())
+        print(session_agenda.visualize_topics())
         
     except FileNotFoundError:
         print(f"Error: Session note file not found at {file_path}")
@@ -69,7 +69,7 @@ def visualize_session_note(user_id: str, session_id: int) -> None:
         print(f"Error processing session note: {str(e)}")
 
 def main():
-    parser = argparse.ArgumentParser(description="Visualize topics from session notes")
+    parser = argparse.ArgumentParser(description="Visualize topics from session agenda")
     parser.add_argument("--user", "-u", type=str, default="maggie",
                        help="User ID (default: maggie)")
     parser.add_argument("--session", "-s", type=int,
@@ -87,7 +87,7 @@ def main():
     session_ids = get_session_ids(args.user)
     
     if not session_ids:
-        print(f"No session notes found for user '{args.user}'")
+        print(f"No session agenda found for user '{args.user}'")
         return
         
     print(f"Found {len(session_ids)} sessions for user '{args.user}'")
@@ -96,15 +96,15 @@ def main():
         # Visualize only the latest session
         latest_session = max(session_ids)
         print(f"\nVisualizing latest session ({latest_session})")
-        visualize_session_note(args.user, latest_session)
+        visualize_session_agenda(args.user, latest_session)
     elif args.session is not None:
         # Visualize specific session
-        visualize_session_note(args.user, args.session)
+        visualize_session_agenda(args.user, args.session)
     else:
         # Visualize all available sessions
         for session_id in session_ids:
             print(f"\nVisualizing session {session_id}")
-            visualize_session_note(args.user, session_id)
+            visualize_session_agenda(args.user, session_id)
             print("\n" + "=" * 50)
 
 if __name__ == "__main__":

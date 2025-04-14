@@ -14,7 +14,7 @@ from interview_session.session_models import Message, MessageType, Participant
 from agents.interviewer.interviewer import Interviewer, InterviewerConfig, TTSConfig
 from agents.session_scribe.session_scribe import SessionScribe, SessionScribeConfig
 from agents.user.user_agent import UserAgent
-from content.session_note.session_note import SessionNote
+from content.session_agenda.session_agenda import SessionAgenda
 from utils.data_process import save_feedback_to_csv
 from utils.logger.session_logger import SessionLogger, setup_logger
 from utils.logger.evaluation_logger import EvaluationLogger
@@ -86,8 +86,8 @@ class InterviewSession:
         self.user_id = user_config.get("user_id", "default_user")
 
         # Session note setup
-        self.session_note = SessionNote.get_last_session_note(self.user_id)
-        self.session_id = self.session_note.session_id + 1
+        self.session_agenda = SessionAgenda.get_last_session_agenda(self.user_id)
+        self.session_id = self.session_agenda.session_id + 1
 
         # Memory bank setup
         memory_bank_type = bank_config.get("memory_bank_type", "vector_db")
@@ -376,7 +376,7 @@ class InterviewSession:
                 # Wait for biography update to complete if it's in progress
                 start_time = time.time()
                 while (self.biography_orchestrator.biography_update_in_progress or 
-                       self.biography_orchestrator.session_note_update_in_progress):
+                       self.biography_orchestrator.session_agenda_update_in_progress):
                     await asyncio.sleep(0.1)
                     if time.time() - start_time > 300:  # 5 minutes timeout
                         SessionLogger.log_to_file(

@@ -2,13 +2,13 @@ import os
 import json
 import dotenv
 
-from content.session_note.interview_question import InterviewQuestion
+from content.session_agenda.interview_question import InterviewQuestion
 
 dotenv.load_dotenv(override=True)
 
 LOGS_DIR = os.getenv("LOGS_DIR")
 
-class SessionNote:
+class SessionAgenda:
     
     def __init__(self, user_id, session_id, data: dict=None):
         self.user_id = user_id
@@ -41,7 +41,7 @@ class SessionNote:
     
     @classmethod
     def load_from_file(cls, file_path):
-        """Loads a SessionNote from a JSON file."""
+        """Loads a SessionAgenda from a JSON file."""
         with open(file_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
             
@@ -49,11 +49,11 @@ class SessionNote:
         user_id = data.pop('user_id', '')
         session_id = data.pop('session_id', '')
         
-        # Create new SessionNote instance
+        # Create new SessionAgenda instance
         return cls(user_id, session_id, data)
     
     @classmethod
-    def initialize_session_note(cls, user_id):
+    def initialize_session_agenda(cls, user_id):
         """Creates a new session note for the first session."""
         session_id = 0
         data = {
@@ -106,11 +106,11 @@ class SessionNote:
                 # ]
             }
         }
-        session_note = cls(user_id, session_id, data)
-        return session_note
+        session_agenda = cls(user_id, session_id, data)
+        return session_agenda
     
     @classmethod
-    def get_last_session_note(cls, user_id):
+    def get_last_session_agenda(cls, user_id):
         """Retrieves the last session note for a user."""
         base_path = os.path.join(LOGS_DIR, user_id, "execution_logs")
         if not os.path.exists(base_path):
@@ -121,19 +121,19 @@ class SessionNote:
                        if d.startswith('session_') and \
                        os.path.isdir(os.path.join(base_path, d))]
         if not session_dirs:
-            return cls.initialize_session_note(user_id)
+            return cls.initialize_session_agenda(user_id)
         
         # Sort by session number
         session_dirs.sort(key=lambda x: int(x.split('_')[1]), reverse=True)
         latest_dir = os.path.join(base_path, session_dirs[0])
-        latest_file = os.path.join(latest_dir, "session_note.json")
+        latest_file = os.path.join(latest_dir, "session_agenda.json")
         
         if os.path.exists(latest_file):
             return cls.load_from_file(latest_file)
-        return cls.initialize_session_note(user_id)
+        return cls.initialize_session_agenda(user_id)
     
     def add_interview_question(self, topic: str, question: str, question_id: str):
-        """Adds a new interview question to the session notes.
+        """Adds a new interview question to the session agenda.
         
         Args:
             topic: The topic category for the question (e.g. "personal", "professional")
@@ -280,23 +280,23 @@ class SessionNote:
         return current
         
     def save(self, save_type: str="original"):
-        """Saves the SessionNote to a JSON file.
+        """Saves the SessionAgenda to a JSON file.
         
         Args:
             save_type: How to save the note:
-                - "original": Save as session_note.json in session_X directory
-                - "updated": Save as session_note_updated.json in same directory
-                - "next_version": Save as session_note.json in next session directory
+                - "original": Save as session_agenda.json in session_X directory
+                - "updated": Save as session_agenda_updated.json in same directory
+                - "next_version": Save as session_agenda.json in next session directory
         """
         # Create path to session directory
         base_path = os.path.join(LOGS_DIR, self.user_id, "execution_logs")
-        file_name = "session_note.json"
+        file_name = "session_agenda.json"
         save_session_id = self.session_id
         
         if save_type == "original":
             pass
         elif save_type == "updated":
-            file_name = "session_note_updated.json"
+            file_name = "session_agenda_updated.json"
         elif save_type == "next_version":
             save_session_id += 1
         else:
@@ -489,7 +489,7 @@ class SessionNote:
         summaries = []
         for dir_name in session_dirs:
             session_id = int(dir_name.split('_')[1])
-            file_path = os.path.join(base_path, dir_name, "session_note.json")
+            file_path = os.path.join(base_path, dir_name, "session_agenda.json")
             
             if os.path.exists(file_path):
                 # Load the session note

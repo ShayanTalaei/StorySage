@@ -125,10 +125,10 @@ class Interviewer(BaseAgent, Participant):
         main_prompt = get_prompt(prompt_type)
 
         # Get user portrait and last meeting summary from session note
-        user_portrait_str = self.interview_session.session_note \
+        user_portrait_str = self.interview_session.session_agenda \
             .get_user_portrait_str()
         last_meeting_summary_str = (
-            self.interview_session.session_note
+            self.interview_session.session_agenda
             .get_last_meeting_summary_str()
         )
 
@@ -182,7 +182,7 @@ class Interviewer(BaseAgent, Participant):
         
         # Only add questions_and_notes for normal mode
         if not self.use_baseline:
-            questions_and_notes_str = self.interview_session.session_note \
+            questions_and_notes_str = self.interview_session.session_agenda \
                 .get_questions_and_notes_str(
                     hide_answered="qa"
                 )

@@ -37,7 +37,7 @@ class SessionManager:
     
     def mark_session_ending(self, user_id: str):
         """Mark a session as ending but don't remove it yet
-           Writing subsequent session notes still in progress"""
+           Writing subsequent session agenda still in progress"""
         if user_id in self._active_sessions:
             self._ending_sessions.add(user_id)
 

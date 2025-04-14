@@ -179,7 +179,7 @@ class BiographyPlanner(BiographyTeamAgent):
         """
         # Create base parameters common to all prompt types
         base_params = {
-            "user_portrait": self._session_note \
+            "user_portrait": self._session_agenda \
                 .get_user_portrait_str(),
             "biography_structure": json.dumps(
                 self.get_biography_structure(), indent=2

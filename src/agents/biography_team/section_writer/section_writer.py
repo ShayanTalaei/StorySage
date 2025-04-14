@@ -169,7 +169,7 @@ class SectionWriter(BiographyTeamAgent):
                     filter=[{"sender": self.name, "tag": "recall_response"}]
                 )
                 return get_prompt("user_add").format(
-                    user_portrait=self._session_note \
+                    user_portrait=self._session_agenda \
                         .get_user_portrait_str(),
                     section_path=todo_item.section_path,
                     plan_content=todo_item.plan_content,
@@ -197,7 +197,7 @@ class SectionWriter(BiographyTeamAgent):
                 )
                 current_content = curr_section.content if curr_section else ""
                 return get_prompt("user_update").format(
-                    user_portrait=self._session_note \
+                    user_portrait=self._session_agenda \
                         .get_user_portrait_str(),
                     section_title=todo_item.section_title,
                     current_content=current_content,
@@ -267,7 +267,7 @@ class SectionWriter(BiographyTeamAgent):
                     )
                 
                 return get_prompt("normal").format(
-                    user_portrait=self._session_note \
+                    user_portrait=self._session_agenda \
                         .get_user_portrait_str(),
                     section_identifier_xml=section_identifier_xml,
                     current_content=current_content,
@@ -328,7 +328,7 @@ class SectionWriter(BiographyTeamAgent):
                     current_biography = await self.biography.export_to_markdown()
                     
                     # Get user portrait
-                    user_portrait = self._session_note \
+                    user_portrait = self._session_agenda \
                         .get_user_portrait_str()
                     
                     # Create error warning if needed
