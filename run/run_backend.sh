@@ -1,1 +1,0 @@
-python src/main.py --mode server --port 8000
