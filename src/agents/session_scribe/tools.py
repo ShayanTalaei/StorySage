@@ -23,9 +23,9 @@ class UpdateSessionNoteInput(BaseModel):
 
 
 class UpdateSessionNote(BaseTool):
-    """Tool for updating the session note."""
+    """Tool for updating the session agenda."""
     name: str = "update_session_agenda"
-    description: str = "A tool for updating the session note."
+    description: str = "A tool for updating the session agenda."
     args_schema: Type[BaseModel] = UpdateSessionNoteInput
     session_agenda: SessionAgenda = Field(...)
 

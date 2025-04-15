@@ -27,7 +27,7 @@ class BiographyOrchestrator:
         self._planner = BiographyPlanner(config, interview_session)
         self._section_writer = SectionWriter(config, interview_session)
 
-        # Session note agent if it is an post-interview update
+        # Session agent if it is an post-interview update
         if interview_session:
             self._session_coordinator = SessionCoordinator(
                 config, interview_session)
@@ -136,14 +136,14 @@ class BiographyOrchestrator:
                 self.biography_update_in_progress = False
 
     async def update_session_agenda_with_memories(self):
-        """Update just the session note."""
+        """Update just the session agenda."""
         try:
             self.session_agenda_update_in_progress = True
             
             # 1. Collect all follow-ups proposed in the session
             follow_up_questions = self._collect_follow_up_questions()
             
-            # 2. Regenerate session note with new memories and follow-ups
+            # 2. Regenerate session agenda with new memories and follow-ups
             await self._session_coordinator.regenerate_session_agenda(
                 follow_up_questions=follow_up_questions
             )
@@ -151,10 +151,10 @@ class BiographyOrchestrator:
         finally:
             self.session_agenda_update_in_progress = False
     
-    async def final_update_biography_and_notes(
+    async def final_update_biography_and_agenda(
             self, selected_topics: Optional[List[str]] = None,
             wait_time: Optional[float] = None):
-        """Update biography and session note with new memories."""
+        """Update biography and session agenda with new memories."""
         try:
             # Set both flags to indicate updates are in progress
             self.biography_update_in_progress = True
@@ -182,10 +182,10 @@ class BiographyOrchestrator:
             # Process biography updates
             await self.update_biography_with_memories(new_memories)
             
-            # Save session note of the current session
+            # Save session agenda of the current session
             self._interview_session.session_agenda.save(save_type="updated")
 
-            # Skip session note update if baseline is used or no new memories
+            # Skip session agenda update if baseline is used or no new memories
             if not new_memories or self._section_writer.use_baseline:
                 if new_memories:
                     await self._session_coordinator.update_session_summary(
@@ -193,7 +193,7 @@ class BiographyOrchestrator:
                 self._interview_session.session_agenda.save(save_type="next_version")
                 return
 
-            # Process session note update
+            # Process session agenda update
             session_agenda_task = asyncio.create_task(
                 self.update_session_agenda_with_memories()
             )
@@ -202,10 +202,10 @@ class BiographyOrchestrator:
             if selected_topics is not None:
                 self._session_coordinator.set_selected_topics(selected_topics)
 
-            # Wait for session note task to complete
+            # Wait for session agenda task to complete
             await session_agenda_task
 
-            # Save session note of the next session
+            # Save session agenda of the next session
             self._interview_session.session_agenda.save(save_type="next_version")
 
         finally:
@@ -246,7 +246,7 @@ class BiographyOrchestrator:
         return await self._session_coordinator.extract_session_topics()
 
     async def set_selected_topics(self, topics: List[str]):
-        """From user: Set the selected topics for session note update"""
+        """From user: Set the selected topics for session agenda update"""
         self._session_coordinator.set_selected_topics(topics)
         
     def _collect_follow_up_questions(self) -> List[Dict]:

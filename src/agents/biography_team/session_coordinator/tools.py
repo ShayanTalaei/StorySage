@@ -12,7 +12,7 @@ class UpdateLastMeetingSummaryInput(BaseModel):
 class UpdateLastMeetingSummary(BaseTool):
     """Tool for updating the last meeting summary."""
     name: str = "update_last_meeting_summary"
-    description: str = "Updates the last meeting summary in the session note"
+    description: str = "Updates the last meeting summary in the session agenda"
     args_schema: Type[BaseModel] = UpdateLastMeetingSummaryInput
     session_agenda: SessionAgenda = Field(...)
 

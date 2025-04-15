@@ -124,7 +124,7 @@ class Interviewer(BaseAgent, Participant):
         prompt_type = "baseline" if self.use_baseline else "normal"
         main_prompt = get_prompt(prompt_type)
 
-        # Get user portrait and last meeting summary from session note
+        # Get user portrait and last meeting summary from session agenda
         user_portrait_str = self.interview_session.session_agenda \
             .get_user_portrait_str()
         last_meeting_summary_str = (

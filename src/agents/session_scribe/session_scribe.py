@@ -288,7 +288,7 @@ class SessionScribe(BaseAgent, Participant):
         self.handle_tool_calls(response)
 
     async def _update_session_agenda(self) -> None:
-        """Update session note with user's response"""
+        """Update session agenda with user's response"""
         prompt = self._get_formatted_prompt("update_session_agenda")
         self.add_event(
             sender=self.name,

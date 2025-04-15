@@ -85,7 +85,7 @@ class InterviewSession:
         # User setup
         self.user_id = user_config.get("user_id", "default_user")
 
-        # Session note setup
+        # Session agenda setup
         self.session_agenda = SessionAgenda.get_last_session_agenda(self.user_id)
         self.session_id = self.session_agenda.session_id + 1
 
@@ -283,15 +283,7 @@ class InterviewSession:
         if role == "User":
             self._last_message_time = message.timestamp
         elif role == "Interviewer" and self._last_user_message is not None:
-            # Calculate and log latency when interviewer responds
-            self._log_response_latency(self._last_user_message, message)
             self._last_user_message = None
-            
-            # Evaluate question duplicate
-            if os.getenv("EVAL_MODE", "FALSE").lower() == "true":
-                self.historical_question_bank.evaluate_question_duplicate(
-                    message.content
-                )
         
         # Log feedback
         if message_type != MessageType.CONVERSATION:
@@ -370,7 +362,7 @@ class InterviewSession:
                                 f"Waiting for session scribe to finish processing..."
                             )
                         )
-                        await self.final_update_biography_and_notes(
+                        await self.final_update_biography_and_agenda(
                             selected_topics=[])
 
                 # Wait for biography update to complete if it's in progress
@@ -401,12 +393,7 @@ class InterviewSession:
                 self.historical_question_bank.save_to_file(self.user_id)
                 SessionLogger.log_to_file(
                     "execution_log", f"[COMPLETED] Question bank saved")
-                
-                # Log conversation statistics
-                await self._log_conversation_statistics()
-                SessionLogger.log_to_file(
-                    "execution_log", f"[COMPLETED] Conversation statistics logged")
-                
+                       
                 self.session_completed = True
                 SessionLogger.log_to_file(
                     "execution_log", f"[COMPLETED] Session completed")
@@ -497,14 +484,14 @@ class InterviewSession:
             self.conversation_summary = \
                 summarize_conversation(recent_messages)
     
-    async def final_update_biography_and_notes(self, selected_topics: Optional[List[str]] = None):
+    async def final_update_biography_and_agenda(self, selected_topics: Optional[List[str]] = None):
         """Trigger final biography update"""
         # Record start time
         start_time = time.time()
         
         try:
             # Proceed with the final update
-            await self.biography_orchestrator.final_update_biography_and_notes(
+            await self.biography_orchestrator.final_update_biography_and_agenda(
                 selected_topics=selected_topics,
                 wait_time=self._accumulated_auto_update_time if \
                     (BaseAgent.use_baseline and 
@@ -550,66 +537,3 @@ class InterviewSession:
         """Get the database session ID. Used for server mode"""
         return self.db_session_id
         
-    def _log_response_latency(self, user_message: Message, response_message: Message):
-        """Log the latency between user message and system response.
-        
-        Args:
-            user_message: The user's message
-            response_message: The system's response message
-        """
-        # Get the evaluation logger
-        eval_logger = EvaluationLogger.get_current_logger()
-        
-        # Get user message length
-        user_message_length = len(user_message.content)
-        
-        # Log the latency
-        eval_logger.log_response_latency(
-            message_id=user_message.id,
-            user_message_timestamp=user_message.timestamp,
-            response_timestamp=response_message.timestamp,
-            user_message_length=user_message_length
-        )
-
-    async def _log_conversation_statistics(self):
-        """Log statistics about the conversation."""
-        # Count turns
-        total_turns = len(self.chat_history)
-        
-        # Count tokens instead of characters
-        user_tokens = 0
-        system_tokens = 0
-        
-        for message in self.chat_history:
-            if message.role == "User":
-                user_tokens += len(self.tokenizer.encode(message.content))
-            else:
-                system_tokens += len(self.tokenizer.encode(message.content))
-        
-        total_tokens = user_tokens + system_tokens
-        
-        # Calculate conversation duration
-        start_time = getattr(self, 'start_time', None)
-        if start_time:
-            conversation_duration = (datetime.now() - start_time).total_seconds()
-        else:
-            # Use first message timestamp as fallback
-            if self.chat_history:
-                first_message_time = self.chat_history[0].timestamp
-                conversation_duration = (
-                    datetime.now() - first_message_time).total_seconds()
-            else:
-                conversation_duration = 0
-        
-        # Log statistics
-        eval_logger = EvaluationLogger.setup_logger(self.user_id, self.session_id)
-        eval_logger.log_conversation_statistics(
-            total_turns=total_turns,
-            total_tokens=total_tokens,
-            user_tokens=user_tokens,
-            system_tokens=system_tokens,
-            conversation_duration=conversation_duration,
-            total_memories=len(await \
-                               self.session_scribe.get_session_memories(
-                                   include_processed=True))
-        )

@@ -54,7 +54,7 @@ class SessionAgenda:
     
     @classmethod
     def initialize_session_agenda(cls, user_id):
-        """Creates a new session note for the first session."""
+        """Creates a new session agenda for the first session."""
         session_id = 0
         data = {
             "user_portrait": {
@@ -111,7 +111,7 @@ class SessionAgenda:
     
     @classmethod
     def get_last_session_agenda(cls, user_id):
-        """Retrieves the last session note for a user."""
+        """Retrieves the last session agenda for a user."""
         base_path = os.path.join(LOGS_DIR, user_id, "execution_logs")
         if not os.path.exists(base_path):
             os.makedirs(base_path)
@@ -340,7 +340,7 @@ class SessionAgenda:
         return "\n".join(output)
 
     def get_last_meeting_summary_str(self) -> str:
-        """Returns a formatted string representation of the session note."""
+        """Returns a formatted string representation of the session agenda."""
         if not self.last_meeting_summary:
             return ""
         return self.last_meeting_summary
@@ -415,7 +415,7 @@ class SessionAgenda:
         return "\n".join(self.additional_notes)
 
     def clear_questions(self):
-        """Clears all questions from the session note, 
+        """Clears all questions from the session agenda, 
         resetting it to an empty state."""
         # Clear all topics and questions
         self.topics = {}
@@ -492,7 +492,7 @@ class SessionAgenda:
             file_path = os.path.join(base_path, dir_name, "session_agenda.json")
             
             if os.path.exists(file_path):
-                # Load the session note
+                # Load the session agenda
                 with open(file_path, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                     summary = data.get('last_meeting_summary', '')

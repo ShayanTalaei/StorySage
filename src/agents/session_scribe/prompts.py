@@ -10,20 +10,20 @@ def get_prompt(prompt_type: str):
             "OUTPUT_FORMAT": UPDATE_MEMORY_QUESTION_BANK_OUTPUT_FORMAT
         })
     elif prompt_type == "update_session_agenda":
-        return format_prompt(UPDATE_SESSION_NOTE_PROMPT, {
-            "CONTEXT": UPDATE_SESSION_NOTE_CONTEXT,
-            "EVENT_STREAM": UPDATE_SESSION_NOTE_EVENT,
-            "QUESTIONS_AND_NOTES": QUESTIONS_AND_NOTES_UPDATE_SESSION_NOTES,
-            "TOOL_DESCRIPTIONS": SESSION_NOTE_TOOL,
-            "INSTRUCTIONS": UPDATE_SESSION_NOTE_INSTRUCTIONS,
-            "OUTPUT_FORMAT": UPDATE_SESSION_NOTE_OUTPUT_FORMAT
+        return format_prompt(UPDATE_SESSION_AGENDA_PROMPT, {
+            "CONTEXT": UPDATE_SESSION_AGENDA_CONTEXT,
+            "EVENT_STREAM": UPDATE_SESSION_AGENDA_EVENT,
+            "QUESTIONS_AND_NOTES": QUESTIONS_AND_NOTES,
+            "TOOL_DESCRIPTIONS": SESSION_AGENDA_TOOL,
+            "INSTRUCTIONS": UPDATE_SESSION_AGENDA_INSTRUCTIONS,
+            "OUTPUT_FORMAT": UPDATE_SESSION_AGENDA_OUTPUT_FORMAT
         })
     elif prompt_type == "consider_and_propose_followups":
         return format_prompt(CONSIDER_AND_PROPOSE_FOLLOWUPS_PROMPT, {
             "CONTEXT": CONSIDER_AND_PROPOSE_FOLLOWUPS_CONTEXT,
             "EVENT_STREAM": FOLLOWUPS_EVENTS,
-            "QUESTIONS_AND_NOTES": QUESTIONS_AND_NOTES_UPDATE_SESSION_NOTES,
-            "TOOL_DESCRIPTIONS": SESSION_NOTE_TOOL,
+            "QUESTIONS_AND_NOTES": QUESTIONS_AND_NOTES,
+            "TOOL_DESCRIPTIONS": SESSION_AGENDA_TOOL,
             "INSTRUCTIONS": CONSIDER_AND_PROPOSE_FOLLOWUPS_INSTRUCTIONS,
             "OUTPUT_FORMAT": CONSIDER_AND_PROPOSE_FOLLOWUPS_OUTPUT_FORMAT
         })
@@ -211,9 +211,9 @@ UPDATE_MEMORY_QUESTION_BANK_OUTPUT_FORMAT = """
 </output_format>
 """
 
-#### UPDATE_SESSION_NOTE_PROMPT ####
+#### UPDATE_SESSION_AGENDA_PROMPT ####
 
-UPDATE_SESSION_NOTE_PROMPT = """
+UPDATE_SESSION_AGENDA_PROMPT = """
 {CONTEXT}
 
 {EVENT_STREAM}
@@ -228,7 +228,7 @@ UPDATE_SESSION_NOTE_PROMPT = """
 """
 
 
-UPDATE_SESSION_NOTE_CONTEXT = """
+UPDATE_SESSION_AGENDA_CONTEXT = """
 <session_scribe_persona>
 You are a session scribe who works as the assistant of the interviewer. You observe conversations between the interviewer and the user.
 Your job is to update the session agenda with relevant information from the user's most recent message.
@@ -249,7 +249,7 @@ This is the portrait of the user:
 </user_portrait>
 """
 
-UPDATE_SESSION_NOTE_EVENT = """
+UPDATE_SESSION_AGENDA_EVENT = """
 <input_context>
 Here is the stream of previous events for context:
 <previous_events>
@@ -268,23 +268,23 @@ Reminder:
 </input_context>
 """
 
-QUESTIONS_AND_NOTES_UPDATE_SESSION_NOTES = """
+QUESTIONS_AND_NOTES = """
 Here are the questions and notes in the session agenda:
 <questions_and_notes>
 {questions_and_notes}
 </questions_and_notes>
 """
 
-SESSION_NOTE_TOOL = """
+SESSION_AGENDA_TOOL = """
 Here are the tools that you can use to manage session agenda:
 <tool_descriptions>
 {tool_descriptions}
 </tool_descriptions>
 """
 
-UPDATE_SESSION_NOTE_INSTRUCTIONS = """
+UPDATE_SESSION_AGENDA_INSTRUCTIONS = """
 <instructions>
-# Session Note Update
+# Session Agenda Update
 ## Process:
 1. Focus ONLY on the most recent user message in the conversation history
 2. Review existing session agenda, paying attention to:
@@ -316,7 +316,7 @@ For each piece of new information worth storing:
 </instructions>
 """
 
-UPDATE_SESSION_NOTE_OUTPUT_FORMAT = """
+UPDATE_SESSION_AGENDA_OUTPUT_FORMAT = """
 <output_format>
 
 If you identify information worth storing, use the following format:
