@@ -27,6 +27,8 @@ pip install -r requirements.txt
 
 ## Usage
 
+### Terminal Mode
+
 Run the interviewer in terminal mode with:
 
 ```bash
@@ -40,8 +42,10 @@ Optional Parameters:
 - `--voice_input`: Enable voice input
 - `--restart`: Clear previous session data and restart
 
-Reminder:
+Notes:
 
+- To continue a previous conversation, use the same `--user_id` value as before
+- To end a conversation, press Ctrl+C and hit Enter once (don't press multiple times)
 - If you use user agent mode, you need to specify the user ID, which is the name of the user profile in the `USER_AGENT_PROFILES_DIR` directory in the `.env` file.
 
 Examples:
