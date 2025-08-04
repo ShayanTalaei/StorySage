@@ -28,7 +28,7 @@ Our framework offers:
 
 StorySage operates through three main stages, each powered by specialized agents as shown in Figure 1:
 
-![StorySage Multi-Agent Architecture](images/storysage_multiagent_architecture.pdf.png)
+![StorySage Multi-Agent Architecture](images/storysage_multiagent_architecture.png)
 *Figure 1: Overview of StorySage's multi-agent architecture*
 
 1.**User Interview**
@@ -122,7 +122,24 @@ python src/main.py --mode server --port 8000
 
 #### 3. Setup Frontend
 
+If you want to interact with the system through a Web UI like as Figure 2 shows, you need to setup the frontend service.
+
 For frontend setup and usage instructions, please check the documentation in the [StorySage Frontend](https://github.com/Hello-Imagine/StorySage_Frontend) repository.
+
+![StorySage Multi-Agent Architecture](images/screen_shot.png)
+*Figure 2: Frontend Chat UI of StorySage*
+
+## Disclaimer
+
+StorySage is an AI-powered system. Its functionality depends on third-party AI service providers that you configure via your own API keys. By using the system:
+
+- You are responsible for providing and managing your own API keys and any associated costs with the AI provider you choose.
+
+- Data Privacy: If you use the Web UI or any frontend deployment, your conversation data may be transmitted over the network. Please ensure that your deployment environment and network setup meet your privacy and security requirements.
+
+- No Warranty: This project is provided “as is” without any warranties, and the maintainers are not responsible for any data loss, unauthorized access, or privacy breaches arising from how you deploy or use StorySage.
+
+Use this software at your own discretion and ensure compliance with the terms of your chosen AI provider.
 
 ## Citation
 
