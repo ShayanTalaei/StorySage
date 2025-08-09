@@ -126,7 +126,10 @@ If you want to interact with the system through a Web UI like as Figure 2 shows,
 
 For frontend setup and usage instructions, please check the documentation in the [StorySage Frontend](https://github.com/Hello-Imagine/StorySage_Frontend) repository.
 
-![StorySage Multi-Agent Architecture](images/screen_shot.png)
+<p align="center">
+  <img src="images/screen_shot.png" alt="StorySage Frontend Chat UI" width="50%">
+</p>
+
 *Figure 2: Frontend Chat UI of StorySage*
 
 ## Disclaimer
