@@ -2,8 +2,8 @@
 
 > **StorySage: Conversational Autobiography Writing Powered by a Multi-Agent Framework**  
 > Shayan Talaei, Meijin Li, Kanu Grover, James Kent Hippler, Diyi Yang, Amin Saberi  
-> arXiv:2506.14159 [cs.HC], 2025  
-> [Paper](https://arxiv.org/abs/2506.14159)
+> UIST, 2025  
+> [Paper](https://dl.acm.org/doi/10.1145/3746059.3747681)
 
 ## Overview
 
